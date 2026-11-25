@@ -4,4 +4,4 @@ A 3D inline-skating game of Helsinki from Kumpula through Kallio, Sörnäinen an
 
 Play: https://joukops.github.io/skate/
 
-Map data © OpenStreetMap contributors, ODbL.
+Map data © OpenStreetMap contributors, ODbL. Buildings: Helsinki 3D city model (CityGML LOD2), City of Helsinki, CC BY 4.0.

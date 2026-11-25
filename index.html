@@ -79,7 +79,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <button class="tb" id="resetBtn" aria-label="Reset position"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg></button>
   <div id="where"></div>
   <canvas id="map" width="360" height="360"></canvas>
-  <div id="osm">© OpenStreetMap contributors</div>
+  <div id="osm">© OpenStreetMap contributors · Helsinki 3D, CC BY 4.0</div>
 </div>
 <div id="joy" aria-label="Joystick: push up to skate, sideways to steer, double-tap to jump"><div id="knob"></div></div>
 <div id="joyHint">Push up to skate<br>Sideways to steer<br>Double-tap to jump</div>
@@ -104,7 +104,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
     <button data-q="ultra">Ultra</button><button data-q="high">Realistic</button><button data-q="fast">Fast</button></div>
   <p class="small" id="gpuInfo" style="margin-top:-4px"></p>
   <div class="row"><button class="pri" id="goBtn" disabled>Start skating</button><button id="reloadBtn">Re-download map</button></div>
-  <p class="small">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL (downloaded via the Overpass API and stored on this device). Bridge heights from published clearances; building heights from OSM height and floor tags. Keyboard: arrows/WASD, space jump, R reset, P pause.</p>
+  <p class="small">Buildings: <a href="https://hel.fi/3d">Helsinki 3D city model</a>, City of Helsinki, CC BY 4.0. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL (downloaded via the Overpass API and stored on this device). Bridge heights from published clearances; building heights from OSM height and floor tags. Keyboard: arrows/WASD, space jump, R reset, P pause.</p>
 </div></div>
 
 <div id="pause" class="ov center"><div class="panel">
@@ -320,6 +320,55 @@ async function overpass(name,q,p0,p1){
   throw new Error('Could not download '+name+' ('+lastErr+'). Check the connection and try again.')}
 
 /* =====================================================================
+   HELSINKI 3D CITY MODEL (CityGML LOD2 via the city's WFS, CityJSON output)
+   Real roof shapes and measured heights. Coordinates come in ETRS-GK25 (EPSG:3879).
+   ===================================================================== */
+const CITY_WFS='https://kartta.hel.fi/3d/citydb-wfs/wfs';
+/* ETRS-GK25 -> WGS84 (transverse Mercator inverse, GRS80, lon0 25°, FE 25 500 000) */
+function gk25(E,N){const a=6378137,f=1/298.257222101,k0=1,e2=f*(2-f),ep2=e2/(1-e2),x=E-25500000,M=N/k0,mu=M/(a*(1-e2/4-3*e2*e2/64-5*e2**3/256)),e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const p1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu)+(1097*e1**4/512)*Math.sin(8*mu);
+  const s1=Math.sin(p1),c1=Math.cos(p1),t1=Math.tan(p1),C1=ep2*c1*c1,T1=t1*t1,N1=a/Math.sqrt(1-e2*s1*s1),R1=a*(1-e2)/Math.pow(1-e2*s1*s1,1.5),D=x/(N1*k0);
+  const lat=p1-(N1*t1/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*ep2)*D**4/24+(61+90*T1+298*C1+45*T1*T1-252*ep2-3*C1*C1)*D**6/720);
+  const lon=25*Math.PI/180+(D-(1+2*T1+C1)*D**3/6+(5-2*C1+28*T1-3*C1*C1+8*ep2+24*T1*T1)*D**5/120)/c1;return[lat*180/Math.PI,lon*180/Math.PI]}
+/* parse one CityJSON response into compact per-building triangle lists in local metres */
+function parseCity(j,out){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1,1],tr=T?T.translate:[0,0,0];const n=V.length,P=new Float64Array(n*3);
+  for(let i=0;i<n;i++){let a=V[i][0]*sc[0]+tr[0],b=V[i][1]*sc[1]+tr[1];const z=V[i][2]*sc[2]+tr[2];let lat,lon;
+    if(Math.abs(a)>1e5){const E=a>1.5e7?a:b,N=a>1.5e7?b:a;[lat,lon]=gk25(E,N)}else if(Math.abs(a)>50){lat=a;lon=b}else{lon=a;lat=b}
+    const[x,zz]=PJ(lat,lon);P[i*3]=x;P[i*3+1]=z;P[i*3+2]=zz}
+  const CO=j.CityObjects||{};
+  const roots=Object.keys(CO).filter(k=>/^Building/.test(CO[k].type)&&!(CO[k].parents&&CO[k].parents.length&&CO[CO[k].parents[0]]));
+  const surf3=(rings,cls,acc)=>{const outer=rings[0];if(!outer||outer.length<3)return;let nx=0,ny=0,nz=0;
+      for(let i=0;i<outer.length;i++){const a=outer[i],b=outer[(i+1)%outer.length];nx+=(P[a*3+1]-P[b*3+1])*(P[a*3+2]+P[b*3+2]);ny+=(P[a*3+2]-P[b*3+2])*(P[a*3]+P[b*3]);nz+=(P[a*3]-P[b*3])*(P[a*3+1]+P[b*3+1])}
+      const nl=Math.hypot(nx,ny,nz)||1;nx/=nl;ny/=nl;nz/=nl;
+      let k=cls;if(!k)k=ny>.3?'R':ny<-.5?'G':'W';else k=/Roof/.test(k)?'R':/Ground/.test(k)?'G':/Wall|Closure|Outer/.test(k)?'W':ny>.3?'R':ny<-.5?'G':'W';
+      if(k==='G'){acc.foot.push(outer.map(i=>[P[i*3],P[i*3+2]]));return}
+      const ax=Math.abs(nx),ay=Math.abs(ny),az=Math.abs(nz),drop=ay>=ax&&ay>=az?1:ax>=az?0:2,u=drop===0?1:0,w=drop===2?1:2;
+      const v2=r=>r.map(i=>new THREE.Vector2(P[i*3+u],P[i*3+w]));let tri;try{tri=THREE.ShapeUtils.triangulateShape(v2(outer),rings.slice(1).map(v2))}catch(e){return}
+      const all=[].concat(...rings),dst=k==='R'?acc.roof:acc.wall;for(const f of tri)for(const q of f){const i=all[q];dst.push(P[i*3],P[i*3+1],P[i*3+2])}
+      if(k==='R')acc.rfoot.push(outer.map(i=>[P[i*3],P[i*3+2]]))};
+  const walk=(geo,acc)=>{const B=geo.boundaries,S=geo.semantics,sv=S&&S.values,ss=S&&S.surfaces,cls=v=>v!=null&&ss&&ss[v]?ss[v].type:null;
+    if(geo.type==='MultiSurface'||geo.type==='CompositeSurface')B.forEach((sf,i)=>surf3(sf,cls(sv&&sv[i]),acc));
+    else if(geo.type==='Solid')B.forEach((sh,i)=>sh.forEach((sf,k)=>surf3(sf,cls(sv&&sv[i]&&sv[i][k]),acc)));
+    else if(geo.type==='MultiSolid'||geo.type==='CompositeSolid')B.forEach((so,a)=>so.forEach((sh,i)=>sh.forEach((sf,k)=>surf3(sf,cls(sv&&sv[a]&&sv[a][i]&&sv[a][i][k]),acc))))};
+  for(const id of roots){const acc={wall:[],roof:[],foot:[],rfoot:[]},stack=[id],attrs={};
+    while(stack.length){const o=CO[stack.pop()];if(!o)continue;Object.assign(attrs,o.attributes||{});const gs=o.geometry||[];let best=null;for(const g of gs){const l=parseFloat(g.lod)||0;if(!best||l>(parseFloat(best.lod)||0))best=g}if(best)walk(best,acc);for(const c of o.children||[])stack.push(c)}
+    if(!acc.wall.length&&!acc.roof.length)continue;
+    let gz=1e9,top=-1e9;for(const A of [acc.wall,acc.roof])for(let i=1;i<A.length;i+=3){gz=Math.min(gz,A[i]);top=Math.max(top,A[i])}
+    for(const A of [acc.wall,acc.roof])for(let i=1;i<A.length;i+=3)A[i]-=gz;
+    const foot=acc.foot.length?acc.foot:acc.rfoot;if(!foot.length)continue;
+    let yr=NaN;for(const k in attrs)if(/year|vuosi/i.test(k)){yr=parseInt(attrs[k]);break}
+    out.push({w:new Float32Array(acc.wall),r:new Float32Array(acc.roof),f:foot,h:top-gz,yr})}}
+async function loadCity(p0,p1){
+  const c=await cacheGet('city3d-v1');if(c&&c.b&&c.b.length){status('3D city model (saved on this device)',p1);return c}
+  const out=[],failed=[],NX=5,NY=5;let done=0,fails=0;
+  for(let a=0;a<NY;a++)for(let b=0;b<NX;b++){const s=BB.s+(BB.n-BB.s)*a/NY,n=BB.s+(BB.n-BB.s)*(a+1)/NY,w=BB.w+(BB.e-BB.w)*b/NX,e=BB.w+(BB.e-BB.w)*(b+1)/NX;
+    const url=CITY_WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&outputFormat=application/json&bbox='+[s,w,n,e].map(v=>v.toFixed(5)).join(',')+',urn:ogc:def:crs:EPSG::4326';
+    let ok=false;for(let tries=0;tries<2&&!ok;tries++){try{status('Downloading Helsinki 3D city model… tile '+(done+1)+' / '+NX*NY,p0+(p1-p0)*done/(NX*NY));
+      const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();if(!j.CityObjects&&!j.vertices)throw new Error('not CityJSON');parseCity(j,out);ok=true}catch(e){if(done===0&&tries===1)throw e}}
+    if(!ok){fails++;failed.push([s,w,n,e])}done++}
+  if(!out.length)throw new Error('no buildings returned');const res={b:out,failed};if(fails<3)await cachePut('city3d-v1',res);return res}
+
+/* =====================================================================
    WORLD STATE (filled by buildWorld)
    ===================================================================== */
 const RS=2,RW=Math.ceil((X1-X0)/RS),RH=Math.ceil((Z1-Z0)/RS);
@@ -479,11 +528,17 @@ function buildWorld(D){
   status('Raising buildings…',.72);
   const BLD=[];
   const isRoofOnly=t=>t.building==='roof'||t.building==='carport'||t['building:part']==='roof'||num(t.min_height)>=2||num(t['building:min_level'])>=1;
+  /* OSM tags for each city-model building come from the OSM footprint it falls inside */
+  const osmB=[];
   for(const e of D.buildings.elements){const t=tags(e);if(t.building==='no'||t.building==='construction'&&!t.height&&!t['building:levels'])continue;let rings;
     if(e.type==='way'){const P=wayPts(e);if(P.length<4)continue;rings={outers:[P],inners:[]}}else if(e.type==='relation')rings=ringsFromRelation(e);else continue;
     if(!rings.outers.length)continue;
     if(t['building:part']&&!t.building){const h=num(t.height)||num(t['building:levels'])*3.2;if(!(h>=30))continue}
-    BLD.push({t,rings,part:!!t['building:part']&&!t.building})}
+    let into=D.city?osmB:BLD;if(D.city&&D.city.failed.length){const p0=rings.outers[0][0],la=LAT0-p0[1]/KZ,lo=LON0+p0[0]/KX;if(D.city.failed.some(f=>la>=f[0]&&la<f[2]&&lo>=f[1]&&lo<f[3]))into=BLD}
+    into.push({t,rings,part:!!t['building:part']&&!t.building})}
+  if(D.city){const OH=new Map();osmB.forEach((b,i)=>{if(b.part)return;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of b.rings.outers[0]){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}for(let i2=Math.floor(x0/20);i2<=Math.floor(x1/20);i2++)for(let j2=Math.floor(z0/20);j2<=Math.floor(z1/20);j2++){const k=i2*100003+j2;if(!OH.has(k))OH.set(k,[]);OH.get(k).push(b)}});
+    for(const cb of D.city.b){const f=cb.f[0];let cx=0,cz=0;for(const p of f){cx+=p[0];cz+=p[1]}cx/=f.length;cz/=f.length;let t={building:'yes'};for(const b of OH.get(Math.floor(cx/20)*100003+Math.floor(cz/20))||[])if(inRing(cx,cz,b.rings.outers[0])){t=b.t;break}
+      const rings=cb.f.map(r=>{const q=r.slice();q.push(q[0]);return q});BLD.push({t,rings:{outers:rings,inners:[]},part:false,city:cb})}}
   g.fillStyle='#000';g.fillRect(0,0,RW,RH);g.fillStyle='#fff';
   for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;for(const P of b.rings.outers){pathR(P,true);g.fill()}}
   const bd=g.getImageData(0,0,RW,RH).data;
@@ -644,6 +699,12 @@ function buildWorld(D){
   const geo={res:{p:[],u:[],c:[]},glass:{p:[],u:[],c:[]},ind:{p:[],u:[],c:[]},brick:{p:[],u:[],c:[]},roof:{p:[],c:[]}};
   let nb=0;
   for(const b of BLD){const t=b.t;const outer=b.rings.outers;let area=0;for(const P of outer)area+=Math.abs(polyArea(P));
+    if(b.city){const cb=b.city,h=cb.h,cx=outer[0][0][0],cz=outer[0][0][1];let z0=zone(cx,cz,t,area);if(cb.yr<1945&&z0==='new')z0='old';if(cb.yr>1995&&z0==='old')z0='new';
+      let col=t['building:colour']||t.colour;let C;try{C=col?new THREE.Color(col).convertSRGBToLinear():null}catch(e){C=null}if(!C){const pal=PAL[z0];C=lin(pal[(nb*7+Math.floor(Math.abs(cx*13+cz*7)))%pal.length])}
+      const kind=z0==='brick'?'brick':/industrial|warehouse|garage|service|shed/.test(t.building||'')?'ind':z0==='new'&&(h>24||/commercial|office|retail/.test(t.building||''))?'glass':'res';
+      const G2=geo[kind],W=cb.w;for(let i=0;i<W.length;i+=9){let nx=(W[i+5]-W[i+2])*(W[i+7]-W[i+1])-(W[i+4]-W[i+1])*(W[i+8]-W[i+2]),nz=(W[i+3]-W[i])*(W[i+7]-W[i+1])-(W[i+4]-W[i+1])*(W[i+6]-W[i]);const l=Math.hypot(nx,nz)||1,tx=nz/l,tz=-nx/l;
+        for(let k=0;k<3;k++){const x=W[i+k*3],y=W[i+k*3+1],z=W[i+k*3+2];G2.p.push(x,y,z);G2.u.push((x*tx+z*tz)/3.6,y/3.2);G2.c.push(C.r,C.g,C.b)}}
+      const roofC=lin(z0==='old'?['#4a4c4f','#6b3b2e','#3f4144','#55585b'][nb%4]:['#3f4144','#4a4c4f','#56585a','#5b4a42'][nb%4]);const R=cb.r;for(let i=0;i<R.length;i+=3){geo.roof.p.push(R[i],R[i+1],R[i+2]);geo.roof.c.push(roofC.r,roofC.g,roofC.b)}nb++;continue}
     let h=num(t.height),mh=num(t.min_height);const lv=num(t['building:levels']),ml=num(t['building:min_level']);
     if(!(h>0)&&lv>0)h=lv*3.2+(num(t['roof:levels'])>0?num(t['roof:levels'])*2.2:0)+.9;
     if(!(h>0)){const bt=t.building||'';h=/house|detached|cabin/.test(bt)?7.5:/garage|shed|kiosk|hut|toilets|service/.test(bt)?3.2:/roof|carport/.test(bt)?4:/industrial|warehouse/.test(bt)?11:/church|cathedral/.test(bt)?22:area<60?3.5:area<250?9:16}
@@ -1028,10 +1089,13 @@ function frame(now){
 if(/test/.test(location.hash))window.__T={Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
+let cityOK=false,cityMsg='';
 (async()=>{
   try{
-    const D={};D.ways=await overpass('streets',QUERIES.ways,.02,.25);D.buildings=await overpass('buildings',QUERIES.buildings,.25,.45);D.land=await overpass('coast and parks',QUERIES.land,.45,.6);
+    const D={};D.ways=await overpass('streets',QUERIES.ways,.02,.25);D.buildings=await overpass('buildings',QUERIES.buildings,.25,.45);D.land=await overpass('coast and parks',QUERIES.land,.45,.52);
+    try{D.city=await loadCity(.52,.61);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
     await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();
+    if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}
   catch(e){status(e.message,0);report(e.message)}
 })();

@@ -144,7 +144,7 @@ const PJ=(lat,lon)=>[(lon-LON0)*KX,-(lat-LAT0)*KZ];
 const [X0,Z0]=PJ(BB.n,BB.w),[X1,Z1]=PJ(BB.s,BB.e);
 const SPOTS=[
   {id:'kumpula',n:'Kumpula',s:'Home turf — the run starts here',ll:[60.2039,24.9614],r:60,start:true},
-  {id:'diy',n:'Suvilahti DIY',s:'Hand-built concrete skatepark, about 1,300 m²',ll:[60.1857361,24.9739861],r:30,start:true},
+  {id:'diy',n:'Suvilahti DIY',s:'Community-built concrete park since 2011',ll:[60.1857361,24.9739861],r:30,start:true},
   {id:'parkkis',n:'Suvilahti parkkis',s:'The big parking area',ll:[60.1863177,24.9724737],r:35},
   {id:'tempelhof',n:'Tempelhof',s:'Hanasaari event field — smooth black asphalt',ll:[60.18286,24.97064],r:45,start:true},
   {id:'hanasaari',n:'Hanasaarenlaituri',s:'Cycle path along the quay',ll:[60.179704,24.9667747],r:35},
@@ -344,51 +344,68 @@ function G(x,z,yr){const y=yr===undefined?YREF:yr;const dp=diyAt(x,z);if(dp!==nu
 function deckUnder(x,z,y){const L=decksAt(x,z);if(!L)return null;let best=null;for(const c of L)if(Math.abs(c.h-y+.05)<.8&&(!best||c.h>best.h))best=c;return best}
 
 /* =====================================================================
-   SUVILAHTI DIY — community-built concrete park. Footprint and orientation come
-   from the OpenStreetMap skatepark area when it is mapped; obstacles follow the
-   park's listed features: deep bowl, open bowl, volcano, spine, quarterpipes with
-   roll-in deck, bank and wallride, kicker, manual pad, ledge, flat rail and curb.
+   SUVILAHTI DIY — traced from a top-down aerial photo of the park (north up).
+   Shapes are in photo pixels (park spans x 110–1220, y 110–945; ~20 px per metre),
+   turned into a 0.15 m heightfield. Main flow park: light-blue floor, dark-blue dips,
+   sand-coloured humps and hips, green graffiti islands, the turtle in the middle and
+   quarterpipes all round. The bowl is a separate peanut-shaped pool sunk into a raised
+   brown deck along the south side.
    ===================================================================== */
 const DIYC=SPOTS.find(s=>s.id==='diy');
-let DW=44,DD=30,DCX=DIYC.x,DCZ=DIYC.z,DA=0,DCA=1,DSA=0;
+let DW=55.5,DD=41.7,DCX=DIYC.x,DCZ=DIYC.z,DA=0,DCA=1,DSA=0;
 function diyFrame(cx,cz,w,d,a){DCX=cx;DCZ=cz;DW=w;DD=d;DA=a;DCA=Math.cos(a);DSA=Math.sin(a)}
 const toLocal=(x,z)=>{const dx=x-DCX,dz=z-DCZ;return[dx*DCA-dz*DSA+DW/2,dx*DSA+dz*DCA+DD/2]};
 const toWorld=(u,v)=>{const lx=u-DW/2,lz=v-DD/2;return[DCX+lx*DCA+lz*DSA,DCZ-lx*DSA+lz*DCA]};
-/* rounded-rectangle signed distance (negative inside) */
-function rrect(u,v,cu,cv,hu,hv,r){const qx=Math.abs(u-cu)-hu+r,qz=Math.abs(v-cv)-hv+r;return Math.hypot(Math.max(qx,0),Math.max(qz,0))+Math.min(Math.max(qx,qz),0)-r}
-const BOWL={cu:0,cv:0,hu:0,hv:0,r:3.2,depth:2.1,tr:2.9,deck:1.4,bank:2.6,gap:2.4};
-const OBS=[];   /* visual-only definitions shared by mesh builder */
-function diyLayout(){const W=DW,D=DD,hu=W*.13,hv=D*.2;Object.assign(BOWL,{hu,hv,cu:hu+4.3,cv:hv+4.3})}
-/* raised bowl: 2.1 m walls, 1.4 m deck round the rim, an outer bank to climb up, and a floor-level channel on its south side */
-function bowlH(u,v){const B=BOWL,d=rrect(u,v,B.cu,B.cv,B.hu,B.hv,B.r);if(d>B.deck+B.bank)return 0;let h;
-  if(d<0){const s=clamp(-d/B.tr);h=B.depth*(1-s)*(1-s)}else if(d<B.deck)h=B.depth;else{const t=(d-B.deck)/B.bank;h=B.depth*(1-t)}
-  if(v>B.cv&&Math.abs(u-B.cu)<B.gap+1.2){const g=smooth((Math.abs(u-B.cu)-B.gap)/1.2);h*=g}return h}
-function dsp(u,v,mesh){const W=DW,D=DD;let h=0;
-  /* deep bowl, sunk into the slab, with a 2.1 m transition */
-  h=bowlH(u,v);
-  /* open bowl: quarterpipes wrapping the north-east corner, roll-in deck on top */
-  const qN=Math.max(0,1-v/3.3),qE=Math.max(0,1-(W-u)/3.3);
-  if(u>W*.46){const cq=Math.hypot(Math.max(0,u-(W-3.3)),Math.max(0,3.3-v))/3.3;let t=v<3.3&&u>W-3.3?cq:Math.max(u>W*.46?qN:0,v<D*.55?qE:0);
-    if(t>0)h=Math.max(h,1.7*Math.min(1,t)*Math.min(1,t)*smooth((u-W*.46)/1.2))}
-  if(v<.9&&u>W*.46)h=Math.max(h,1.72*smooth((u-W*.46)/1.2));          /* deck + roll-in */
-  /* volcano: 3.6 m base radius, 1.1 m tall, flat 0.9 m top with a lip */
-  {const vc=[W*.62,D*.42],d=Math.hypot(u-vc[0],v-vc[1]);if(d<3.6){const t=clamp((3.6-d)/2.7);h=Math.max(h,d<.9?1.05:1.1*t*(2-t))}}
-  /* spine: two 1.3 m quarters back to back */
-  {const sv=D*.8;if(u>2&&u<W*.42&&Math.abs(v-sv)<2.8){const x=Math.abs(v-sv)/2.8;h=Math.max(h,1.3*(1-x)*(1-x)*smooth(Math.min(u-2,W*.42-u)/1.4))}}
-  /* bank up to a wallride wall along the south-east */
-  if(u>W-6&&v>D*.58){h=Math.max(h,1.25*clamp((u-(W-6))/5.4)*smooth((v-D*.58)/1.2))}
-  if(u>W-.6&&v>D*.58)h=Math.max(h,2.6);
-  /* kicker */
-  {const ku=W*.47,kv=D*.68;if(u>ku&&u<ku+1.6&&Math.abs(v-kv)<1)h=Math.max(h,.45*(u-ku)/1.6)}
-  if(!mesh){
-    if(u>W*.52&&u<W*.52+4.2&&v>D*.84&&v<D*.84+1.6)h=Math.max(h,.3);                 /* manual pad */
-    if(u>W*.7&&u<W*.7+6&&v>D*.95-.6&&v<D*.95)h=Math.max(h,.45);                    /* ledge */
-    if(Math.abs(v-D*.6)<.05&&u>W*.47&&u<W*.47+6)h=Math.max(h,.4);                   /* flat rail */
-    if(u>W*.25&&u<W*.25+6&&Math.abs(v-D*.62)<.25)h=Math.max(h,.22);                           /* curb */
-  }
+const PX={x0:110,y0:110,w:1110,h:835};
+const pxU=x=>(x-PX.x0)/PX.w*DW,pxV=y=>(y-PX.y0)/PX.h*DD,uPX=u=>PX.x0+u/DW*PX.w,vPX=v=>PX.y0+v/DD*PX.h;
+let MPP=.05;
+/* outline of the main park (coping line); per edge: quarter height (m), band (px) */
+const OUTL=[[290,195],[610,115],[1185,185],[1215,215],[1165,722],[1110,945],[110,945],[110,640],[235,330]];
+const QE=[[1.5,70],[1.6,70],[1.7,60],[1.8,78],[0,0],[1.6,72],[2.4,112],[1.6,70],[0,0]];   /* last edge: entrance */
+const DECK=[595,725,1110,945],DECKH=1.15,BOWLD=2.35;
+const LOBES=[[690,860,76],[1005,822,86]],WAIST=58;
+const DIPS=[[380,305,95,58],[650,232,125,62],[995,318,98,104],[1030,548,72,140],[412,660,112,142],[742,512,268,196]];
+const segD=(x,y,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],t=clamp(((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1));return Math.hypot(x-a[0]-dx*t,y-a[1]-dy*t)};
+const blob=(x,y,cx,cy,rx,ry)=>{const t=1-((x-cx)/rx)**2-((y-cy)/ry)**2;return t>0?smooth(Math.min(1,t*1.7)):0};
+const ridge=(x,y,a,b,hw,h)=>{const d=segD(x,y,a,b);return d<hw?h*smooth(Math.min(1,(1-d/hw)*1.9)):0};
+function inPoly(x,y,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const xi=P[i][0],yi=P[i][1],xj=P[j][0],yj=P[j][1];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
+function bowlSD(x,y){const[a,b]=LOBES;let d=Math.min(Math.hypot(x-a[0],y-a[1])-a[2],Math.hypot(x-b[0],y-b[1])-b[2],segD(x,y,a,b)-WAIST);return d}
+const TURT={cx:742,cy:524,rx:196,ry:122,a:-.12};
+function hPX(x,y){
+  /* bowl deck and the sunken bowl */
+  const inDeck=x>=DECK[0]&&x<=DECK[2]&&y>=DECK[1]&&y<=DECK[3];
+  if(inDeck){const d=bowlSD(x,y);if(d<0){const s=clamp(-d*MPP/2.4);return DECKH-BOWLD*(1-(1-s)*(1-s))}return DECKH}
+  if(!inPoly(x,y,OUTL)){return 0}
+  let h=0;for(const D of DIPS)h-=.42*blob(x,y,...D);h=Math.max(h,-.45);
+  /* quarterpipes along the coping */
+  for(let i=0;i<OUTL.length;i++){const q=QE[i];if(!q[0])continue;const a=OUTL[i],b=OUTL[(i+1)%OUTL.length];if(i===5&&x>DECK[0]-40)continue;const d=segD(x,y,a,b);if(d<q[1]){const t=1-d/q[1];h=Math.max(h,q[0]*t*t)}}
+  /* banks up to the bowl deck */
+  if(x>DECK[0]-10&&x<1165&&y>DECK[1]-58)h=Math.max(h,DECKH*smooth((y-(DECK[1]-58))/58));
+  if(y>DECK[1]&&x>DECK[0]-58)h=Math.max(h,DECKH*smooth((x-(DECK[0]-58))/58));
+  /* sand humps and hips */
+  h=Math.max(h,.45*blob(x,y,575,250,40,40),.6*blob(x,y,360,395,40,38),.5*blob(x,y,490,318,85,34));
+  h=Math.max(h,ridge(x,y,[445,445],[500,560],38,.7),ridge(x,y,[500,560],[525,705],42,.65),ridge(x,y,[790,245],[925,325],34,.5));
+  /* green graffiti islands, ledge block, pyramid, north hip */
+  h=Math.max(h,ridge(x,y,[420,445],[590,385],44,1.0),ridge(x,y,[700,318],[805,258],26,.95),ridge(x,y,[640,150],[642,195],26,.9));
+  {const dx=Math.abs(x-812),dy=Math.abs(y-318);if(dx<48&&dy<48)h=Math.max(h,.8*(1-Math.max(dx,dy)/48))}
+  /* the turtle: shell mound with a shallow pool on top */
+  {const c=Math.cos(TURT.a),sn=Math.sin(TURT.a),lx=(x-TURT.cx)*c+(y-TURT.cy)*sn,ly=-(x-TURT.cx)*sn+(y-TURT.cy)*c,rr=Math.hypot(lx/TURT.rx,ly/TURT.ry);
+    if(rr<1)h=Math.max(h,1.15*smooth((1-rr)/.5)-.28*blob(x,y,735,502,58,30))}
   return h}
-function diyWall(x,z){const[u,v]=toLocal(x,z);return u>-.6&&u<0&&v>2&&v<DD-2||v>DD&&v<DD+.6&&u>2&&u<DW*.42||v<0&&v>-1.6&&u>DW*.46&&u<DW+1.6||u>DW&&u<DW+1.6&&v<DD*.58}
+/* heightfield grid */
+const HG={n:0,m:0,d:.15,a:null};
+function diyLayout(){MPP=(DW/PX.w+DD/PX.h)/2;HG.n=Math.round(DW/HG.d)+1;HG.m=Math.round(DD/HG.d)+1;HG.a=new Float32Array(HG.n*HG.m);
+  for(let j=0;j<HG.m;j++)for(let i=0;i<HG.n;i++)HG.a[j*HG.n+i]=hPX(uPX(i*HG.d),vPX(j*HG.d))}
+function dsp(u,v){if(!HG.a)return 0;const fi=clamp(u/HG.d,0,HG.n-1.001),fj=clamp(v/HG.d,0,HG.m-1.001),i=Math.floor(fi),j=Math.floor(fj),a=fi-i,b=fj-j,n=HG.n,A=HG.a;
+  return lerp(lerp(A[j*n+i],A[j*n+i+1],a),lerp(A[(j+1)*n+i],A[(j+1)*n+i+1],a),b)}
+function diyWall(x,z){return false}
 function diyAt(x,z){const[u,v]=toLocal(x,z);if(u<0||v<0||u>DW||v>DD)return null;return dsp(u,v)+.03}
+/* shared uniforms that cut the ground and sea out under the park */
+const DIYU={uDC:{value:new THREE.Vector4()},uDS:{value:new THREE.Vector2()}};
+const DIYGLSL='uniform vec4 uDC;uniform vec2 uDS;\nbool diyIn(vec2 p){vec2 d=p-uDC.xy;float lu=d.x*uDC.z-d.y*uDC.w+uDS.x*.5,lv=d.x*uDC.w+d.y*uDC.z+uDS.y*.5;return lu>.05&&lv>.05&&lu<uDS.x-.05&&lv<uDS.y-.05;}\n';
+function diyHoleStd(m){const prev=m.onBeforeCompile;m.onBeforeCompile=sh=>{if(prev)prev(sh);Object.assign(sh.uniforms,DIYU);
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vDW;').replace('#include <begin_vertex>','#include <begin_vertex>\nvDW=(modelMatrix*vec4(transformed,1.)).xz;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vDW;\n'+DIYGLSL).replace('void main() {','void main() {\nif(diyIn(vDW))discard;')};m.needsUpdate=true}
 /* =====================================================================
    BUILD THE CITY
    ===================================================================== */
@@ -416,7 +433,10 @@ function buildWorld(D){
       const B=bestA,w=B.u1-B.u0,d=B.v1-B.v0,mu=(B.u0+B.u1)/2,mv=(B.v0+B.v1)/2;const cx=best.cx+mu*B.c-mv*B.s2,cz=best.cz+mu*B.s2+mv*B.c;
       /* local u runs along the long side */
       if(w>=d)diyFrame(cx,cz,clamp(w,24,70),clamp(d,18,50),-B.a);else diyFrame(cx,cz,clamp(d,24,70),clamp(w,18,50),-B.a-Math.PI/2)}}
-  diyLayout();
+  /* keep the photo's orientation: local u as close to east as possible */
+  {let best=null;for(let k=0;k<4;k++){const a=DA+k*Math.PI/2,c=Math.cos(a);if(!best||c>best.c)best={a,c,k}}if(best.k%2)diyFrame(DCX,DCZ,DD,DW,best.a);else diyFrame(DCX,DCZ,DW,DD,best.a)}
+  diyFrame(DCX,DCZ,55.5,41.7,DA);   /* size measured from the aerial photo (a car is ~90 px long) */
+  diyLayout();DIYU.uDC.value.set(DCX,DCZ,DCA,DSA);DIYU.uDS.value.set(DW,DD);
   /* ---------- rasters: water, surfaces, vegetation ---------- */
   status('Building the coastline…',.62);
   const cv=document.createElement('canvas');cv.width=RW;cv.height=RH;const g=cv.getContext('2d');
@@ -509,11 +529,11 @@ function buildWorld(D){
   groundMat.onBeforeCompile=sh=>{sh.uniforms.uDet={value:detail};sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n{float dv=texture2D(uDet,vUv*'+((X1-X0)/3.5).toFixed(1)+').r;diffuseColor.rgb*=mix(.8,1.18,dv);}').replace('void main() {','uniform sampler2D uDet;\nvoid main() {')};
   {const N=UL?560:FA?260:420,geo=new THREE.PlaneGeometry(X1-X0,Z1-Z0,N,N);geo.rotateX(-Math.PI/2);geo.translate((X0+X1)/2,0,(Z0+Z1)/2);const p=geo.attributes.position,uv=geo.attributes.uv;
     for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);let w=0;for(const[a,b]of [[0,0],[4,0],[-4,0],[0,4],[0,-4]])if(isWater(x+a,z+b))w++;p.setY(i,w>=3?-2.2:w>0?-.4:0);uv.setXY(i,(x-X0)/(X1-X0)*(X1-X0)*GS/GT,1-(z-Z0)*GS/GT)}
-    geo.computeVertexNormals();groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
+    geo.computeVertexNormals();diyHoleStd(groundMat);groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
   {const ring=new THREE.Mesh(new THREE.RingGeometry(3200,14000,48,1),M({color:lin('#56685a'),roughness:1}));ring.rotation.x=-Math.PI/2;ring.position.set((X0+X1)/2,-.5,(Z0+Z1)/2);scene.add(ring)}
   /* sea */
-  {const wg=new THREE.PlaneGeometry(14000,14000);if(THREE.Water){try{water=new THREE.Water(wg,{textureWidth:UL?1024:512,textureHeight:UL?1024:512,waterNormals:tex(waterNormals(),1,1,false),sunDirection:new THREE.Vector3(0,1,0),sunColor:0xffffff,waterColor:0x1b3d4a,distortionScale:2,fog:true});water.rotation.x=-Math.PI/2;water.position.set((X0+X1)/2,-.3,(Z0+Z1)/2);water.material.uniforms.size.value=1.6;scene.add(water)}catch(e){water=null;report('water: '+e.message)}}
-   simpleWater=new THREE.Mesh(wg.clone(),M({color:lin('#28505c'),roughness:.06,metalness:.3}));simpleWater.rotation.x=-Math.PI/2;simpleWater.position.set((X0+X1)/2,-.3,(Z0+Z1)/2);scene.add(simpleWater)}
+  {const wg=new THREE.PlaneGeometry(14000,14000);if(THREE.Water){try{water=new THREE.Water(wg,{textureWidth:UL?1024:512,textureHeight:UL?1024:512,waterNormals:tex(waterNormals(),1,1,false),sunDirection:new THREE.Vector3(0,1,0),sunColor:0xffffff,waterColor:0x1b3d4a,distortionScale:2,fog:true});water.rotation.x=-Math.PI/2;water.position.set((X0+X1)/2,-.3,(Z0+Z1)/2);water.material.uniforms.size.value=1.6;Object.assign(water.material.uniforms,DIYU);water.material.fragmentShader=DIYGLSL+water.material.fragmentShader.replace('void main() {','void main() {\nif(diyIn(worldPosition.xz))discard;');water.material.needsUpdate=true;scene.add(water)}catch(e){water=null;report('water: '+e.message)}}
+   {const swm=M({color:lin('#28505c'),roughness:.06,metalness:.3});diyHoleStd(swm);simpleWater=new THREE.Mesh(wg.clone(),swm)}simpleWater.rotation.x=-Math.PI/2;simpleWater.position.set((X0+X1)/2,-.3,(Z0+Z1)/2);scene.add(simpleWater)}
 
   /* ---------- streets: ribbons by class and surface ---------- */
   status('Paving streets and paths…',.8);
@@ -562,7 +582,7 @@ function buildWorld(D){
      if(b.w>=7&&(main.test(hw)||hw==='residential'&&b.w>=8||hw==='unclassified')&&!oneway)strip(b.P,0,.13,3,5,.085);
      if(main.test(hw)&&b.w>=10)for(const o of [-1,1])strip(b.P,o*(b.w/2-.45),.12,0,0,.085);
      if(lit.test(hw)){let acc=17*hash2(b.P[0][0],b.P[0][1]),side=1;for(let i=0;i<b.P.length-1;i++){const a=b.P[i],c=b.P[i+1],dx=c[0]-a[0],dz=c[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const sp=main.test(hw)?32:hw==='cycleway'?30:38;
-       while(acc<l){const off=b.w/2+(hw==='cycleway'||hw==='pedestrian'?.5:1.3),x=a[0]+dx/l*acc-dz/l*off*side,z=a[1]+dz/l*acc+dx/l*off*side;if(surf(x,z)!==2&&surf(x,z)!==1&&!decksAt(x,z))LAMPS.push([x,z,Math.atan2(dz,dx)+(side>0?-Math.PI/2:Math.PI/2),main.test(hw)?1:.75]);acc+=sp;if(main.test(hw))side=-side}acc-=l}}}
+       while(acc<l){const off=b.w/2+(hw==='cycleway'||hw==='pedestrian'?.5:1.3),x=a[0]+dx/l*acc-dz/l*off*side,z=a[1]+dz/l*acc+dx/l*off*side;if(surf(x,z)!==2&&surf(x,z)!==1&&!decksAt(x,z)&&diyAt(x,z)===null)LAMPS.push([x,z,Math.atan2(dz,dx)+(side>0?-Math.PI/2:Math.PI/2),main.test(hw)?1:.75]);acc+=sp;if(main.test(hw))side=-side}acc-=l}}}
    if(MK.pos.length){const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(MK.pos,3));gm.computeVertexNormals();const m=new THREE.Mesh(gm,wet(M({color:lin('#e9e6dc'),roughness:.6,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-6,side:THREE.DoubleSide}),.1));m.receiveShadow=true;scene.add(m)}
    /* Helsinki-style street lamps: slim grey pole, arm and a flat luminaire */
    if(LAMPS.length){const n=Math.min(LAMPS.length,UL?9000:FA?2500:6000);const pole=new THREE.CylinderGeometry(.06,.1,1,8);pole.translate(0,.5,0);const arm=new THREE.BoxGeometry(1.6,.07,.07);arm.translate(.8,0,0);const head=new THREE.BoxGeometry(.7,.12,.28);head.translate(1.45,-.08,0);
@@ -650,9 +670,9 @@ function buildWorld(D){
 
   /* ---------- trees: mapped trees plus parks and woods ---------- */
   status('Planting trees…',.93);
-  for(const e of D.land.elements){if(e.type==='node'&&tags(e).natural==='tree'){const[x,z]=PJ(e.lat,e.lon);if(surf(x,z)!==2&&surf(x,z)!==1)RD.push([x,z,rnd(.8,1.3),Math.random()<.12?1:0])}}
+  for(const e of D.land.elements){if(e.type==='node'&&tags(e).natural==='tree'){const[x,z]=PJ(e.lat,e.lon);if(surf(x,z)!==2&&surf(x,z)!==1&&diyAt(x,z)===null)RD.push([x,z,rnd(.8,1.3),Math.random()<.12?1:0])}}
   for(const v of vegPolys){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of v.P){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}
-    const area=Math.abs(polyArea(v.P)),n=Math.min(600,Math.floor(area/(v.code===2?55:420)));for(let k=0;k<n;k++){const x=rnd(x0,x1),z=rnd(z0,z1);if(!inRing(x,z,v.P))continue;const s=surf(x,z);if(s!==0)continue;RD.push([x,z,rnd(.8,1.4),v.code===2?(Math.random()<.35?2:Math.random()<.3?1:0):(Math.random()<.15?1:0)])}}
+    const area=Math.abs(polyArea(v.P)),n=Math.min(600,Math.floor(area/(v.code===2?55:420)));for(let k=0;k<n;k++){const x=rnd(x0,x1),z=rnd(z0,z1);if(!inRing(x,z,v.P))continue;const s=surf(x,z);if(s!==0||diyAt(x,z)!==null)continue;RD.push([x,z,rnd(.8,1.4),v.code===2?(Math.random()<.35?2:Math.random()<.3?1:0):(Math.random()<.15?1:0)])}}
   if(RD.length>14000)RD.length=14000;
   for(const t of RD){const i=Math.floor(t[0]/6),j=Math.floor(t[1]/6),k=dkey(i,j);if(!TH.has(k))TH.set(k,[]);TH.get(k).push(t)}
   buildTreeMeshes();
@@ -718,39 +738,68 @@ function placeTrees(px,pz){if(!treeMeshes)return;treeC=[px,pz];const near=[];for
 function treeHit(x,z){for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){const L=TH.get(dkey(Math.floor(x/6)+di,Math.floor(z/6)+dj));if(!L)continue;for(const t of L){const dx=x-t[0],dz=z-t[1];if(dx*dx+dz*dz<(.3*t[2]+.3)**2)return true}}return false}
 
 function buildDIY(){
-  const W=DW,Dd=DD,grp=new THREE.Group();grp.position.set(DCX,0,DCZ);grp.rotation.y=DA;scene.add(grp);
-  const L=(u,h,v)=>new THREE.Vector3(u-W/2,h,v-Dd/2);
-  const step=.18,NU=Math.round(W/step),NV=Math.round(Dd/step),pos=[],uv=[],col=[],idx=[];
-  const lava=[[.86,.27,.11],[.95,.48,.12],[.13,.12,.12],[.72,.71,.68]];
-  for(let j=0;j<=NV;j++)for(let i=0;i<=NU;i++){const u=i*step,v=j*step,h=dsp(u,v,true);pos.push(u-W/2,h+.03,v-Dd/2);uv.push(u/3,v/3);
-    /* faded 2017 "lava lake" paint in the transitions, bare concrete elsewhere */
-    const n=hash2(Math.floor(u/1.7),Math.floor(v/1.7)),m=.5+.5*Math.sin(u*.45+v*.3)*Math.cos(v*.55-u*.2);let c=[.93+.1*n,.92+.1*n,.89+.1*n];
-    if(Math.abs(h)>.08){const k=m>.6?0:m>.35?1:m>.15?2:3,f=.55;c=[lerp(c[0],lava[k][0],f),lerp(c[1],lava[k][1],f),lerp(c[2],lava[k][2],f)]}
-    col.push(...c)}
-  for(let j=0;j<NV;j++)for(let i=0;i<NU;i++){const a=j*(NU+1)+i;idx.push(a,a+NU+1,a+1,a+1,a+NU+1,a+NU+2)}
-  const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(col,3));gm.setIndex(idx);gm.computeVertexNormals();
-  const m=new THREE.Mesh(gm,wet(M({map:tex(diyCanvas()),vertexColors:true,roughness:.72}),.1));m.receiveShadow=m.castShadow=true;grp.add(m);
-  const steel=M({color:lin('#9aa2a8'),roughness:.35,metalness:.85}),conc=M({map:tex(diyCanvas()),roughness:.75,color:lin('#d9d6cf')}),graf=M({map:tex(grafCanvas()),roughness:.8});
-  const tube=(pts,r)=>{const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),Math.max(12,pts.length*3),r,8),steel);t.castShadow=true;grp.add(t)};
-  /* bowl coping around the rim */
-  {const pts=[];for(let k=0;k<=96;k++){const a=k/96*Math.PI*2,ca=Math.cos(a),sa=Math.sin(a);let r=1,u,v;for(let it=0;it<30;it++){u=BOWL.cu+ca*r;v=BOWL.cv+sa*r;const d=rrect(u,v,BOWL.cu,BOWL.cv,BOWL.hu,BOWL.hv,BOWL.r);if(Math.abs(d)<.01)break;r-=d}pts.push([u,v])}let run=[];const flush=()=>{if(run.length>2)tube(run,.04);run=[]};for(const[u,v]of pts){if(v>BOWL.cv&&Math.abs(u-BOWL.cu)<BOWL.gap+1.3)flush();else run.push(L(u,BOWL.depth+.03,v))}flush()}
-  /* quarter coping and deck edge */
-  tube([L(W*.46+1.2,1.72,.9),L(W-3.3,1.72,.9),L(W-.9,1.72,3.3),L(W-.9,1.72,Dd*.55)],.04);
-  /* spine coping */
-  tube([L(3.4,1.32,Dd*.8),L(W*.42-1.4,1.32,Dd*.8)],.035);
-  /* volcano lip */
-  {const pts=[];for(let k=0;k<=40;k++){const a=k/40*Math.PI*2;pts.push(L(W*.62+Math.cos(a)*.9,1.07,Dd*.42+Math.sin(a)*.9))}tube(pts,.03)}
-  /* flat rail on posts */
-  tube([L(W*.47,.4,Dd*.6),L(W*.47+6,.4,Dd*.6)],.025);for(const du of [.3,3,5.7]){const a=L(W*.47+du,0,Dd*.6),b=L(W*.47+du,.4,Dd*.6);const c=cyl([a.x,a.y,a.z],[b.x,b.y,b.z],.02,.02,steel,6);grp.add(c)}
-  const box=(u0,v0,u1,v1,h,mat)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(u1-u0,h,v1-v0),mat||conc);b.position.copy(L((u0+u1)/2,h/2+.02,(v0+v1)/2));b.castShadow=b.receiveShadow=true;grp.add(b);return b};
-  box(W*.52,Dd*.84,W*.52+4.2,Dd*.84+1.6,.3);
-  box(W*.7,Dd*.95-.6,W*.7+6,Dd*.95,.45);tube([L(W*.7,.46,Dd*.95-.6),L(W*.7+6,.46,Dd*.95-.6)],.02);
-  box(W*.25,Dd*.62-.25,W*.25+6,Dd*.62+.25,.22);
-  /* wallride wall with graffiti on its back, plus graffiti walls closing the west and south sides */
-  box(W-.6,Dd*.58,W,Dd,2.6,graf);box(-.5,2,0,Dd-2,1.4,graf);box(2,Dd,W*.42,Dd+.5,1.1,graf);
-  /* deck: concrete slab behind the north quarter */
-  box(W*.46,-1.5,W,0,1.72);box(W,0,W+1.5,Dd*.58,1.72);
+  const grp=new THREE.Group();grp.position.set(DCX,0,DCZ);grp.rotation.y=DA;scene.add(grp);
+  const L=(u,h,v)=>new THREE.Vector3(u-DW/2,h,v-DD/2),LP=(x,y,h)=>L(pxU(x),h,pxV(y));
+  const n=HG.n,m=HG.m,pos=new Float32Array(n*m*3),uv=new Float32Array(n*m*2),idx=[];
+  for(let j=0;j<m;j++)for(let i=0;i<n;i++){const k=j*n+i,u=i*HG.d,v=j*HG.d;pos[k*3]=u-DW/2;pos[k*3+1]=HG.a[k]+.03;pos[k*3+2]=v-DD/2;uv[k*2]=u/DW;uv[k*2+1]=1-v/DD}
+  for(let j=0;j<m-1;j++)for(let i=0;i<n-1;i++){const a=j*n+i;idx.push(a,a+n,a+1,a+1,a+n,a+n+1)}
+  const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.BufferAttribute(pos,3));gm.setAttribute('uv',new THREE.BufferAttribute(uv,2));gm.setIndex(idx);gm.computeVertexNormals();
+  const pt=tex(diyPaint(),1,1);pt.wrapS=pt.wrapT=THREE.ClampToEdgeWrapping;
+  const mm=wet(M({map:pt,roughness:.62}),.15);
+  {const det=tex(diyCanvas(),1,1);mm.onBeforeCompile=sh=>{sh.uniforms.uCd={value:det};sh.fragmentShader=sh.fragmentShader.replace('void main() {','uniform sampler2D uCd;\nvoid main() {').replace('#include <map_fragment>','#include <map_fragment>\n{float cd=texture2D(uCd,vUv*vec2('+(DW/3).toFixed(1)+','+(DD/3).toFixed(1)+')).g;diffuseColor.rgb*=mix(.82,1.12,cd);}')}}
+  const mesh=new THREE.Mesh(gm,mm);mesh.receiveShadow=mesh.castShadow=true;grp.add(mesh);
+  /* outer skirt: vertical concrete faces where the slab meets the lot */
+  {const sk=[],edge=(i0,j0,di,dj,cnt)=>{for(let k=0;k<cnt;k++){const a=(j0+dj*k)*n+(i0+di*k),b=(j0+dj*(k+1))*n+(i0+di*(k+1));const A=[pos[a*3],pos[a*3+1],pos[a*3+2]],B=[pos[b*3],pos[b*3+1],pos[b*3+2]];sk.push(A[0],-1.5,A[2],B[0],-1.5,B[2],B[0],B[1],B[2],A[0],-1.5,A[2],B[0],B[1],B[2],A[0],A[1],A[2])}};
+   edge(0,0,1,0,n-1);edge(0,m-1,1,0,n-1);edge(0,0,0,1,m-1);edge(n-1,0,0,1,m-1);const g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.Float32BufferAttribute(sk,3));g2.computeVertexNormals();
+   const o=new THREE.Mesh(g2,M({map:tex(grafCanvas()),color:lin('#c9c4ba'),side:THREE.DoubleSide,roughness:.8}));o.castShadow=true;grp.add(o)}
+  const steel=M({color:lin('#a7adb2'),roughness:.32,metalness:.85});
+  const tube=(pts,r)=>{if(pts.length<2)return;const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),Math.max(16,pts.length*2),r,8),steel);t.castShadow=true;grp.add(t)};
+  /* bowl coping: march rays from the waist to the rim */
+  {const cx=(LOBES[0][0]+LOBES[1][0])/2,cy=(LOBES[0][1]+LOBES[1][1])/2,pts=[];for(let k=0;k<=120;k++){const a=k/120*Math.PI*2,ca=Math.cos(a),sa=Math.sin(a);let lo=0,hi=260;for(let it=0;it<24;it++){const r=(lo+hi)/2;if(bowlSD(cx+ca*r,cy+sa*r)<0)lo=r;else hi=r}pts.push(LP(cx+ca*lo,cy+sa*lo,DECKH+.05))}tube(pts,.045)}
+  /* quarterpipe coping along the park outline */
+  for(let i=0;i<OUTL.length;i++){if(!QE[i][0])continue;const a=OUTL[i],b=OUTL[(i+1)%OUTL.length],pts=[];const N=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/30);
+    for(let k=0;k<=N;k++){const x=lerp(a[0],b[0],k/N),y=lerp(a[1],b[1],k/N);if(i===5&&x>DECK[0]-40)continue;const cx=752,cy=520,l=Math.hypot(cx-x,cy-y);pts.push(LP(x+(cx-x)/l*3,y+(cy-y)/l*3,QE[i][0]+.03))}tube(pts,.04)}
+  /* fences and the viewing deck along the north-east, as in the photo */
+  {const wood=M({color:lin('#6f4b2e'),roughness:.85}),fence=M({color:lin('#e9e9e4'),roughness:.6});
+   const bx=(x0,y0,x1,y1,h,y,mat)=>{const a=LP(x0,y0,0),b=LP(x1,y1,0),l=Math.hypot(b.x-a.x,b.z-a.z);const o=new THREE.Mesh(new THREE.BoxGeometry(l,h,.25),mat);o.position.set((a.x+b.x)/2,y+h/2,(a.z+b.z)/2);o.rotation.y=-Math.atan2(b.z-a.z,b.x-a.x);o.castShadow=o.receiveShadow=true;grp.add(o)};
+   bx(700,95,1185,165,.25,1.6,wood);bx(1185,165,1230,205,.25,1.6,wood);bx(700,92,1185,162,1,1.85,fence);bx(150,600,290,215,1.1,0,fence);}
 }
+/* the park's paint: colours sampled from the aerial photo */
+function diyPaint(){const K=1.6,c=mk(Math.round(PX.w*K),Math.round(PX.h*K)),g=c.getContext('2d');g.scale(K,K);g.translate(-PX.x0,-PX.y0);
+  const C={floor:'#8fc6dc',dip:'#4f9fc8',sand:'#dcb97c',sand2:'#c99f5e',green:'#79b04a',green2:'#4f8a3a',brown:'#7b4b33',bowl:'#3aa7d4',bowlD:'#2a86b8',pink:'#e58bb5',asphalt:'#8d8c88',coping:'#a7adb2'};
+  const poly=(P,fill)=>{g.beginPath();P.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();if(fill){g.fillStyle=fill;g.fill()}};
+  const ell=(cx,cy,rx,ry,col,rot=0)=>{g.beginPath();g.ellipse(cx,cy,rx,ry,rot,0,7);g.fillStyle=col;g.fill()};
+  const cap=(a,b,w,col)=>{g.strokeStyle=col;g.lineWidth=w;g.lineCap='round';g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()};
+  g.fillStyle=C.asphalt;g.fillRect(PX.x0-20,PX.y0-20,PX.w+40,PX.h+40);
+  g.save();poly(OUTL);g.clip();g.fillStyle=C.floor;g.fillRect(0,0,1400,1100);
+  for(const D of DIPS){const gr=g.createRadialGradient(D[0],D[1],0,D[0],D[1],Math.max(D[2],D[3]));gr.addColorStop(0,C.dip);gr.addColorStop(.75,C.dip);gr.addColorStop(1,'rgba(79,159,200,0)');g.save();g.translate(D[0],D[1]);g.scale(D[2]/Math.max(D[2],D[3]),D[3]/Math.max(D[2],D[3]));g.translate(-D[0],-D[1]);g.fillStyle=gr;g.beginPath();g.arc(D[0],D[1],Math.max(D[2],D[3]),0,7);g.fill();g.restore()}
+  ell(575,250,40,40,C.sand);ell(360,395,40,38,C.sand);ell(490,318,92,38,C.sand,-.05);
+  cap([445,445],[500,560],80,C.sand);cap([500,560],[525,705],86,C.sand);cap([790,245],[925,325],70,C.sand);
+  /* green islands with murals */
+  cap([420,445],[590,385],88,C.green);cap([700,318],[805,258],52,C.brown);cap([640,150],[642,195],48,'#a9d6e6');
+  g.save();g.translate(812,318);g.rotate(Math.PI/4);g.fillStyle=C.sand2;g.fillRect(-34,-34,68,68);g.restore();
+  /* turtle: flippers, head, shell plates, pool on top */
+  g.fillStyle='#8a5a34';for(const[fx,fy,r]of [[600,612,.6],[905,600,-.5],[610,445,-.9],[895,430,.9]]){g.save();g.translate(fx,fy);g.rotate(r);g.beginPath();g.ellipse(0,0,70,28,0,0,7);g.fill();g.restore()}
+  ell(545,560,48,30,'#8a5a34',-.4);
+  ell(TURT.cx,TURT.cy,TURT.rx,TURT.ry,C.green,TURT.a);ell(TURT.cx,TURT.cy,TURT.rx*.72,TURT.ry*.7,'#8fbf5a',TURT.a);
+  g.strokeStyle='rgba(40,70,30,.6)';g.lineWidth=4;for(let k=0;k<7;k++){const a=k/7*Math.PI*2;g.beginPath();g.moveTo(TURT.cx+Math.cos(a)*60,TURT.cy+Math.sin(a)*38);g.lineTo(TURT.cx+Math.cos(a)*170,TURT.cy+Math.sin(a)*108);g.stroke()}
+  ell(735,502,58,30,C.dip);ell(768,488,12,12,'#f2d43a');
+  /* murals on the quarterpipes */
+  for(let i=0;i<OUTL.length;i++){const q=QE[i];if(!q[0])continue;const a=OUTL[i],b=OUTL[(i+1)%OUTL.length];cap(a,b,q[1]*2,i===6?C.brown:C.green2);
+    const N=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/9);for(let k=0;k<N;k++){const t=(k+.5)/N,x=lerp(a[0],b[0],t),y=lerp(a[1],b[1],t),cx=752,cy=520,l=Math.hypot(cx-x,cy-y),o=rnd(10,q[1]*.8);
+      const px=x+(cx-x)/l*o,py=y+(cy-y)/l*o,col=[C.pink,'#f6d24a','#e2543a','#9ad06a','#f4f1e8','#6c3fa0'][Math.floor(rnd(0,6))];g.fillStyle=col;
+      const fr=rnd(2.5,5);for(let pe=0;pe<6;pe++){const aa=pe/6*Math.PI*2;g.beginPath();g.ellipse(px+Math.cos(aa)*fr,py+Math.sin(aa)*fr,fr,fr*.55,aa,0,7);g.fill()}g.fillStyle='#f6d24a';g.beginPath();g.arc(px,py,fr*.5,0,7);g.fill()}}
+  g.restore();
+  /* coping line */
+  g.strokeStyle=C.brown;g.lineWidth=9;g.lineJoin='round';poly(OUTL);g.stroke();
+  /* bowl deck and bowl */
+  g.fillStyle=C.brown;g.fillRect(DECK[0],DECK[1],DECK[2]-DECK[0],DECK[3]-DECK[1]);
+  g.fillStyle=C.brown;g.fillRect(DECK[0]-58,DECK[1],58,DECK[3]-DECK[1]);
+  {const sh=(off,col)=>{g.fillStyle=col;g.beginPath();for(const L of LOBES){g.moveTo(L[0]+L[2]+off,L[1]);g.arc(L[0],L[1],L[2]+off,0,7)}g.fill();cap(LOBES[0],LOBES[1],(WAIST+off)*2,col)};
+   sh(0,'#cfe6ef');sh(-14,C.bowl);sh(-38,C.bowlD);
+   g.strokeStyle='rgba(20,30,60,.55)';g.lineWidth=3;for(let k=0;k<9;k++){g.beginPath();let x=rnd(640,1060),y=rnd(790,900);g.moveTo(x,y);for(let q=0;q<4;q++){x+=rnd(-30,30);y+=rnd(-18,18);g.lineTo(x,y)}g.stroke()}
+   g.fillStyle='#f6d24a';g.font='900 30px Inter Tight, sans-serif';g.fillText("IT'S LIFE",668,792)}
+  return c}
 function grafCanvas(){const c=mk(512,256),g=c.getContext('2d');g.fillStyle='#bdb9b1';g.fillRect(0,0,512,256);speckle(g,512,256,6000,.12,.12);
   const cols=['#e0452b','#f39c1f','#2f6fd8','#29a35a','#f2d43a','#8a3fd0','#111','#fafafa'];
   for(let i=0;i<14;i++){g.fillStyle=cols[i%cols.length];g.globalAlpha=rnd(.55,.9);g.beginPath();let x=rnd(-20,500),y=rnd(30,220);g.moveTo(x,y);for(let k=0;k<6;k++){x+=rnd(-50,70);y+=rnd(-40,40);g.quadraticCurveTo(x+rnd(-30,30),y+rnd(-30,30),x,y)}g.closePath();g.fill()}
@@ -816,7 +865,7 @@ addEventListener('keyup',e=>{inp.keys[e.key.toLowerCase()]=false});
 const Pl={x:0,z:0,y:0,yaw:0,v:0,vy:0,air:false,airTurn:0,turnRate:0,wallT:0,visY:null,ph:0,lean:0,hitT:0,warn:0,grade:0,gvy:0};
 function nearestOpen(x,z){if(surf(x,z)===4)return[x,z];for(let r=2;r<260;r+=2)for(let a=0;a<6.28;a+=.25){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(surf(xx,zz)===4&&!treeHit(xx,zz))return[xx,zz]}return[x,z]}
 let lastStart='kumpula';
-function spawn(id){const s=SPOTS.find(q=>q.id===id)||SPOTS[0];let[x,z]=s.id==='diy'?toWorld(DW*.5,DD*.5):nearestOpen(s.x,s.z);
+function spawn(id){const s=SPOTS.find(q=>q.id===id)||SPOTS[0];let[x,z]=s.id==='diy'?toWorld(pxU(330),pxV(470)):nearestOpen(s.x,s.z);
   const tgt=SPOTS.find(q=>q.id==='diy');const yaw=s.id==='kumpula'?Math.atan2(-(tgt.x-x),-(tgt.z-z)):s.id==='diy'?Math.atan2(-DCA,DSA):-Math.PI/2;
   Object.assign(Pl,{x,z,yaw,v:0,vy:0,air:false,gvy:0,visY:null});YREF=9;Pl.y=G(x,z,isWater(x,z)?30:1);YREF=Pl.y;camera.position.set(0,0,0);placeTrees(x,z);placeTufts(x,z)}
 const St={t:0,dist:0,top:0};
@@ -972,10 +1021,11 @@ function frame(now){
     if(LAMPMAT)LAMPMAT.emissiveIntensity=lerp(LAMPMAT.emissiveIntensity,weather==='golden'?1.6:weather==='rain'?1.3:weather==='cloudy'?.4:0,Math.min(1,dt*2));
     for(const s of SPOTS)if(s.label){const d=Math.hypot(camera.position.x-s.x,camera.position.z-s.z);s.label.material.opacity=clamp((d-14)/16)}
     if(state==='play'&&(hudT+=dt)>.12){hudT=0;$('spd').textContent=Math.round(Pl.v*3.6)+' km/h';$('dist').textContent=fmtD(St.dist);$('spots').textContent=seen.size+' / '+SPOTS.length;$('time').textContent=fmtT(St.t);$('where').textContent=whereName();drawMap()}
+    if(window.__CAM){const c=window.__CAM;camera.position.set(c[0],c[1],c[2]);camera.lookAt(c[3],c[4],c[5]);camera.fov=c[6]||50;camera.updateProjectionMatrix()}
     resize();renderer.render(scene,camera);
   }catch(e){report(e.message)}
 }
-if(/test/.test(location.hash))window.__T={Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,get state(){return state}};
+if(/test/.test(location.hash))window.__T={Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
 (async()=>{

@@ -11,7 +11,7 @@ function taper(len,rs,seg=18){const p=[new THREE.Vector2(.001,0)];const n=rs.len
   const r0=rs[0];p.splice(1,0,new THREE.Vector2(r0*.7,r0*.35));const g=new THREE.LatheGeometry(p,seg);g.computeVertexNormals();return g}
 function fabric(base,lines){const c=mk(128,128),g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,128,128);speckle(g,128,128,2500,.06,.06);
   if(lines){g.strokeStyle='rgba(0,0,0,.08)';for(let y=0;y<128;y+=3){g.beginPath();g.moveTo(0,y);g.lineTo(128,y+2);g.stroke()}}return c}
-const WHEELS=[],SPIN=[],TV=new THREE.Vector3();const sk=new THREE.Group();scene.add(sk);const UPV=new THREE.Vector3(0,1,0),ZV=new THREE.Vector3(0,0,1),surfN=new THREE.Vector3(0,1,0),tmpN=new THREE.Vector3(),qA=new THREE.Quaternion(),qY=new THREE.Quaternion(),qL=new THREE.Quaternion();
+const WHEELS=[],SPIN=[],ANK=[],TV=new THREE.Vector3();const sk=new THREE.Group();scene.add(sk);const UPV=new THREE.Vector3(0,1,0),ZV=new THREE.Vector3(0,0,1),surfN=new THREE.Vector3(0,1,0),tmpN=new THREE.Vector3(),qA=new THREE.Quaternion(),qY=new THREE.Quaternion(),qL=new THREE.Quaternion();
 const skin=M({color:lin('#c99476'),roughness:.6}),
   jacket=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2f6fa8'),roughness:.62}),jacket2=M({color:lin('#1f4f7c'),roughness:.7}),
   pants=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2b3442'),roughness:.88}),
@@ -33,9 +33,7 @@ const torso=new THREE.Group();pelvis.add(torso);
  for(const s of [-1,1])add(new THREE.SphereGeometry(.062,14,10),jacket,torso,s*.18,.5,0).scale.set(1,.85,.95);   /* shoulders */
  add(new THREE.CylinderGeometry(.004,.004,.42,4),M({color:lin('#d8dadc'),metalness:.8,roughness:.3}),torso,0,.3,-.128);   /* zip */
  const hood=add(new THREE.SphereGeometry(.11,16,10,0,Math.PI*2,0,Math.PI*.6),jacket2,torso,0,.53,.1);hood.scale.set(1.2,.55,.7);hood.rotation.x=-.9;
- /* small backpack */
- const bp=add(new THREE.BoxGeometry(.24,.3,.1,2,2,2),M({color:lin('#30343a'),roughness:.8}),torso,0,.33,.15);bp.geometry.translate(0,0,0);
- add(capsule(.05,.16,10),M({color:lin('#30343a'),roughness:.8}),torso,0,.2,.2).rotation.z=Math.PI/2}
+ }
 const head=new THREE.Group();head.position.y=.6;torso.add(head);
 add(taper(.09,[.046,.05,.052],12),skin,head,0,.09,0);   /* neck */
 {const sk2=add(new THREE.SphereGeometry(.098,24,18),skin,head,0,.16,-.005);sk2.scale.set(.86,1.08,.98);
@@ -72,7 +70,7 @@ function wheelGeo(){/* 100 mm urethane tyre, 24 mm wide, rounded profile */const
   pts.unshift(new THREE.Vector2(.022,-w));pts.push(new THREE.Vector2(.022,w));const g=new THREE.LatheGeometry(pts,32);g.rotateZ(Math.PI/2);return g}
 const BOOT=bootGeo(),FRAME=frameGeo(),WHEEL=wheelGeo(),HUB=new THREE.CylinderGeometry(.022,.022,.026,6).rotateZ(Math.PI/2),BEAR=new THREE.CylinderGeometry(.0095,.0095,.03,12).rotateZ(Math.PI/2),SPOKE=new THREE.BoxGeometry(.024,.004,.03);
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
-  const f=new THREE.Group();f.position.y=-.42;kn.add(f);
+  const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
   /* boot: heel at +z, toe at -z (forward); sole 8 cm below the ankle */
   const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
   add(BOOT,shellM,sk3,0,0,0);

@@ -552,7 +552,13 @@ function buildWorld(D){
     into.push({t,rings,part:!!t['building:part']&&!t.building})}
   if(D.city){const OH=new Map();osmB.forEach((b,i)=>{if(b.part)return;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of b.rings.outers[0]){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}for(let i2=Math.floor(x0/20);i2<=Math.floor(x1/20);i2++)for(let j2=Math.floor(z0/20);j2<=Math.floor(z1/20);j2++){const k=i2*100003+j2;if(!OH.has(k))OH.set(k,[]);OH.get(k).push(b)}});
     for(const cb of D.city.b){const f=cb.f[0];let cx=0,cz=0;for(const p of f){cx+=p[0];cz+=p[1]}cx/=f.length;cz/=f.length;let t={building:'yes'};for(const b of OH.get(Math.floor(cx/20)*100003+Math.floor(cz/20))||[])if(inRing(cx,cz,b.rings.outers[0])){t=b.t;break}
-      const rings=cb.f.map(r=>{const q=r.slice();q.push(q[0]);return q});BLD.push({t,rings:{outers:rings,inners:[]},part:false,city:cb})}}
+      const rings=cb.f.map(r=>{const q=r.slice();q.push(q[0]);return q});BLD.push({t,rings:{outers:rings,inners:[]},part:false,city:cb,cx,cz})}
+    /* keep OSM buildings the city model doesn't have (outside its coverage, or built after it) */
+    const CH=new Map();for(const b of BLD){if(!b.city)continue;const k=Math.floor(b.cx/20)*100003+Math.floor(b.cz/20);if(!CH.has(k))CH.set(k,[]);CH.get(k).push(b)}
+    let kept=0;for(const b of osmB){const r=b.rings.outers[0];let cx=0,cz=0;for(const p of r){cx+=p[0];cz+=p[1]}cx/=r.length;cz/=r.length;let hit=false;
+      for(let di=-2;di<=2&&!hit;di++)for(let dj=-2;dj<=2&&!hit;dj++)for(const c of CH.get((Math.floor(cx/20)+di)*100003+Math.floor(cz/20)+dj)||[]){if(inRing(cx,cz,c.rings.outers[0])||inRing(c.cx,c.cz,r)){hit=true;break}}
+      if(!hit){BLD.push(b);kept++}}
+    status('Buildings: '+D.city.b.length+' from the Helsinki 3D city model, '+kept+' from OpenStreetMap',.73)}
   g.fillStyle='#000';g.fillRect(0,0,RW,RH);g.fillStyle='#fff';
   for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;for(const P of b.rings.outers){pathR(P,true);g.fill()}}
   const bd=g.getImageData(0,0,RW,RH).data;

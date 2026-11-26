@@ -19,8 +19,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install --no-save earcut@2.2.4
-      - run: node tools/probe.mjs
-      - run: node tools/city.mjs
+      - run: node --max-old-space-size=6000 tools/city.mjs
       - name: Commit result
         run: |
           git config user.name "github-actions[bot]"

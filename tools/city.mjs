@@ -2,6 +2,7 @@
 // write data/city3d.bin. Every attempt is logged to data/city-log.txt.
 import fs from 'node:fs';
 import earcut from 'earcut';
+import {execSync} from 'node:child_process';
 const BB={s:60.1680,w:24.9370,n:60.2085,e:25.0170};
 const LAT0=60.1850,LON0=24.9760,KX=111320*Math.cos(LAT0*Math.PI/180),KZ=110540;
 const PJ=(lat,lon)=>[(lon-LON0)*KX,-(lat-LAT0)*KZ];
@@ -47,26 +48,45 @@ function parse(j){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1,1],tr=T
     out.push({verts,W,R,foot:best,gz,yr});added++}
   return added}
 async function get(url,opt){const r=await fetch(url,opt);const t=await r.text();return{status:r.status,type:r.headers.get('content-type'),text:t}}
+// ---- CityGML (Helsinki 3D, EPSG:3879 E N H) ----
+function parseGML(xml){const num=t=>t.trim().split(/\s+/).map(Number);let n0=out.length,ext=[1e9,1e9,-1e9,-1e9];
+  const chunks=xml.split('<cityObjectMember>');L('cityObjectMember chunks',chunks.length-1);
+  for(const ch of chunks){if(ch.indexOf('<bldg:Building')<0)continue;
+    const idm=ch.match(/<bldg:Building[^>]*gml:id="([^"]+)"/);const id=idm?idm[1]:'g'+out.length;if(seen.has(id))continue;seen.add(id);
+    const vmap=new Map(),verts=[],W=[],R=[],foot=[],rfoot=[];
+    const vid=(x,y,z)=>{const k=x.toFixed(2)+','+y.toFixed(2)+','+z.toFixed(2);if(!vmap.has(k)){vmap.set(k,verts.length/3);verts.push(x,y,z)}return vmap.get(k)};
+    const ring=t=>{const a=num(t),pts=[];for(let i=0;i+2<a.length;i+=3){const[lat,lon]=gk25(a[i],a[i+1]);const[x,z]=PJ(lat,lon);pts.push([x,a[i+2],z])}if(pts.length>1){const f=pts[0],l=pts[pts.length-1];if(Math.abs(f[0]-l[0])<1e-3&&Math.abs(f[2]-l[2])<1e-3&&Math.abs(f[1]-l[1])<1e-3)pts.pop()}return pts};
+    const poly=(pg,cls)=>{const ex=pg.match(/<gml:exterior>[\s\S]*?<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/);if(!ex)return;const rings=[ring(ex[1])];
+      for(const m of pg.matchAll(/<gml:interior>[\s\S]*?<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/g))rings.push(ring(m[1]));const o=rings[0];if(o.length<3)return;
+      let nx=0,ny=0,nz=0;for(let i=0;i<o.length;i++){const p=o[i],q=o[(i+1)%o.length];nx+=(p[1]-q[1])*(p[2]+q[2]);ny+=(p[2]-q[2])*(p[0]+q[0]);nz+=(p[0]-q[0])*(p[1]+q[1])}const nl=Math.hypot(nx,ny,nz)||1;nx/=nl;ny/=nl;nz/=nl;
+      let k=cls==='RoofSurface'?'R':cls==='GroundSurface'?'G':cls?'W':(ny>.3?'R':ny<-.5?'G':'W');
+      for(const p of o){ext[0]=Math.min(ext[0],p[0]);ext[1]=Math.min(ext[1],p[2]);ext[2]=Math.max(ext[2],p[0]);ext[3]=Math.max(ext[3],p[2])}
+      if(k==='G'){foot.push(o.map(p=>[p[0],p[2]]));return}
+      const ax=Math.abs(nx),ay=Math.abs(ny),az=Math.abs(nz),drop=ay>=ax&&ay>=az?1:ax>=az?0:2,u=drop===0?1:0,w=drop===2?1:2;
+      const flat=[],holes=[],ids=[];rings.forEach((r,ri)=>{if(ri)holes.push(ids.length);for(const p of r){flat.push(p[u],p[w]);ids.push(vid(p[0],p[1],p[2]))}});
+      const tri=earcut(flat,holes.length?holes:null,2),dst=k==='R'?R:W;for(const q of tri)dst.push(ids[q]);if(k==='R')rfoot.push(o.map(p=>[p[0],p[2]]))};
+    let any=false;
+    for(const m of ch.matchAll(/<bldg:(RoofSurface|WallSurface|GroundSurface|ClosureSurface|OuterCeilingSurface|OuterFloorSurface)\b[\s\S]*?<\/bldg:\1>/g)){any=true;if(m[1]==='ClosureSurface')continue;for(const pg of m[0].matchAll(/<gml:Polygon\b[\s\S]*?<\/gml:Polygon>/g))poly(pg[0],m[1]==='OuterCeilingSurface'?'RoofSurface':m[1]==='OuterFloorSurface'?'GroundSurface':m[1])}
+    if(!any)for(const pg of ch.matchAll(/<gml:Polygon\b[\s\S]*?<\/gml:Polygon>/g))poly(pg[0],null);
+    if(!W.length&&!R.length||verts.length/3>65000)continue;const fp=foot.length?foot:rfoot;if(!fp.length)continue;
+    let best=fp[0],ba=0;for(const r of fp){let a=0;for(let i=0;i<r.length;i++){const p=r[i],q=r[(i+1)%r.length];a+=p[0]*q[1]-q[0]*p[1]}if(Math.abs(a)>ba){ba=Math.abs(a);best=r}}
+    let gz=1e9;for(let i=1;i<verts.length;i+=3)gz=Math.min(gz,verts[i]);
+    let yr=0;const ym=ch.match(/<gen:\w+Attribute name="[^"]*(?:vuosi|year|Year|valmistumis)[^"]*">\s*<gen:value>\s*(\d{4})/);if(ym)yr=+ym[1];
+    out.push({verts,W,R,foot:best,gz,yr})}
+  L('CityGML buildings',out.length-n0,'extent local m',ext.map(v=>v.toFixed(0)).join(','));return out.length-n0}
 async function main(){
   fs.mkdirSync('data',{recursive:true});
-  for(const u of [WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&count=1',WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&count=1&outputFormat=application/json',WFS+'?service=WFS&version=2.0.0&request=DescribeFeatureType&typeNames=bldg:Building','http://3d.hel.ninja/data/citygml/','https://3d.hel.ninja/data/citygml/','https://kartta.hel.fi/3d/','https://kartta.hel.fi/avoindata/','https://kartta.hel.fi/ws/geoserver/avoindata/wfs?service=WFS&version=2.0.0&request=GetCapabilities']){
-    try{const r=await get(u);L('extra',u,'->',r.status,r.type,r.text.length,'|',r.text.slice(0,900).replace(/\s+/g,' '))}catch(err){L('extra',u,'error',err.message)}}
-  // probe which request form the server accepts
-  const s=BB.s,n=BB.s+.004,w=BB.w+.02,e=BB.w+.028;const[E0,N0]=toGK(s+.015,w);const[E1,N1]=toGK(s+.019,e);
+  // 1) the city's WFS (currently answers "overloaded" for building requests)
   const base=WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&outputFormat=application/json';
-  const forms=[
-    (a,b,c,d)=>base+'&bbox='+[a,b,c,d].map(v=>v.toFixed(5)).join(',')+',urn:ogc:def:crs:EPSG::4326',
-    (a,b,c,d)=>{const[x0,y0]=toGK(a,b),[x1,y1]=toGK(c,d);return base+'&bbox='+[y0,x0,y1,x1].map(v=>v.toFixed(1)).join(',')+',urn:ogc:def:crs:EPSG::3879'},
-    (a,b,c,d)=>{const[x0,y0]=toGK(a,b),[x1,y1]=toGK(c,d);return base+'&bbox='+[x0,y0,x1,y1].map(v=>v.toFixed(1)).join(',')+',EPSG:3879'}];
-  let form=null;
-  for(let i=0;i<forms.length&&!form;i++){const u=forms[i](60.1855,24.9700,60.1875,24.9760);try{const r=await get(u);let j=null;try{j=JSON.parse(r.text)}catch(_){}
-      const nObj=j&&j.CityObjects?Object.keys(j.CityObjects).length:-1;L('probe',i,'status',r.status,r.type,'bytes',r.text.length,'objects',nObj,'|',r.text.slice(0,700).replace(/\s+/g,' '));
-      if(nObj>0)form=forms[i]}catch(err){L('probe',i,'error',err.message)}}
-  if(!form){L('No request form returned buildings.');fs.writeFileSync('data/city-log.txt',log.join('\n')+'\n');return}
-  const NX=10,NY=10;let tiles=0;
-  for(let a=0;a<NY;a++)for(let b=0;b<NX;b++){const s1=BB.s+(BB.n-BB.s)*a/NY,n1=BB.s+(BB.n-BB.s)*(a+1)/NY,w1=BB.w+(BB.e-BB.w)*b/NX,e1=BB.w+(BB.e-BB.w)*(b+1)/NX;
-    for(let tr=0;tr<3;tr++){try{const r=await get(form(s1,w1,n1,e1));const j=JSON.parse(r.text);const k=parse(j);tiles++;L('tile',a,b,'status',r.status,'MB',(r.text.length/1e6).toFixed(1),'new buildings',k,'total',out.length);break}
-      catch(err){L('tile',a,b,'try',tr,'error',err.message);await new Promise(r=>setTimeout(r,3000))}}}
+  const form=(a,b,c,d)=>base+'&bbox='+[a,b,c,d].map(v=>v.toFixed(5)).join(',')+',urn:ogc:def:crs:EPSG::4326';
+  let wfsOK=false;try{const r=await get(form(60.1855,24.9700,60.1875,24.9760));let j=null;try{j=JSON.parse(r.text)}catch(_){}wfsOK=!!(j&&j.CityObjects&&Object.keys(j.CityObjects).length);L('WFS probe',r.status,wfsOK?'ok':r.text.slice(0,300).replace(/\s+/g,' '))}catch(e){L('WFS probe error',e.message)}
+  if(wfsOK){const NX=10,NY=10;for(let a=0;a<NY;a++)for(let b=0;b<NX;b++){const s1=BB.s+(BB.n-BB.s)*a/NY,n1=BB.s+(BB.n-BB.s)*(a+1)/NY,w1=BB.w+(BB.e-BB.w)*b/NX,e1=BB.w+(BB.e-BB.w)*(b+1)/NX;
+      for(let tr=0;tr<3;tr++){try{const r=await get(form(s1,w1,n1,e1));const k=parse(JSON.parse(r.text));L('tile',a,b,'new',k,'total',out.length);break}catch(err){L('tile',a,b,'error',err.message);await new Promise(r=>setTimeout(r,3000))}}}}
+  // 2) the Kalasatama digital-twin CityGML (2019), which covers a large part of the game area
+  if(!out.length){try{execSync('curl -sSL --retry 3 -o /tmp/k.zip http://3d.hel.ninja/data/citygml/Helsinki3D_CityGML_Kalasatama_20190326.zip && mkdir -p /tmp/k && cd /tmp/k && unzip -o -q /tmp/k.zip');
+      for(const f of fs.readdirSync('/tmp/k').filter(f=>/\.(gml|xml)$/i.test(f)))parseGML(fs.readFileSync('/tmp/k/'+f,'utf8'))}catch(e){L('CityGML error',e.message)}}
+  // 3) note the layers of the city's 3D map viewer for later (whole-city building tiles)
+  try{const app=JSON.parse((await get('https://kartta.hel.fi/3d/app.config.json')).text);for(const m of app.modules||[]){const t=(await get('https://kartta.hel.fi/3d/'+m)).text;for(const u of t.matchAll(/"url"\s*:\s*"([^"]+)"/g))L('viewer layer',u[1]);for(const u of t.matchAll(/"name"\s*:\s*"([^"]+)"[^{}]*?"type"\s*:\s*"([^"]+)"/g))L('viewer name',u[1],u[2])}}catch(e){L('viewer cfg error',e.message)}
   // binary: magic, count; per building: f32 ox,oz,gz; u16 nv,nW,nR,nF,yr; i16 verts (dm, rel. to ox/gz/oz); u16 idx; i16 foot
   const parts=[];let size=12;
   for(const b of out){const nv=b.verts.length/3;let ox=0,oz=0;for(let i=0;i<nv;i++){ox+=b.verts[i*3];oz+=b.verts[i*3+2]}ox/=nv;oz/=nv;
@@ -80,5 +100,5 @@ async function main(){
     parts.push(buf);size+=buf.length}
   const head=Buffer.alloc(12);head.write('HKB1',0);head.writeUInt32LE(out.length,4);head.writeUInt32LE(Math.round(Date.now()/1000),8);
   if(out.length){fs.writeFileSync('data/city3d.bin',Buffer.concat([head,...parts]));}
-  L('done: tiles',tiles,'buildings',out.length,'bytes',size);fs.writeFileSync('data/city-log.txt',log.join('\n')+'\n')}
+  L('done: buildings',out.length,'bytes',size);fs.writeFileSync('data/city-log.txt',log.join('\n')+'\n')}
 main().catch(e=>{L('fatal',e.stack);fs.writeFileSync('data/city-log.txt',log.join('\n')+'\n')});

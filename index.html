@@ -625,6 +625,19 @@ function buildHanasaari(list,city){if(!list.length)return;const hg=new THREE.Gro
   beam([-207,116],[-271,140],36);beam([-207,116],[-230,93],36);beam([-300,128],[-321,90],26,3.6,3.4);
 }
 const inPlantBox=(x,z)=>x>-360&&x<-190&&z>40&&z<210;
+/* shape the elevation model for skating: seabed under the water, a shore above it, and streets and paths whose heights change gently, with the ground pressed to them */
+function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const k=j*nx+i,x=x0+i*cs,z=z0+j*cs;if(isWater(x,z))H[k]=Math.min(H[k],SEA-1.6);else H[k]=Math.max(H[k],SEA+.5)}
+  const N=nx*nz,SW=new Float32Array(N),SH=new Float32Array(N),MX=new Float32Array(N),gentle=/footway|cycleway|path|pedestrian|track|bridleway|living_street|service/;
+  for(const e of ways){const t=e.tags||{};if(!t.highway||isTunnel(t)||t.area==='yes'||t.highway==='steps'||t.bridge&&t.bridge!=='no')continue;
+    const P0=(e.geometry||[]).filter(Boolean).map(g=>PJ(g.lat,g.lon));if(P0.length<2)continue;const P=dens(P0,2);const n=P.length;
+    let h=P.map(p=>T(p[0],p[1]));const sm=()=>{const o=h.slice();for(let i=0;i<n;i++){let a=0,c=0;for(let q=Math.max(0,i-4);q<=Math.min(n-1,i+4);q++){a+=h[q];c++}o[i]=a/c}h=o};sm();sm();
+    const gmax=gentle.test(t.highway)?.08:.12;for(let i=1;i<n;i++){const d=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1])*gmax;h[i]=clamp(h[i],h[i-1]-d,h[i-1]+d)}
+    for(let i=n-2;i>=0;i--){const d=Math.hypot(P[i][0]-P[i+1][0],P[i][1]-P[i+1][1])*gmax;h[i]=clamp(h[i],h[i+1]-d,h[i+1]+d)}
+    const w=(t.width&&num(t.width)>0?num(t.width):HW[t.highway]||3),rIn=w/2+1,rOut=w/2+5;
+    for(let q=0;q<n;q++){const[px,pz]=P[q];if(isWater(px,pz))continue;const i0=Math.max(0,Math.floor((px-rOut-x0)/cs)),i1=Math.min(nx-1,Math.ceil((px+rOut-x0)/cs)),j0=Math.max(0,Math.floor((pz-rOut-z0)/cs)),j1=Math.min(nz-1,Math.ceil((pz+rOut-z0)/cs));
+      for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const d=Math.hypot(x0+i*cs-px,z0+j*cs-pz);if(d>=rOut)continue;const wt=d<=rIn?1:1-(d-rIn)/(rOut-rIn),k=j*nx+i;SW[k]+=wt;SH[k]+=wt*h[q];if(wt>MX[k])MX[k]=wt}}}
+  for(let k=0;k<N;k++)if(SW[k]>0){const i=k%nx,j=(k-i)/nx;if(isWater(x0+i*cs,z0+j*cs))continue;H[k]+=(SH[k]/SW[k]-H[k])*MX[k]}}
 function buildWorld(D){
   const tags=e=>e.tags||{};
   const wayPts=e=>(e.geometry||[]).filter(Boolean).map(g=>PJ(g.lat,g.lon));
@@ -684,6 +697,7 @@ function buildWorld(D){
   for(const e of ways){const t=tags(e);if(!(t.railway==='rail'||t.railway==='subway')||isTunnel(t)||t.bridge&&t.bridge!=='no')continue;const P=wayPts(e);g.strokeStyle='rgb(0,0,255)';g.lineWidth=5/RS;pathR(P);g.stroke()}
   g.globalCompositeOperation='source-over';
   const sd=g.getImageData(0,0,RW,RH).data;
+  if(TER)conditionTerrain(ways,HW,isTunnel);
   /* buildings into the block layer */
   status('Raising buildings…',.72);
   const BLD=[];
@@ -772,7 +786,7 @@ function buildWorld(D){
      geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));geo.setIndex(new THREE.BufferAttribute(idx,1))}
    else{const N=UL?560:FA?260:420;geo=new THREE.PlaneGeometry(X1-X0,Z1-Z0,N,N);geo.rotateX(-Math.PI/2);geo.translate((X0+X1)/2,0,(Z0+Z1)/2);const p=geo.attributes.position,uv=geo.attributes.uv;
      for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);p.setY(i,0);uv.setXY(i,(x-X0)*GS/GT,1-(z-Z0)*GS/GT)}}
-    geo.computeVertexNormals();diyHoleStd(groundMat);seaHole(groundMat);groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
+    geo.computeVertexNormals();diyHoleStd(groundMat);if(!TER)seaHole(groundMat);groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
   {const ring=new THREE.Mesh(new THREE.RingGeometry(3200,14000,48,1),M({color:lin('#56685a'),roughness:1}));ring.rotation.x=-Math.PI/2;ring.position.set((X0+X1)/2,-.5,(Z0+Z1)/2);scene.add(ring)}
   /* sea */
   {const wg=new THREE.PlaneGeometry(14000,14000);if(THREE.Water){try{water=new THREE.Water(wg,{textureWidth:UL?1024:512,textureHeight:UL?1024:512,waterNormals:tex(waterNormals(),1,1,false),sunDirection:new THREE.Vector3(0,1,0),sunColor:0xffffff,waterColor:0x1b3d4a,distortionScale:2,fog:true});water.rotation.x=-Math.PI/2;water.position.set((X0+X1)/2,SEA,(Z0+Z1)/2);water.material.uniforms.size.value=1.6;Object.assign(water.material.uniforms,DIYU);water.material.fragmentShader=DIYGLSL+water.material.fragmentShader.replace('void main() {','void main() {\nif(diyIn(worldPosition.xz))discard;');water.material.needsUpdate=true;scene.add(water)}catch(e){water=null;report('water: '+e.message)}}
@@ -841,10 +855,10 @@ function buildWorld(D){
          if(Math.abs(h-est)<14&&(best===null||Math.abs(h-est)<Math.abs(best-est)))best=h}return best}}
    for(const c of chains){c.hs=c.keys.map(k=>H.get(k)||0);
      if(D.deckAt&&c.peak>=.9){const S=c.P.map((p,i)=>D.deckAt(p[0],p[1],c.hs[i]));const n=S.filter(v=>v!==null).length;
-       if(n>=c.P.length*.6){let last=null;for(let i=0;i<S.length;i++){if(S[i]!==null)last=S[i];else if(last!==null){let j=i;while(j<S.length&&S[j]===null)j++;S[i]=j<S.length?lerp(last,S[j],1/(j-i+1)):last}}
+       if(n>=c.P.length*.6){let last=null;for(let i=0;i<S.length;i++){if(S[i]!==null)last=S[i];else if(last!==null){let j=i;while(j<S.length&&S[j]===null)j++;S[i]=j<S.length?lerp(last,S[j],1/(j-i+1)):null}}
          for(let i=0;i<S.length;i++)if(S[i]===null)S[i]=c.hs[i];c.hs=S.map(v=>v+.03);c.lod3=true}}if(c.name==='Kruunuvuorensilta'&&!c.base.rail&&(!longest||c.L>longest.L))longest=c;addDeck(c.P,c.hs,c.base.w,c.name,c.base.rail)}
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
-  for(const c of chains){if(c.base.rail||c.peak<.5||c.lod3)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.07)}
+  for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.07)}
   /* ground ribbons */
   for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,k==='road'?.06:k==='side'||k==='cycle'?.1:.08,true)}
   /* lane markings: dashed centre line on two-way streets, edge lines on main roads */
@@ -932,6 +946,7 @@ function buildWorld(D){
     if(!(h>0)&&lv>0)h=lv*3.2+(num(t['roof:levels'])>0?num(t['roof:levels'])*2.2:0)+.9;
     if(!(h>0)){const bt=t.building||'';h=/house|detached|cabin/.test(bt)?7.5:/garage|shed|kiosk|hut|toilets|service/.test(bt)?3.2:/roof|carport/.test(bt)?4:/industrial|warehouse/.test(bt)?11:/church|cathedral/.test(bt)?22:area<60?3.5:area<250?9:16}
     if(!(mh>=0))mh=ml>0?ml*3.2:0;if(/roof|carport/.test(t.building||'')&&!(mh>0))mh=Math.max(0,h-.6);if(h<=mh+.3)h=mh+.6;
+    if(TER){let bm=1e9;for(const P of b.rings.outers)for(const q of P)bm=Math.min(bm,T(q[0],q[1]));if(bm<1e8){h+=bm;mh=mh>0?mh+bm:bm-.4}}   /* stand on the lowest ground under the footprint */
     const cx=outer[0][0][0],cz=outer[0][0][1],z0=zone(cx,cz,t,area);
     let col=t['building:colour']||t.colour;let C;try{C=col?new THREE.Color(col).convertSRGBToLinear():null}catch(e){C=null}
     if(!C){const pal=PAL[z0];C=lin(pal[(nb*7+Math.floor(Math.abs(cx*13+cz*7)))%pal.length])}

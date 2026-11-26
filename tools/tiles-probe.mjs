@@ -15,12 +15,12 @@ for(const l of layers.filter(l=>/LOD2|puut/.test(l.name)&&!/puretut/.test(l.name
     const tgt=[24.976*Math.PI/180,60.185*Math.PI/180];const inside=bv=>bv&&bv.region?tgt[0]>=bv.region[0]&&tgt[0]<=bv.region[2]&&tgt[1]>=bv.region[1]&&tgt[1]<=bv.region[3]:true;
     let node=j.root,url=tu,steps=0;
     while(steps++<25){const kids=(node.children||[]).filter(c=>inside(c.boundingVolume));const c=node.content&&(node.content.uri||node.content.url);
-      if(c&&/\.json$/.test(c)&&!kids.length){url=new URL(c,url).href;const sub=await (await fetch(url)).json();L('   sub',url.replace(base,''),'gE',sub.geometricError??sub.root&&sub.root.geometricError,'kids',(sub.root.children||[]).length);node=sub.root;continue}
+      if(c&&/\.json$/.test(c)&&!kids.length){url=new URL(c,url).href;const sub=await (await fetch(url)).json();L('   sub',url.replace(base,''),'gE',(sub.geometricError??(sub.root&&sub.root.geometricError)),'kids',(sub.root.children||[]).length);node=sub.root;continue}
       if(kids.length){node=kids.sort((a,b)=>(a.geometricError||0)-(b.geometricError||0))[0];continue}
       if(c){const cu=new URL(c,url).href;const r=await fetch(cu);const buf=Buffer.from(await r.arrayBuffer());const mg=buf.slice(0,4).toString();L('   LEAF',cu.replace(base,''),'bytes',buf.length,'magic',mg,'gE',node.geometricError,'bv',JSON.stringify(node.boundingVolume).slice(0,120));
         let off=-1;if(mg==='b3dm'){const ftj=buf.readUInt32LE(12),ftb=buf.readUInt32LE(16),btj=buf.readUInt32LE(20),btb=buf.readUInt32LE(24);L('   featureTable',buf.slice(28,28+ftj).toString().slice(0,300));L('   batch',buf.slice(28+ftj+ftb,28+ftj+ftb+btj).toString().slice(0,500));off=28+ftj+ftb+btj+btb}else if(mg==='glTF')off=0;
         if(off>=0){const jl=buf.readUInt32LE(off+12);const gj=JSON.parse(buf.slice(off+20,off+20+jl).toString());L('   gltf extUsed',JSON.stringify(gj.extensionsUsed||[]),'extReq',JSON.stringify(gj.extensionsRequired||[]),'meshes',(gj.meshes||[]).length,'prims',gj.meshes&&gj.meshes[0].primitives.length,'attrs',JSON.stringify(gj.meshes&&gj.meshes[0].primitives[0].attributes),'images',(gj.images||[]).length,JSON.stringify((gj.images||[])[0]||{}),'nodes0',JSON.stringify((gj.nodes||[])[0]||{}).slice(0,200),'accessors',JSON.stringify((gj.accessors||[]).slice(0,2)).slice(0,300))}
         break}
-      L('   dead end');break}
+      L('   dead end');break}}
   catch(e){L('  error',e.message)}}
 fs.mkdirSync('data',{recursive:true});fs.writeFileSync('data/tiles-log.txt',log.join('\n')+'\n');

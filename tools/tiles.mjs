@@ -131,3 +131,4 @@ try {
   L('done tiles', index.length, 'triangles', totalTris, 'texture MB', (totalTex / 1e6).toFixed(1));
 } catch (e) { L('fatal', e.stack) }
 fs.writeFileSync('data/tiles-convert-log.txt', log.join('\n') + '\n');
+// rev 2

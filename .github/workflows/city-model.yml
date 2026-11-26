@@ -3,7 +3,7 @@ name: Build map data
 # and converts it into a compact binary the game loads from GitHub Pages.
 on:
   push:
-    paths: ['tools/**', '.github/workflows/city-model.yml']
+    paths: ['tools/osm.mjs', 'tools/city.mjs', 'tools/tiles-probe.mjs', '.github/workflows/city-model.yml']
   workflow_dispatch:
   schedule:
     - cron: '17 3 1 * *'

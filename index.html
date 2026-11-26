@@ -710,7 +710,7 @@ function buildWorld(D){
   /* ---------- buildings ---------- */
   status('Shaping '+BLD.length+' buildings…',.88);
   const PAL={old:['#e8d7a8','#e9c39a','#d9b98a','#efe3c4','#c9a77c','#e7cfb5','#d3c0a5','#f0dfc0','#bfae92','#e2c7a3','#d8c9b2','#c7b8a0'],
-    new:['#f2f2ee','#e4e4e0','#cfd1d2','#b5b8bb','#8b8f94','#5d6166','#e7e2d8','#c7b9a6','#3f4347','#d9d2c4'],
+    new:['#f2f2ee','#e4e4e0','#cfd1d2','#b5b8bb','#a3a7ab','#8e9297','#e7e2d8','#c7b9a6','#7d8186','#d9d2c4'],
     concrete:['#bdbab3','#a9a69f','#c9c6bf','#b3b0a8'],wood:['#a9492f','#d4ad48','#7d9a8a','#e6d6a0','#8f3427','#c98a3a'],brick:['#8f4a36','#9a5640','#7e3f2e','#a65f45']};
   const zone=(x,z,t,area)=>{const[lat,lon]=[LAT0-z/KZ,LON0+x/KX];if(t['building:material']==='brick'||t.building==='industrial'&&lat>60.184&&lat<60.189&&lon>24.968&&lon<24.979)return'brick';
     if(/house|detached|cabin|semidetached_house/.test(t.building||'')||lat>60.196&&area<300&&!(num(t['building:levels'])>2))return'wood';

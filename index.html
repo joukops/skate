@@ -549,7 +549,7 @@ function inRing(x,z,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){co
 const num=v=>{const f=parseFloat(String(v||'').replace(',','.'));return isFinite(f)?f:NaN};
 
 /* the ground plane is cut away wherever the map says water, so the sea shows 3 m below street level */
-let WTEX=null;
+let WTEX=null,WF=null;
 function seaHole(m){addDiscard(m,()=>texture(WTEX,positionWorld.xz.sub(vec2(X0,Z0)).div(vec2(RW*RS,RH*RS))).r.greaterThan(.5))}
 function graniteCanvas(){const W=256,H=256,c=mk(W,H),g=c.getContext('2d');g.fillStyle='#55524d';g.fillRect(0,0,W,H);
   for(let row=0;row<8;row++){let x=-rnd(0,40);while(x<W){const w=rnd(50,90),y=row*32;const k=rnd(-14,14);g.fillStyle=`rgb(${128+k},${124+k},${118+k})`;g.fillRect(x+2,y+2,w-4,28);speckle(g,0,0,0,0,0);x+=w}}
@@ -566,10 +566,26 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),u0=dist/4,u1=(dist+l)/4;dist+=l;
       const built=inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0;
       if(onBeach(mx-nx*2,mz-nz*2)||onBeach(mx+nx*2,mz+nz*2)){const o=9;quad(Sd,[a[0]-nx*1.5,T(a[0]-nx*1.5,a[1]-nz*1.5)+.02,a[1]-nz*1.5],[b[0]-nx*1.5,T(b[0]-nx*1.5,b[1]-nz*1.5)+.02,b[1]-nz*1.5],[b[0]+nx*o,SEA-.7,b[1]+nz*o],[a[0]+nx*o,SEA-.7,a[1]+nz*o],u0,u1,0,1)}
-      else if(built){const ta=Math.max(SEA+.4,T(a[0]-nx*.8,a[1]-nz*.8))+.15,tb=Math.max(SEA+.4,T(b[0]-nx*.8,b[1]-nz*.8))+.15;quad(Q,[a[0],ta,a[1]],[b[0],tb,b[1]],[b[0],SEA-1.2,b[1]],[a[0],SEA-1.2,a[1]],u0,u1,0,(ta-SEA+1.2)/4);
+      else if(built){if(TER&&WF)continue;const ta=Math.max(SEA+.4,T(a[0]-nx*.8,a[1]-nz*.8))+.15,tb=Math.max(SEA+.4,T(b[0]-nx*.8,b[1]-nz*.8))+.15;quad(Q,[a[0],ta,a[1]],[b[0],tb,b[1]],[b[0],SEA-1.2,b[1]],[a[0],SEA-1.2,a[1]],u0,u1,0,(ta-SEA+1.2)/4);
         quad(C,[a[0]-nx*1.1,ta,a[1]-nz*1.1],[b[0]-nx*1.1,tb,b[1]-nz*1.1],[b[0]+nx*.35,tb,b[1]+nz*.35],[a[0]+nx*.35,ta,a[1]+nz*.35],u0,u1,0,.3);
         quad(C,[a[0]+nx*.25,ta,a[1]+nz*.25],[b[0]+nx*.25,tb,b[1]+nz*.25],[b[0]+nx*.25,ta-.4,b[1]+nz*.25],[a[0]+nx*.25,ta-.4,a[1]+nz*.25],u0,u1,0,.1)}
       else{const o=4.5;quad(Rk,[a[0]-nx*1.2,T(a[0]-nx*1.2,a[1]-nz*1.2)+.02,a[1]-nz*1.2],[b[0]-nx*1.2,T(b[0]-nx*1.2,b[1]-nz*1.2)+.02,b[1]-nz*1.2],[b[0]+nx*o,SEA-.6,b[1]+nz*o],[a[0]+nx*o,SEA-.6,a[1]+nz*o],u0,u1,0,1)}}}
+  /* shore edge along the line where the ground is cut (marching squares on the smoothed water field): a vertical wall down into the sea with a coping on top;
+     granite on built shores, rock on natural ones; none on beaches, which slope in */
+  if(TER&&WF){const F=(i,j)=>WF[j*RW+i],W=(x,y)=>[X0+(x+.5)*RS,Z0+(y+.5)*RS];let du=0;
+    const seg=(p,q)=>{const mx=(p[0]+q[0])/2,mz=(p[1]+q[1])/2,dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.05)return;let nx=-dz/l,nz=dx/l;
+      const gi=(mx-X0)/RS-.5,gj=(mz-Z0)/RS-.5,f1=wf(gi+nx/RS,gj+nz/RS),f0=wf(gi-nx/RS,gj-nz/RS);if(f0>f1){nx=-nx;nz=-nz}   /* n toward the water */
+      if(onBeach(mx-nx*2,mz-nz*2)||onBeach(mx+nx*2,mz+nz*2))return;
+      const ha=T(p[0]-nx*.7,p[1]-nz*.7),hb=T(q[0]-nx*.7,q[1]-nz*.7);if(Math.max(ha,hb)<SEA+.25)return;
+      const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0,u0=du/4,u1=(du+l)/4;du+=l;
+      const ta=ha+.06,tb=hb+.06,A=built?Q:Rk,cw=built?.75:.45;
+      quad(A,[p[0],ta,p[1]],[q[0],tb,q[1]],[q[0],SEA-1.5,q[1]],[p[0],SEA-1.5,p[1]],u0,u1,0,(ta-SEA+1.5)/4);
+      quad(built?C:Rk,[p[0]-nx*cw,ta,p[1]-nz*cw],[q[0]-nx*cw,tb,q[1]-nz*cw],[q[0]+nx*.12,tb,q[1]+nz*.12],[p[0]+nx*.12,ta,p[1]+nz*.12],u0,u1,0,.25)};
+    const wf=(x,y)=>{const i=clamp(Math.floor(x),0,RW-2),j=clamp(Math.floor(y),0,RH-2),u=clamp(x-i,0,1),v=clamp(y-j,0,1);return lerp(lerp(F(i,j),F(i+1,j),u),lerp(F(i,j+1),F(i+1,j+1),u),v)};
+    for(let j=0;j<RH-1;j++)for(let i=0;i<RW-1;i++){const a=F(i,j),b=F(i+1,j),c=F(i+1,j+1),d=F(i,j+1);const k=(a>.5?1:0)|(b>.5?2:0)|(c>.5?4:0)|(d>.5?8:0);if(k===0||k===15)continue;
+      const t=(u,v)=>(.5-u)/(v-u),E=[W(i+t(a,b),j),W(i+1,j+t(b,c)),W(i+t(d,c),j+1),W(i,j+t(a,d))];   /* top, right, bottom, left */
+      const S={1:[[3,0]],2:[[0,1]],3:[[3,1]],4:[[1,2]],5:[[3,0],[1,2]],6:[[0,2]],7:[[3,2]],8:[[2,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[1,2]],12:[[1,3]],13:[[0,1]],14:[[3,0]]}[k];
+      for(const[e1,e2]of S)seg(E[e1],E[e2])}}
   const mkM=(A,mat)=>{if(!A.p.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.castShadow=true;scene.add(m)};
   mkM(Q,wet(M({map:tex(graniteCanvas()),roughness:.8,side:THREE.DoubleSide}),.3));mkM(C,wet(M({color:lin('#a3a098'),roughness:.7,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),.3));
   mkM(Rk,wet(M({map:tex(rockCanvas()),roughness:.9,side:THREE.DoubleSide}),.4));mkM(Sd,wet(M({map:tex(sandCanvas()),roughness:1,side:THREE.DoubleSide}),.3))}
@@ -808,7 +824,10 @@ function buildWorld(D){
     const code=VEGC[k]==='#020000'?2:1;vegPolys.push({P,code});g.fillStyle=code===2?'rgb(2,0,0)':'rgb(1,0,0)';pathR(P,true);g.fill()}
   {const d=g.getImageData(0,0,RW,RH).data;VEG=new Uint8Array(RW*RH);for(let p=0;p<RW*RH;p++)VEG[p]=Math.min(2,d[p*4])}
 
-  {const N=RW*RH,d=new Uint8Array(N);for(let p=0;p<N;p++)d[p]=WMASK[p]?255:0;WTEX=new THREE.DataTexture(d,RW,RH,THREE.LuminanceFormat,THREE.UnsignedByteType);WTEX.magFilter=WTEX.minFilter=THREE.LinearFilter;WTEX.flipY=false;WTEX.needsUpdate=true}
+  {const N=RW*RH,d=new Uint8Array(N),A=new Float32Array(N),B=new Float32Array(N),K=[1,4,6,4,1];for(let p=0;p<N;p++)A[p]=WMASK[p]?1:0;
+   for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){let v=0;for(let q=-2;q<=2;q++)v+=K[q+2]*A[j*RW+clamp(i+q,0,RW-1)];B[j*RW+i]=v/16}
+   for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){let v=0;for(let q=-2;q<=2;q++)v+=K[q+2]*B[clamp(j+q,0,RH-1)*RW+i];A[j*RW+i]=v/16}
+   WF=A;for(let p=0;p<N;p++)d[p]=Math.round(A[p]*255);WTEX=new THREE.DataTexture(d,RW,RH,THREE.LuminanceFormat,THREE.UnsignedByteType);WTEX.magFilter=WTEX.minFilter=THREE.LinearFilter;WTEX.flipY=false;WTEX.needsUpdate=true}
   /* ---------- ground: texture painted from land use ---------- */
   status('Painting the ground…',.76);
   const GT=UL?Math.min(MAXTEX,6144):FA?2048:4096,gc=document.createElement('canvas');gc.width=gc.height=GT;const gg=gc.getContext('2d');

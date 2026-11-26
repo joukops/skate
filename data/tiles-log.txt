@@ -1,57 +1,37 @@
-LAYER 2021_terrain | TerrainLayer | https://kartta.hel.fi/3d/datasource-data/4383570b-33a3-4a9f-ae16-93373aff5ffa/tileset.json | {}
-  status 404
 LAYER Rakennukset_LOD2_tekstuureilla | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/tileset.json | {"featureInfo":"BalloonFeatureInfoView","exportWorkbench":"https://kartta.hel.fi/3d/fmedatadownload/VirtualCitySystems/MultiExporter_Helsinki.fmw","title":"Rakennukset tekstuureilla (LOD2)","attributi
   asset {"tilesetVersion":"308380607749","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]}
-  content bytes 1935 magic {
- 
+   sub datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/3/4/2.json gE 56192.46908732494 kids 1
+   sub datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/6/36/18.json gE 5211.386136199495 kids 2
+   sub datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/9/291/148.json gE 642.7804503744422 kids 2
+   sub datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/12/2332/1185.json gE 79.89805714187061 kids 4
+   sub datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/15/18657/9482.json gE 9.9819268210658 kids 4
+   LEAF datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/15/18657/9482.glb bytes 296364 magic glTF gE 9.9819268210658 bv {"region":[0.4358465886117987,1.0503357332001122,0.43602618471585075,1.0504297605974908,0.7499999981373549,49.9000000013
+   gltf extUsed ["KHR_texture_basisu","EXT_structural_metadata","KHR_draco_mesh_compression","EXT_mesh_features"] extReq ["KHR_texture_basisu","KHR_draco_mesh_compression"] meshes 1 prims 2 attrs {"POSITION":0,"_FEATURE_ID_0":3,"TEXCOORD_0":2,"NORMAL":1} images 1 {"bufferView":0,"extras":{"height":684,"width":1024},"mimeType":"image/ktx2"} nodes0 {"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],"mesh":0,"name":"VCTILES_MESH_GROUP"} accessors [{"componentType":5126,"count":11565,"max":[298.80416414281353,170.82563826162368,111.25693929591216],"min":[-321.83527091378346,-146.55854584649205,-203.43674957030453],"name":"MP_35_4_0_30463_coordinateAccessor","normalized":false,"type":"VEC3"},{"componentType":5126,"count":11565,"max":[0.9942220
 LAYER Rakennukset_LOD2 | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/tileset.json | {"featureInfo":"BalloonFeatureInfoView","title":"Rakennukset (LOD2)","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja
   asset {"tilesetVersion":"308380567866","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]}
-  content bytes 1935 magic {
- 
-LAYER Rakennukset_LOD1 | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/28b3e52b-761b-4211-aff8-682c11648c3e/tileset.json | {"title":"Rakennukset (LOD1)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja
-  asset {"tilesetVersion":"308380775829","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-9998.999998995103,148.33428401499987]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-9998.999998995103,148.33428401499987]}
-  content bytes 1931 magic {
- 
-LAYER Rakennukset_LOD2_puretut_tekstuureilla | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/da3f20e1-6b5c-41f1-8fd9-60d3835018e5/tileset.json | {"title":"Puretut rakennukset tekstuureilla (LOD2)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa
-  asset {"tilesetVersion":"308380543801","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]}
-  content bytes 1923 magic {
- 
-LAYER Rakennukset_LOD2_puretut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/7b918ec0-7694-436b-8787-d8cc7fa9f30b/tileset.json | {"title":"Puretut rakennukset (LOD2)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/k
-  asset {"tilesetVersion":"308380527940","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]}
-  content bytes 1923 magic {
- 
-LAYER Rakennukset_LOD1_puretut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/9f75214e-0db3-4e7f-ad35-10509cb0d4e5/tileset.json | {"title":"Puretut rakennukset (LOD1)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/k
-  asset {"tilesetVersion":"308380815871","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,-0.46400000154972076,93.00000000186265]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,-0.46400000154972076,93.00000000186265]}
-  content bytes 1927 magic {
- 
+   sub datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/3/4/2.json gE 56192.46908732494 kids 1
+   sub datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/6/36/18.json gE 5211.386136199495 kids 2
+   sub datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/9/291/148.json gE 642.7804503744422 kids 2
+   sub datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/12/2332/1185.json gE 79.89805714187061 kids 4
+   sub datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/15/18657/9482.json gE 9.9819268210658 kids 4
+   LEAF datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/15/18657/9482.glb bytes 132116 magic glTF gE 9.9819268210658 bv {"region":[0.4358465886117987,1.0503357332001122,0.43602618471585075,1.0504297605974908,0.7499999981373549,49.9000000013
+   gltf extUsed ["EXT_structural_metadata","KHR_draco_mesh_compression","EXT_mesh_features"] extReq ["KHR_draco_mesh_compression"] meshes 1 prims 1 attrs {"POSITION":0,"_FEATURE_ID_0":2,"NORMAL":1} images 0 {} nodes0 {"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],"mesh":0,"name":"VCTILES_MESH_GROUP"} accessors [{"componentType":5126,"count":13920,"max":[298.80416414281353,170.82563826162368,321.590728191426],"min":[-321.83527091378346,-146.55854584649205,-203.43674957030453],"name":"MP_3_4_0_4397_coordinateAccessor","normalized":false,"type":"VEC3"},{"componentType":5126,"count":13920,"max":[0.99422209831
 LAYER Katu_ja_puistopuut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/tileset.json | {"featureInfo":"@vcmap/dynamic-layer","title":"Katu- ja puistopuut","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-
   asset {"tilesetVersion":"303007720360","version":"1.1"} gE 2147483647 root bv {"region":[0.43342121432302066,1.0496563401901933,0.4399519621684228,1.0522333711483924,-16.11960296332836,80.92828570026904]} children 0 extUsed [] props {}
-  leaf depth 0 content 4/9/4.json bv {"region":[0.43342121432302066,1.0496563401901933,0.4399519621684228,1.0522333711483924,-16.11960296332836,80.92828570026904]}
-  content bytes 2457 magic {
- 
+   sub datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/4/9/4.json gE 20815.0328981453 kids 1
+   sub datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/7/72/37.json gE 2634.476834211042 kids 1
+   sub datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/10/583/296.json gE 320.1151546974127 kids 3
+   sub datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/13/4664/2370.json gE 39.92928089330762 kids 4
+   sub datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/16/37314/18964.json gE 4.990654789245893 kids 3
+   LEAF datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/18/149259/75856.glb bytes 28440 magic glTF gE 1.2476058289184828 bv {"region":[0.43591273050924617,1.0504178829482973,0.4359391199682085,1.0504309936359797,1.9187492141500115,11.6208686642
+   gltf extUsed ["KHR_texture_basisu","EXT_structural_metadata","EXT_mesh_gpu_instancing","EXT_instance_features"] extReq ["KHR_texture_basisu"] meshes 3 prims 2 attrs {"POSITION":0,"TEXCOORD_0":1,"NORMAL":2} images 6 {"bufferView":1,"extras":{"height":256,"width":256},"mimeType":"image/ktx2"} nodes0 {"matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],"name":"VCTILES_MESH_GROUP"} accessors [{"bufferView":0,"byteOffset":0,"componentType":5126,"count":8856,"max":[1.00961681,3.970836,0.980589945],"min":[-0.9642891899999999,-0.000617,-1.043766055],"name":"MP_35_4_0_533_coordinateAccessor","normalized":false,"type":"VEC3"},{"bufferView":0,"byteOffset":24,"componentType":5126,"count":8856,"
 LAYER Tontti_ja_metsapuut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/tileset.json | {"featureInfo":"@vcmap/dynamic-layer","title":"Tontti- ja metsäpuut","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja
   asset {"version":"1.1","tilesetVersion":"300497315794"} gE 2147483647 root bv {"sphere":[0,0,0,8582621.44053734]} children 0 extUsed [] props {}
-  leaf depth 0 content 1/1/0.json bv {"sphere":[0,0,0,8582621.44053734]}
-  content bytes 1742 magic {
- 
-LAYER Sillat_LOD3 | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/b1300b5d-3ebb-4bd4-9ade-5c810c4a3a4b/tileset.json | {"featureInfo":"@vcmap/dynamic-layer","title":"Sillat (LOD3)","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikka
-  asset {"tilesetVersion":"307242549667","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43341195528301774,1.0496120002958071,0.44059765616556745,1.0522874023175088,-7.0550000024959445,136.604284000583]} children 0 extUsed [] props {}
-  leaf depth 0 content 3/4/2.json bv {"region":[0.43341195528301774,1.0496120002958071,0.44059765616556745,1.0522874023175088,-7.0550000024959445,136.604284000583]}
-  content bytes 1935 magic {
- 
-LAYER Solar_rakennukset | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/a43e65e7-b2b1-4204-b428-e1c627fbf00f/tileset.json | {"title":"Aurinkoenergia (ilman puustoa)","featureInfo":"SolarFeatureInfo(1)"}
-  asset {"version":"1.0","tilesetVersion":"289519103163"} gE 781.25 root bv {"region":[0.433349572,1.048859363,0.440731855,1.052406694,-7.1,148.7]} children 16 extUsed [] props {"ZMax":{"valueType":"DOUBLE","minimum":-2.1,"maximum":10002.3},"solarArea":{"valueType":"DOUBLE","minimum":0,"maximum":28307.42},"Address":{"valueType":"SIMPLEADDRESS"},"SVF_max":{"valueType":"DOUBLE","minimum":-999,"maximum":1},"storeysAboveGround":{"valueType":"INTEGER","minimum":1,"maximum":35},
-  leaf depth 1 content 11/2330/338.json bv {"region":[0.433349572,1.050776839,0.434131427,1.05231082,1.8,78.4]}
-  content bytes 758743 magic {
-  
-LAYER Solar_bldg_tree_3d | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/a5c57582-2eef-4c41-847b-8aec0b7a5c33/tileset.json | {"title":"Aurinkoenergia (puuston varjostus)","featureInfo":"SolarFeatureInfo(1)"}
-  asset {"version":"1.0","tilesetVersion":"283395194365"} gE 781.25 root bv {"region":[0.433349572,1.048859363,0.440731855,1.052406694,-7.1,148.7]} children 16 extUsed [] props {"ZMax":{"valueType":"DOUBLE","minimum":-2.1,"maximum":10002.3},"solarArea":{"valueType":"DOUBLE","minimum":0,"maximum":28307.42},"Address":{"valueType":"SIMPLEADDRESS"},"SVF_max":{"valueType":"DOUBLE","minimum":-999,"maximum":1},"storeysAboveGround":{"valueType":"INTEGER","minimum":1,"maximum":35},
-  leaf depth 1 content 11/2330/338.json bv {"region":[0.433349572,1.050776839,0.434131427,1.05231082,1.8,78.4]}
-  content bytes 758743 magic {
-  
+   sub datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/1/1/0.json gE 180806.5810572991 kids 1
+   sub datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/4/9/4.json gE 20815.0328981453 kids 1
+   sub datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/7/72/37.json gE 2634.476834211042 kids 1
+   sub datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/10/583/296.json gE 320.1151546974127 kids 3
+   sub datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/13/4664/2370.json gE 39.92928089330762 kids 4
+   sub datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/16/37314/18964.json gE 4.990654789245893 kids 3
+   LEAF datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/16/37314/18964.glb bytes 21576 magic glTF gE 4.990654789245893 bv {"region":[0.4358505878674543,1.0503822891220262,0.4359316299840571,1.050431029166135,-0.8334223330020905,40.31170465983
+   gltf extUsed ["KHR_texture_basisu","EXT_structural_metadata","EXT_mesh_gpu_instancing","EXT_instance_features"] extReq ["KHR_texture_basisu"] meshes 5 prims 1 attrs {"POSITION":0,"TEXCOORD_0":2,"NORMAL":1} images 5 {"extras":{"width":32,"height":64},"mimeType":"image/ktx2","bufferView":0} nodes0 {"name":"VCTILES_MESH_GROUP","matrix":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]} accessors [{"name":"MP_35_4_0_coordinateAccessor","bufferView":1,"byteOffset":0,"componentType":5126,"normalized":false,"count":204,"type":"VEC3","max":[1.5590549999999999,5.279377,1.735587],"min":[-1.5590549999999999,-0.000701,-1.735587]},{"name":"MP_35_4_0_normalAccessor","bufferView":1,"byteOffset":12,"com

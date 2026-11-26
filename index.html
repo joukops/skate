@@ -136,6 +136,9 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
 /* three.js r170 with the WebGPU renderer (falls back to WebGL 2 where WebGPU is missing); materials are node materials, custom shading is TSL */
 import * as T3 from 'three/webgpu';import * as TSL from 'three/tsl';import {SkyMesh} from 'three/addons/objects/SkyMesh.js';import {WaterMesh} from 'three/addons/objects/WaterMesh.js';
 T3.ColorManagement.enabled=false;
+/* r170 chooses a 64 KB uniform buffer for instances when the current draw count is <= 1000, but sizes it from the full capacity:
+   a 1200-tree set drawn with fewer trees overflows it and blanks the whole WebGPU frame. Always use the per-instance attribute path. */
+{const S=T3.InstanceNode.prototype.setup;T3.InstanceNode.prototype.setup=function(b){const m=this.instanceMesh,c=m.count;if(this.instanceMatrixNode===null)m.count=1001;try{return S.call(this,b)}finally{m.count=c}}}
 const THREE=Object.assign({},T3,{MeshStandardMaterial:T3.MeshStandardNodeMaterial,MeshBasicMaterial:T3.MeshBasicNodeMaterial,LineBasicMaterial:T3.LineBasicNodeMaterial,SpriteMaterial:T3.SpriteNodeMaterial,Sky:SkyMesh,Water:WaterMesh,LuminanceFormat:T3.RedFormat,sRGBEncoding:T3.SRGBColorSpace});
 const {Fn,If,Discard,positionWorld,positionLocal,attribute,texture,uniform,vec2,vec3,vec4,float,mix,smoothstep,materialColor}=TSL;
 /* multiply the base colour by a shading factor; cut fragments away where a condition holds */

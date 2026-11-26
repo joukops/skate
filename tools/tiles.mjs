@@ -49,7 +49,8 @@ async function initDecoders() {
   dm = await draco3d.createDecoderModule({});
   const dir = path.resolve(path.dirname(require.resolve('three')), '..') + '/examples/jsm/libs/basis/';
   const src = fs.readFileSync(dir + 'basis_transcoder.js', 'utf8');
-  const BASIS = new Function('module', 'exports', src + '\n;return typeof BASIS!=="undefined"?BASIS:module.exports')({exports: {}}, {});
+  const mod = {exports: {}};
+  const BASIS = new Function('module', 'exports', 'require', '__filename', '__dirname', src + '\n;return typeof BASIS!=="undefined"?BASIS:module.exports')(mod, mod.exports, require, dir + 'basis_transcoder.js', dir);
   basis = await BASIS({wasmBinary: fs.readFileSync(dir + 'basis_transcoder.wasm')});
   basis.initializeBasis();
 }
@@ -131,4 +132,3 @@ try {
   L('done tiles', index.length, 'triangles', totalTris, 'texture MB', (totalTex / 1e6).toFixed(1));
 } catch (e) { L('fatal', e.stack) }
 fs.writeFileSync('data/tiles-convert-log.txt', log.join('\n') + '\n');
-// rev 2

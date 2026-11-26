@@ -109,7 +109,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
     <div><b>Sideways</b><span>Steer. Smooth asphalt is fast, grass and gravel slow.</span></div>
     <div><b>Double-tap</b><span>Jump: ollie up kerbs, ledges and DIY obstacles.</span></div>
   </div>
-  <div class="ctrl" id="ctrlMouse" style="display:none">
+  <div class="ctrl" id="ctrlMouse">
     <div><b>Mouse</b><span>Look around; the skater carves toward where you look.</span></div>
     <div><b>W / ↑ · S / ↓</b><span>Push. Hold back to brake, then to skate backwards.</span></div>
     <div><b>A D / ← → · Space</b><span>Steer as well · jump. Esc frees the mouse.</span></div>
@@ -117,8 +117,6 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <div class="row seg" role="group" aria-label="Start at" id="startSeg"><span class="lbl">Start at</span></div>
   <div class="row seg" role="group" aria-label="Weather"><span class="lbl">Weather</span>
     <button data-w="sunny">Sunny</button><button data-w="golden">Golden hour</button><button data-w="cloudy">Cloudy</button><button data-w="rain">Rain</button></div>
-  <div class="row seg" role="group" aria-label="Controls"><span class="lbl">Controls</span>
-    <button data-c="touch">Touch joystick</button><button data-c="mouse">Mouse + keyboard</button></div>
   <div class="row seg" role="group" aria-label="Graphics"><span class="lbl">Graphics</span>
     <button data-q="ultra">Ultra</button><button data-q="high">Realistic</button><button data-q="fast">Fast</button></div>
   <p class="small" id="gpuInfo" style="margin-top:-4px"></p>
@@ -385,17 +383,26 @@ function parseCity(j,out){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1
 async function loadTiles(p0,p1){try{const r=await fetch('data/tiles/index.json',{cache:'no-cache'});if(!r.ok)return null;const ix=await r.json();if(!ix.tiles||!ix.tiles.length)return null;
   const out=[];let k=0;for(const t of ix.tiles){k++;status('Loading textured buildings '+k+' / '+ix.tiles.length,p0+(p1-p0)*k/ix.tiles.length);try{const b=await (await fetch('data/tiles/'+t.file)).arrayBuffer();out.push({t,b})}catch(e){}}
   return out.length?out:null}catch(e){return null}}
-function buildTiles(list){const TL=new THREE.TextureLoader();let tris=0;
-  const ao=m=>{m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.)).y;');
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.6,1.,smoothstep(0.,4.,vWY));')};return m};
+function decodeTiles(list){const out=[];
   for(const{b}of list){const dv=new DataView(b),hl=dv.getUint32(0,true),head=JSON.parse(new TextDecoder().decode(new Uint8Array(b,4,hl).filter(c=>c!==0))),base=4+hl;
     for(const p of head.prims){const P=new Int16Array(b,base+p.pos,p.n*3),F=new Float32Array(p.n*3);for(let i=0;i<p.n;i++){F[i*3]=P[i*3]/10+head.ox;F[i*3+1]=P[i*3+1]/10;F[i*3+2]=P[i*3+2]/10+head.oz}
-      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(F,3));
-      const I=p.i32?new Uint32Array(b,base+p.idx,p.ni):new Uint16Array(b,base+p.idx,p.ni);g.setIndex(new THREE.BufferAttribute(p.i32?new Uint32Array(I):new Uint16Array(I),1));
-      let mat;if(p.tex&&p.uv!==undefined){const U=new Uint16Array(b,base+p.uv,p.n*2),UF=new Float32Array(p.n*2);for(let i=0;i<p.n*2;i++)UF[i]=U[i]/65535;g.setAttribute('uv',new THREE.BufferAttribute(UF,2));
-        const tx=TL.load('data/tiles/'+p.tex);tx.flipY=false;tx.encoding=THREE.sRGBEncoding;tx.anisotropy=maxAniso;mat=wet(M({map:tx,roughness:.88,side:THREE.DoubleSide}),.35)}
-      else mat=wet(M({color:new THREE.Color(`rgb(${p.color.join(',')})`).convertSRGBToLinear(),roughness:.85,side:THREE.DoubleSide}),.35);
-      g.computeVertexNormals();const m=new THREE.Mesh(g,ao(mat));m.castShadow=m.receiveShadow=true;scene.add(m);tris+=p.ni/3}}
+      const I0=p.i32?new Uint32Array(b,base+p.idx,p.ni):new Uint16Array(b,base+p.idx,p.ni),I=p.i32?new Uint32Array(I0):new Uint16Array(I0);
+      let UF=null;if(p.tex&&p.uv!==undefined){const U=new Uint16Array(b,base+p.uv,p.n*2);UF=new Float32Array(p.n*2);for(let i=0;i<p.n*2;i++)UF[i]=U[i]/65535}
+      out.push({F,I,UF,p})}}
+  return out}
+/* footprint of everything the textured tiles draw, rasterised into the collision map */
+function rasterTiles(geo,g){const toR=(x,z)=>[(x-X0)/RS,(z-Z0)/RS];let n=0;g.beginPath();
+  for(const{F,I}of geo){for(let t=0;t<I.length;t+=3){const a=I[t]*3,b=I[t+1]*3,c=I[t+2]*3;const top=Math.max(F[a+1],F[b+1],F[c+1]);if(top<1.6)continue;
+      let[ax,az]=toR(F[a],F[a+2]),[bx,bz]=toR(F[b],F[b+2]),[cx,cz]=toR(F[c],F[c+2]);const ar=(bx-ax)*(cz-az)-(cx-ax)*(bz-az);if(Math.abs(ar)<.02)continue;
+      if(ar<0){const tx=bx,tz=bz;bx=cx;bz=cz;cx=tx;cz=tz}g.moveTo(ax,az);g.lineTo(bx,bz);g.lineTo(cx,cz);g.closePath();if(++n%20000===0){g.fill();g.beginPath()}}}
+  g.fill()}
+function buildTiles(geo){const TL=new THREE.TextureLoader();let tris=0;
+  const ao=m=>{m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.)).y;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.6,1.,smoothstep(0.,4.,vWY));')};return m};
+  for(const{F,I,UF,p}of geo){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(F,3));g.setIndex(new THREE.BufferAttribute(I,1));
+    let mat;if(UF){g.setAttribute('uv',new THREE.BufferAttribute(UF,2));const tx=TL.load('data/tiles/'+p.tex);tx.flipY=false;tx.encoding=THREE.sRGBEncoding;tx.anisotropy=maxAniso;mat=wet(M({map:tx,roughness:.88,side:THREE.DoubleSide}),.35)}
+    else mat=wet(M({color:new THREE.Color(`rgb(${p.color.join(',')})`).convertSRGBToLinear(),roughness:.85,side:THREE.DoubleSide}),.35);
+    g.computeVertexNormals();const m=new THREE.Mesh(g,ao(mat));m.castShadow=m.receiveShadow=true;scene.add(m);tris+=I.length/3}
   return tris}
 /* compact model built by the repo's GitHub Action (tools/city.mjs) and served with the game */
 function decodeCity(ab){const dv=new DataView(ab);if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='HKB1')throw new Error('bad city file');
@@ -688,7 +695,9 @@ function buildWorld(D){
    for(const b of BLD){if(b.part||b.city||b.cx===undefined)continue;const r=b.rings.outers[0];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of r){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}
      outer:for(let i=Math.floor(x0/25);i<=Math.floor(x1/25);i++)for(let j=Math.floor(z0/25);j<=Math.floor(z1/25);j++)for(const q of PH.get(i*100003+j)||[])if(inRing(q.cx,q.cz,r)){b.noMesh=true;break outer}}}
   g.fillStyle='#000';g.fillRect(0,0,RW,RH);g.fillStyle='#fff';
-  for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;for(const P of b.rings.outers){pathR(P,true);g.fill()}}
+  if(D.tiles&&!D.tileGeo)D.tileGeo=decodeTiles(D.tiles);
+  for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;if(D.tiles&&!(b.hz&&(inPlant(b.cx,b.cz)||isRound(b.rings.outers[0]))))continue;for(const P of b.rings.outers){pathR(P,true);g.fill()}}
+  if(D.tileGeo)rasterTiles(D.tileGeo,g);
   const bd=g.getImageData(0,0,RW,RH).data;
   SURF=new Uint8Array(RW*RH);
   for(let p=0;p<RW*RH;p++){const o=p*4;SURF[p]=WMASK[p]?1:bd[o]>140?2:sd[o]>110?4:sd[o+2]>128?5:0}
@@ -722,7 +731,8 @@ function buildWorld(D){
   order.sort((a,b)=>a.z-b.z);for(const o of order){gg.fillStyle=o.c;gpath(o.P,true);gg.fill()}
   /* soft contact shadow around every building (ambient occlusion on the ground) */
   {const sc=.5,oc=document.createElement('canvas');oc.width=oc.height=GT*sc;const og=oc.getContext('2d');og.fillStyle='#000';og.beginPath();
-    for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;for(const P of b.rings.outers){P.forEach((p,i)=>i?og.lineTo(GX(p[0])*sc,GZ(p[1])*sc):og.moveTo(GX(p[0])*sc,GZ(p[1])*sc));og.closePath()}}og.fill();
+    for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;if(D.tileGeo&&!(b.hz&&(inPlant(b.cx,b.cz)||isRound(b.rings.outers[0]))))continue;for(const P of b.rings.outers){P.forEach((p,i)=>i?og.lineTo(GX(p[0])*sc,GZ(p[1])*sc):og.moveTo(GX(p[0])*sc,GZ(p[1])*sc));og.closePath()}}og.fill();
+    if(D.tileGeo){og.save();og.scale(RS*GS*sc,RS*GS*sc);rasterTiles(D.tileGeo,og);og.restore()}
     gg.save();gg.globalAlpha=.42;gg.filter='blur('+Math.max(1,2.2*GS).toFixed(1)+'px)';gg.drawImage(oc,0,0,GT,GT);gg.restore()}
   {const img=gg.getImageData(0,0,GT,GT),d=img.data;for(let j=0;j<GT;j++)for(let i=0;i<GT;i++){const x=X0+i/GS,z=Z0+j/GS;if(isWater(x,z)){const o=(j*GT+i)*4;d[o]=58;d[o+1]=74;d[o+2]=72}}gg.putImageData(img,0,0)}
   gg.strokeStyle='rgba(60,60,58,.5)';gg.lineWidth=Math.max(1,1.5*GS);for(const e of ways){const t=tags(e);if(t.railway!=='rail'&&t.railway!=='subway'||isTunnel(t))continue;gpath(wayPts(e));gg.stroke()}
@@ -888,7 +898,7 @@ function buildWorld(D){
       const tri=THREE.ShapeUtils.triangulateShape(pts,holes);const all=pts.concat(...holes);for(const f of tri){for(const k of [f[0],f[2],f[1]]){geo.roof.p.push(all[k].x,h,all[k].y);geo.roof.c.push(roofC.r,roofC.g,roofC.b)}
         if(mh>.5)for(const k of [f[0],f[1],f[2]]){geo.roof.p.push(all[k].x,mh,all[k].y);geo.roof.c.push(roofC.r*.6,roofC.g*.6,roofC.b*.6)}}}}catch(e){}}
   buildHanasaari(HZB);
-  if(D.tiles){const n=buildTiles(D.tiles);D.tileTris=n}
+  if(D.tileGeo){const n=buildTiles(D.tileGeo);D.tileTris=n}
   const FT={res:facadeTile('res'),glass:facadeTile('glass'),ind:facadeTile('ind'),brick:facadeTile('brick')};
   for(const k of ['res','glass','ind','brick']){const A=geo[k];if(!A.p.length)continue;const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));gm.computeVertexNormals();
     const fm=wet(M({map:tex(FT[k]),vertexColors:true,roughness:k==='glass'?.25:.85,metalness:k==='glass'?.35:0,side:THREE.DoubleSide}),k==='glass'?.1:.6);
@@ -1048,46 +1058,118 @@ function updateRain(dt){if(!rain.visible)return;const cx=camera.position.x,cy=ca
 
 const dark=M({color:lin('#1e2124'),roughness:.5,metalness:.3});
 /* =====================================================================
-   SKATER
+   SKATER — an adult (~1.78 m) built from shaped (lathe/extruded) parts:
+   helmet with vents, face, hooded windbreaker, jeans, knee pads, wrist guards,
+   and inline skates: hard-shell boot, cuff and buckles, aluminium frame,
+   4 x 100 mm wheels each (urethane tyre, spoked hub) that spin with speed.
    ===================================================================== */
 function capsule(r,len,seg=14){const p=[],q=6;for(let i=0;i<=q;i++){const a=-Math.PI/2+i/q*Math.PI/2;p.push(new THREE.Vector2(Math.max(1e-3,Math.cos(a)*r),Math.sin(a)*r-len/2))}
   for(let i=1;i<=q;i++){const a=i/q*Math.PI/2;p.push(new THREE.Vector2(Math.max(1e-3,Math.cos(a)*r),Math.sin(a)*r+len/2))}const g=new THREE.LatheGeometry(p,seg);g.translate(0,-len/2,0);return g}
-const WHEELS=[],TV=new THREE.Vector3();const sk=new THREE.Group();scene.add(sk);const UPV=new THREE.Vector3(0,1,0),ZV=new THREE.Vector3(0,0,1),surfN=new THREE.Vector3(0,1,0),tmpN=new THREE.Vector3(),qA=new THREE.Quaternion(),qY=new THREE.Quaternion(),qL=new THREE.Quaternion();
-const skin=M({color:lin('#d6a17c'),roughness:.65}),jacket=M({color:lin('#5fa8d8'),roughness:.7}),pants=M({color:lin('#1d2b3a'),roughness:.85}),
-  helmetM=M({color:lin('#f39200'),roughness:.35}),bootM=M({color:lin('#f2f3f4'),roughness:.45}),wheelM=M({color:lin('#3e9c57'),roughness:.55}),alum=M({color:lin('#b9c0c6'),roughness:.3,metalness:.85});
-const add=(g,m,p,x=0,y=0,z=0)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;p.add(o);return o};
+/* tapered limb along -y: radii at fractions of the length, rounded ends */
+function taper(len,rs,seg=18){const p=[new THREE.Vector2(.001,0)];const n=rs.length;for(let i=0;i<n;i++){const t=i/(n-1);p.push(new THREE.Vector2(rs[i],-t*len))}p.push(new THREE.Vector2(.001,-len-rs[n-1]*.4));
+  const r0=rs[0];p.splice(1,0,new THREE.Vector2(r0*.7,r0*.35));const g=new THREE.LatheGeometry(p,seg);g.computeVertexNormals();return g}
+function fabric(base,lines){const c=mk(128,128),g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,128,128);speckle(g,128,128,2500,.06,.06);
+  if(lines){g.strokeStyle='rgba(0,0,0,.08)';for(let y=0;y<128;y+=3){g.beginPath();g.moveTo(0,y);g.lineTo(128,y+2);g.stroke()}}return c}
+const WHEELS=[],SPIN=[],TV=new THREE.Vector3();const sk=new THREE.Group();scene.add(sk);const UPV=new THREE.Vector3(0,1,0),ZV=new THREE.Vector3(0,0,1),surfN=new THREE.Vector3(0,1,0),tmpN=new THREE.Vector3(),qA=new THREE.Quaternion(),qY=new THREE.Quaternion(),qL=new THREE.Quaternion();
+const skin=M({color:lin('#c99476'),roughness:.6}),
+  jacket=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2f6fa8'),roughness:.62}),jacket2=M({color:lin('#1f4f7c'),roughness:.7}),
+  pants=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2b3442'),roughness:.88}),
+  helmetM=M({color:lin('#e8e9ea'),roughness:.28,metalness:.05}),helmetV=M({color:lin('#202326'),roughness:.6}),
+  padM=M({color:lin('#26292d'),roughness:.55}),hairM=M({color:lin('#3a2a1f'),roughness:.9}),eyeM=M({color:lin('#1a1a1a'),roughness:.3}),
+  shellM=M({color:lin('#1c1f23'),roughness:.32,metalness:.1}),shellA=M({color:lin('#d23a2a'),roughness:.4}),linerM=M({color:lin('#3a3f46'),roughness:.9}),
+  frameM=M({color:lin('#b8bec4'),roughness:.25,metalness:.9}),tyreM=M({color:lin('#e7e3d6'),roughness:.55}),hubM=M({color:lin('#1d1f22'),roughness:.4,metalness:.4}),bearM=M({color:lin('#c9ced2'),roughness:.2,metalness:.95}),
+  strapM=M({color:lin('#111316'),roughness:.6}),buckleM=M({color:lin('#c0c5ca'),roughness:.25,metalness:.9}),soleM=M({color:lin('#2a2d31'),roughness:.8});
+const add=(g,m,p,x=0,y=0,z=0)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o};
 const pelvis=new THREE.Group();sk.add(pelvis);
-add(new THREE.SphereGeometry(.16,16,12),pants,pelvis).scale.set(1.15,.75,.85);
+/* hips and seat of the jeans */
+add(new THREE.SphereGeometry(.15,22,16),pants,pelvis,0,.03,0).scale.set(1.1,.75,.8);
+add(new THREE.SphereGeometry(.1,16,12),pants,pelvis,0,-.02,.05).scale.set(1.35,.75,.75);
 const torso=new THREE.Group();pelvis.add(torso);
-{const pr=[[.001,0],[.14,.01],[.155,.1],[.15,.22],[.175,.38],[.19,.48],[.15,.56],[.07,.6],[.001,.6]].map(([r,y])=>new THREE.Vector2(r,y));add(new THREE.LatheGeometry(pr,20),jacket,torso).scale.set(1,1,.68);
- add(new THREE.BoxGeometry(.26,.32,.12),M({color:lin('#2a2f35'),roughness:.8}),torso,0,.36,.13)}
-const head=new THREE.Group();head.position.y=.62;torso.add(head);
-add(capsule(.05,.06),skin,head,0,.05,0);
-add(new THREE.SphereGeometry(.105,20,16),skin,head,0,.13,0).scale.set(.92,1.08,1);
-add(new THREE.SphereGeometry(.125,20,12,0,Math.PI*2,0,Math.PI*.55),helmetM,head,0,.15,.01);
-add(new THREE.BoxGeometry(.17,.035,.05),dark,head,0,.14,-.09);
-function limb(par,x,y,l1,l2,r1,r2,m1,m2){const a=new THREE.Group();a.position.set(x,y,0);par.add(a);add(capsule(r1,l1),m1,a);const b=new THREE.Group();b.position.y=-l1;a.add(b);add(capsule(r2,l2),m2,b);return[a,b]}
-const [shL,elL]=limb(torso,-.21,.52,.27,.25,.05,.042,jacket,skin),[shR,elR]=limb(torso,.21,.52,.27,.25,.05,.042,jacket,skin);
-const [hipL,knL]=limb(pelvis,-.1,0,.44,.42,.075,.06,pants,pants),[hipR,knR]=limb(pelvis,.1,0,.44,.42,.075,.06,pants,pants);
-for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.07,10,8),dark,kn,0,0,-.04).scale.set(1,1.2,.7);
+{/* windbreaker torso: waist -> ribcage -> chest -> shoulders */
+ const pr=[[.001,0],[.15,.0],[.158,.06],[.152,.16],[.165,.28],[.185,.40],[.192,.47],[.175,.53],[.12,.585],[.06,.6],[.001,.6]].map(([r,y])=>new THREE.Vector2(r,y));
+ add(new THREE.LatheGeometry(pr,28),jacket,torso).scale.set(1,1,.66);
+ {const o=add(new THREE.TorusGeometry(.152,.016,8,28),jacket2,torso,0,.01,0);o.rotation.x=Math.PI/2;o.scale.set(1,.66,1)}   /* hem */
+ for(const s of [-1,1])add(new THREE.SphereGeometry(.062,14,10),jacket,torso,s*.18,.5,0).scale.set(1,.85,.95);   /* shoulders */
+ add(new THREE.CylinderGeometry(.004,.004,.42,4),M({color:lin('#d8dadc'),metalness:.8,roughness:.3}),torso,0,.3,-.128);   /* zip */
+ const hood=add(new THREE.SphereGeometry(.11,16,10,0,Math.PI*2,0,Math.PI*.6),jacket2,torso,0,.53,.1);hood.scale.set(1.2,.55,.7);hood.rotation.x=-.9;
+ /* small backpack */
+ const bp=add(new THREE.BoxGeometry(.24,.3,.1,2,2,2),M({color:lin('#30343a'),roughness:.8}),torso,0,.33,.15);bp.geometry.translate(0,0,0);
+ add(capsule(.05,.16,10),M({color:lin('#30343a'),roughness:.8}),torso,0,.2,.2).rotation.z=Math.PI/2}
+const head=new THREE.Group();head.position.y=.6;torso.add(head);
+add(taper(.09,[.046,.05,.052],12),skin,head,0,.09,0);   /* neck */
+{const sk2=add(new THREE.SphereGeometry(.098,24,18),skin,head,0,.16,-.005);sk2.scale.set(.86,1.08,.98);
+ add(new THREE.SphereGeometry(.07,16,12),skin,head,0,.1,-.03).scale.set(1.05,.8,1);   /* jaw */
+ add(new THREE.ConeGeometry(.016,.04,8),skin,head,0,.15,-.1).rotation.x=-Math.PI/2;    /* nose */
+ for(const s of [-1,1]){add(new THREE.SphereGeometry(.024,10,8),skin,head,s*.085,.155,0).scale.set(.45,1,.75);
+   add(new THREE.SphereGeometry(.011,8,6),eyeM,head,s*.033,.175,-.083)}
+ add(new THREE.SphereGeometry(.1,18,10,0,Math.PI*2,0,Math.PI*.42),hairM,head,0,.17,.015).scale.set(.9,1,1);
+ /* helmet: shell with vent slots, rim and chin strap */
+ const hm=add(new THREE.SphereGeometry(.122,28,16,0,Math.PI*2,0,Math.PI*.52),helmetM,head,0,.168,.0);hm.scale.set(.93,1,1.08);
+ for(let i=-2;i<=2;i++){const v=add(new THREE.BoxGeometry(.016,.012,.09),helmetV,head,i*.04,.288-Math.abs(i)*.012,-.01);v.rotation.z=i*.18}
+ {const o=add(new THREE.TorusGeometry(.117,.007,6,30),helmetV,head,0,.17,0);o.rotation.x=Math.PI/2;o.scale.set(.93,1.08,1)}
+ for(const s of [-1,1]){const st=add(new THREE.CylinderGeometry(.003,.003,.12,4),strapM,head,s*.07,.1,-.01);st.rotation.z=s*.35}}
+function limb(par,x,y,l1,l2,r1,r2,m1,m2,arm){const a=new THREE.Group();a.position.set(x,y,0);par.add(a);
+  add(taper(l1,arm?[r1*1.15,r1*1.05,r1*.9,r1*.78]:[r1*1.18,r1*1.08,r1*.95,r1*.8,r1*.72]),m1,a);
+  const b=new THREE.Group();b.position.y=-l1;a.add(b);
+  add(taper(l2,arm?[r2*1.05,r2*1.1,r2*.9,r2*.72]:[r2*1.05,r2*1.2,r2*1.05,r2*.8,r2*.66]),m2,b);return[a,b]}
+const [shL,elL]=limb(torso,-.2,.5,.28,.25,.048,.04,jacket,jacket,true),[shR,elR]=limb(torso,.2,.5,.28,.25,.048,.04,jacket,jacket,true);
+for(const el of [elL,elR]){add(new THREE.CylinderGeometry(.034,.036,.09,12),padM,el,0,-.19,0);   /* wrist guard */
+  const hand=add(new THREE.SphereGeometry(.045,12,10),padM,el,0,-.29,-.005);hand.scale.set(.7,1.15,.9);
+  add(capsule(.013,.03,8),padM,el,.03*(el===elL?1:-1),-.27,-.02).rotation.z=.6*(el===elL?1:-1)}
+const [hipL,knL]=limb(pelvis,-.088,-.01,.44,.42,.082,.056,pants,pants),[hipR,knR]=limb(pelvis,.088,-.01,.44,.42,.082,.056,pants,pants);
+/* inline skate: side profile of the hard-shell boot (u = from heel to toe, y = up from the sole) */
+function bootGeo(){const s=new THREE.Shape();const P=[[0,0],[.285,0],[.3,.02],[.298,.05],[.27,.075],[.2,.1],[.15,.135],[.13,.2],[.13,.27],[.115,.3],[.01,.31],[-.025,.29],[-.03,.2],[-.025,.1],[-.03,.04],[-.015,.008]];
+  s.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length;i++)s.lineTo(P[i][0],P[i][1]);s.closePath();
+  const g=new THREE.ExtrudeGeometry(s,{depth:.07,bevelEnabled:true,bevelThickness:.016,bevelSize:.014,bevelSegments:4,curveSegments:8});g.translate(0,0,-.035);
+  /* narrow the toe and the cuff a little */
+  const p=g.attributes.position;for(let i=0;i<p.count;i++){const u=p.getX(i),y=p.getY(i),z=p.getZ(i);const k=u>.2?1-(u-.2)*1.6:y>.2?.92:1;p.setZ(i,z*k)}g.computeVertexNormals();return g}
+function frameGeo(){const s=new THREE.Shape();s.moveTo(-.035,0);s.lineTo(.335,0);s.lineTo(.335,.022);
+  for(let i=3;i>=0;i--){const c=-.012+i*.103;s.lineTo(c+.04,.022);s.quadraticCurveTo(c,-.025,c-.04,.022)}s.lineTo(-.035,.022);s.closePath();
+  for(let i=0;i<3;i++){const c=.04+i*.103,h=new THREE.Path();h.moveTo(c-.02,.006);h.lineTo(c+.02,.006);h.lineTo(c+.012,.016);h.lineTo(c-.012,.016);h.closePath();s.holes.push(h)}
+  const g=new THREE.ExtrudeGeometry(s,{depth:.006,bevelEnabled:true,bevelThickness:.001,bevelSize:.001,bevelSegments:1});return g}
+function wheelGeo(){/* 100 mm urethane tyre, 24 mm wide, rounded profile */const R=.05,w=.012,pts=[];for(let i=0;i<=12;i++){const a=-Math.PI/2+i/12*Math.PI;pts.push(new THREE.Vector2(R-.012+Math.cos(a)*.012,Math.sin(a)*w))}
+  pts.unshift(new THREE.Vector2(.022,-w));pts.push(new THREE.Vector2(.022,w));const g=new THREE.LatheGeometry(pts,32);g.rotateZ(Math.PI/2);return g}
+const BOOT=bootGeo(),FRAME=frameGeo(),WHEEL=wheelGeo(),HUB=new THREE.CylinderGeometry(.022,.022,.026,6).rotateZ(Math.PI/2),BEAR=new THREE.CylinderGeometry(.0095,.0095,.03,12).rotateZ(Math.PI/2),SPOKE=new THREE.BoxGeometry(.024,.004,.03);
+for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);
-  add(new THREE.BoxGeometry(.12,.2,.27),bootM,f,0,-.04,-.03);add(new THREE.BoxGeometry(.13,.06,.14),dark,f,0,.06,.03);
-  add(new THREE.BoxGeometry(.035,.05,.33),alum,f,0,-.165,-.03);
-  for(let w=0;w<4;w++){const wh=add(new THREE.CylinderGeometry(.04,.04,.03,16),wheelM,f,0,-.2,-.15+w*.08);wh.rotation.z=Math.PI/2;WHEELS.push(wh)}}
-
+  /* boot: heel at +z, toe at -z (forward); sole 8 cm below the ankle */
+  const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
+  add(BOOT,shellM,sk3,0,0,0);
+  add(new THREE.BoxGeometry(.33,.012,.09),soleM,sk3,.135,-.004,0);
+  const cuff=add(new THREE.CylinderGeometry(.062,.066,.12,18,1,true),shellA,sk3,.06,.24,0);cuff.scale.set(1.12,1,.95);cuff.material.side=THREE.DoubleSide;
+  add(new THREE.TorusGeometry(.06,.012,8,20),linerM,sk3,.055,.305,0).rotation.x=Math.PI/2;
+  add(new THREE.BoxGeometry(.012,.02,.13),strapM,sk3,.115,.25,0).rotation.z=.3;   /* power strap */
+  add(new THREE.BoxGeometry(.03,.012,.012),buckleM,sk3,.12,.262,-.055);
+  add(new THREE.BoxGeometry(.11,.012,.115),strapM,sk3,.17,.115,0).rotation.z=-.55; /* instep buckle */
+  add(new THREE.BoxGeometry(.028,.01,.012),buckleM,sk3,.17,.125,-.06);
+  for(let i=0;i<4;i++)add(new THREE.BoxGeometry(.004,.003,.07),M({color:lin('#8a8f95'),roughness:.6}),sk3,.215+i*.02,.092-i*.008,0).rotation.z=-.45;   /* laces */
+  /* frame: two aluminium rails, mounts under heel and toe */
+  for(const zz of [-.022,.016])add(FRAME,frameM,sk3,0,-.05,zz);
+  add(new THREE.BoxGeometry(.05,.03,.04),frameM,sk3,.03,-.02,0);add(new THREE.BoxGeometry(.05,.03,.04),frameM,sk3,.24,-.02,0);
+  /* four 100 mm wheels; axles 5 cm above the ground */
+  for(let w=0;w<4;w++){const hub=new THREE.Group();hub.position.set(-.012+w*.103,-.05-.008,0);sk3.add(hub);
+    const t=add(WHEEL,tyreM,hub,0,0,0);t.rotation.y=Math.PI/2;
+    const h=add(HUB,hubM,hub,0,0,0);h.rotation.y=Math.PI/2;
+    for(let k=0;k<5;k++){const sp=add(SPOKE,hubM,hub,0,0,0);sp.rotation.z=k/5*Math.PI;sp.position.set(0,0,0)}
+    add(BEAR,bearM,hub,0,0,0).rotation.y=Math.PI/2;
+    WHEELS.push(hub);SPIN.push(hub)}}
 
 
 /* =====================================================================
    INPUT, UI, GAME
    ===================================================================== */
 const inp={fwd:0,turn:0,jump:false,jx:0,jy:0,keys:{},mx:0,my:0};
-let ctrl='touch';try{ctrl=localStorage.getItem('skh-c')||(mobile?'touch':'mouse')}catch(e){}
 const cv0=$('c');let locked=false;
-function setCtrl(c){ctrl=c;try{localStorage.setItem('skh-c',c)}catch(e){}document.querySelectorAll('[data-c]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===c));$('ctrlTouch').style.display=c==='touch'?'grid':'none';$('ctrlMouse').style.display=c==='mouse'?'grid':'none';
-  if(state==='play'){joy.style.display=c==='touch'?'block':'none';$('mouseHint').style.display=c==='mouse'&&!locked?'block':'none'}}
-cv0.addEventListener('click',()=>{if(state==='play'&&ctrl==='mouse'&&!locked){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}});
-document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===cv0;if(state==='play')$('mouseHint').style.display=ctrl==='mouse'&&!locked?'block':'none'});
-document.addEventListener('mousemove',e=>{if(!locked)return;inp.mx+=e.movementX||0;inp.my+=e.movementY||0});
+/* the thumb joystick is always there; a mouse works too: click the game to look around with it */
+function showCtrls(){if(state!=='play')return;joy.style.display='block';$('mouseHint').style.display=!mobile&&!locked?'block':'none'}
+cv0.addEventListener('click',e=>{if(state==='play'&&!locked&&(e.pointerType==='mouse'||!mobile)){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}});
+document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===cv0;showCtrls()});
+document.addEventListener('mousemove',e=>{if(!locked)return;const dx=e.movementX||0,dy=e.movementY||0;if(Math.abs(dx)>300||Math.abs(dy)>300)return;   /* ignore pointer-lock spikes */
+  Pl.camYaw-=dx*.0022;Pl.camPitch=clamp(Pl.camPitch+dy*.0018,-.25,1.05);Pl.lookT=1e9});
+/* touch: drag anywhere outside the joystick and buttons to look around; the camera swings back behind after a moment */
+let drag=null;cv0.addEventListener('pointerdown',e=>{if(state!=='play'||locked||e.pointerType==='mouse')return;drag={id:e.pointerId,x:e.clientX,y:e.clientY}});
+addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;Pl.camYaw-=dx*.006;Pl.camPitch=clamp(Pl.camPitch+dy*.004,-.25,1.05);Pl.lookT=0});
+addEventListener('pointerup',e=>{if(drag&&e.pointerId===drag.id)drag=null});addEventListener('pointercancel',e=>{if(drag&&e.pointerId===drag.id)drag=null});
 const joy=$('joy'),knob=$('knob');let jp=null,lastTap=0;
 function moveJoy(e){const r=joy.getBoundingClientRect(),R=r.width/2;let dx=(e.clientX-r.left-R)/R,dy=(e.clientY-r.top-R)/R;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
   inp.jx=Math.abs(dx)<.1?0:dx;inp.jy=Math.abs(dy)<.1?0:-dy;knob.style.transform=`translate(${dx*R*.62}px,${dy*R*.62}px)`}
@@ -1095,10 +1177,11 @@ joy.addEventListener('pointerdown',e=>{e.preventDefault();try{joy.setPointerCapt
 joy.addEventListener('pointermove',e=>{if(e.pointerId===jp)moveJoy(e)});
 const jEnd=e=>{if(e.pointerId!==jp)return;jp=null;inp.jx=inp.jy=0;knob.style.transform=''};
 joy.addEventListener('pointerup',jEnd);joy.addEventListener('pointercancel',jEnd);
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();inp.keys[k]=true;if(k===' '){inp.jump=true;e.preventDefault()}if(k==='p'||k==='escape'&&!locked)togglePause();if(k.startsWith('arrow'))e.preventDefault();if(k==='r'&&state==='play')resetPos()});
-addEventListener('keyup',e=>{inp.keys[e.key.toLowerCase()]=false});
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(state==='play'&&/^(arrow|w$|a$|s$|d$| $)/.test(k)){e.preventDefault();const ae=document.activeElement;if(ae&&ae.tagName==='BUTTON')ae.blur()}inp.keys[k]=true;if(k===' '){inp.jump=true;e.preventDefault()}if(k==='p'||k==='escape'&&!locked)togglePause();if(k.startsWith('arrow'))e.preventDefault();if(k==='r'&&state==='play')resetPos()});
+addEventListener('keyup',e=>{inp.keys[e.key.toLowerCase()]=false});addEventListener('blur',()=>{for(const k in inp.keys)inp.keys[k]=false});
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#hud button,#tele button');if(t)t.blur()},true);
 
-const Pl={x:0,z:0,y:0,yaw:0,v:0,vy:0,air:false,airTurn:0,turnRate:0,wallT:0,visY:null,ph:0,lean:0,hitT:0,warn:0,grade:0,gvy:0,camYaw:0,camPitch:.12,w:0,mode:'coast',avx:0,avz:0,brakeT:0};
+const Pl={x:0,z:0,y:0,yaw:0,v:0,vy:0,air:false,airTurn:0,turnRate:0,wallT:0,visY:null,ph:0,lean:0,hitT:0,warn:0,grade:0,gvy:0,camYaw:0,camPitch:.18,lookT:9,camD:4.6,w:0,mode:'coast',avx:0,avz:0,brakeT:0};
 function openAt(x,z){if(surf(x,z)!==4||treeHit(x,z)||decksAt(x,z))return false;for(let k=0;k<12;k++){const a=k/12*6.283;for(const r of [2.5,5,7]){const s2=surf(x+Math.cos(a)*r,z+Math.sin(a)*r);if(s2===2||s2===1)return false}}return true}
 function nearestOpen(x,z){if(openAt(x,z))return[x,z];for(let r=2;r<300;r+=2)for(let a=0;a<6.28;a+=.2){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(openAt(xx,zz))return[xx,zz]}for(let r=2;r<260;r+=2)for(let a=0;a<6.28;a+=.25){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(surf(xx,zz)===4)return[xx,zz]}return[x,z]}
 let lastStart='kumpula';
@@ -1153,7 +1236,7 @@ document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{quality=b.datase
 const gpuLine=()=>'Graphics chip: '+(GPU.replace(/ANGLE \(|\)$/g,'').slice(0,60)||'unknown')+(strongGPU&&mobile?' — fast enough for Ultra':'');
 $('gpuInfo').textContent=gpuLine();
 document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>setWeather(b.dataset.w));
-document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>setCtrl(b.dataset.c));setCtrl(ctrl);
+
 const WXO=['sunny','golden','cloudy','rain'],WXN={sunny:'Sunny',golden:'Golden hour',cloudy:'Cloudy',rain:'Rain'};
 $('wxBtn').onclick=()=>{const w=WXO[(WXO.indexOf(weather)+1)%4];setWeather(w);pop(WXN[w])};
 {const seg=$('startSeg');for(const s of SPOTS.filter(q=>q.start)){const b=document.createElement('button');b.textContent=s.n.replace(' plaza','');b.dataset.s=s.id;b.setAttribute('aria-pressed',s.id===lastStart);b.onclick=()=>{lastStart=s.id;seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(state==='menu')spawn(lastStart)};seg.append(b)}}
@@ -1161,11 +1244,11 @@ $('wxBtn').onclick=()=>{const w=WXO[(WXO.indexOf(weather)+1)%4];setWeather(w);po
 function show(id,on){$(id).style.display=on?(id==='pause'?'grid':'block'):'none'}
 function resetPos(){spawn(lastStart);inp.fwd=0;inp.turn=0;pop('Reset')}
 function start(){try{const r=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(r&&r.catch)r.catch(()=>{})}catch(e){}
-  spawn(lastStart);show('menu',false);show('hud',true);state='play';buildTele();setCtrl(ctrl);$('joyHint').style.display=ctrl==='touch'?'block':'none';$('joyHint').style.opacity=1}
+  spawn(lastStart);show('menu',false);show('hud',true);state='play';buildTele();showCtrls();$('joyHint').style.display='block';$('joyHint').style.opacity=1}
 $('goBtn').onclick=start;
 $('reloadBtn').onclick=async()=>{await cacheClear();location.reload()};
 function togglePause(){if(state==='play'){state='pause';$('pT').textContent=fmtT(St.t);$('pD').textContent=fmtD(St.dist);$('pB').textContent=seen.size+' / '+SPOTS.length;$('pV').textContent=Math.round(St.top*3.6)+' km/h';show('pause',true)}
-  else if(state==='pause'){state='play';show('pause',false);if(ctrl==='mouse'){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}}
+  else if(state==='pause'){state='play';show('pause',false);if(!mobile){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}}
 $('pauseBtn').onclick=togglePause;$('resetBtn').onclick=()=>{if(state==='play')resetPos()};$('resBtn').onclick=togglePause;
 $('menuBtn').onclick=()=>{show('pause',false);show('hud',false);joy.style.display='none';$('joyHint').style.display='none';$('mouseHint').style.display='none';state='menu';show('menu',true)};
 
@@ -1200,18 +1283,19 @@ function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;const b=blocked(nx,nz
 const SK={m:75,P:300,Pb:105,brake:3.5,cda:.45,rho:1.2,maxLean:.87,rmin:3,pivot:1.8,vback:4.2};
 function updatePlayer(dt){
   YREF=Pl.y;
-  const k=inp.keys,mouse=ctrl==='mouse'&&locked;let fwd=inp.jy,turn=inp.jx;
-  if(k.arrowup||k.w)fwd=1;if(k.arrowdown||k.s)fwd=-1;if(k.arrowleft||k.a)turn=-1;if(k.arrowright||k.d)turn=1;
+  const k=inp.keys,up=k.arrowup||k.w,dn=k.arrowdown||k.s,lf=k.arrowleft||k.a,rt=k.arrowright||k.d;let fwd=inp.jy,turn=inp.jx,hdgWant=null;
+  if(locked){   /* mouse captured: GTA-style, keys are relative to where the camera looks */
+    const side=(lf?1:0)-(rt?1:0);if(up||side){fwd=1;hdgWant=Pl.camYaw+Math.atan2(side,up?1:0)}else if(dn){fwd=-1;hdgWant=Pl.v>.35?null:Pl.camYaw}
+    }
+  else{if(up)fwd=1;if(dn)fwd=-1;if(lf)turn=-1;if(rt)turn=1}   /* joystick or keys without the mouse: steer */
   inp.fwd+=(fwd-inp.fwd)*Math.min(1,dt*8);inp.turn+=(turn-inp.turn)*Math.min(1,dt*7);
-  /* mouse look: camera yaw follows the mouse, the skater carves toward it */
-  if(ctrl==='mouse'){Pl.camYaw-=inp.mx*.0026;Pl.camPitch=clamp(Pl.camPitch+inp.my*.0018,-.35,.75);inp.mx=inp.my=0;if(!mouse)Pl.camYaw-=inp.turn*1.6*dt}
   const du=deckUnder(Pl.x,Pl.z,Pl.y);Pl.deck=du?du.d:null;
   const sf=surf(Pl.x,Pl.z),paved=sf===4||!!du||inDIY(Pl.x,Pl.z);
   const g=9.81,av=Math.abs(Pl.v);
   /* --- steering: desired yaw rate, limited by what wheels and lean allow at this speed --- */
   const kMax=Math.min(1/SK.rmin,g*Math.tan(SK.maxLean)/Math.max(.01,av*av)),wMax=Math.max(av*kMax*(Pl.air?.0:1),av<1.6?SK.pivot*(1-av/1.6*.5):0)+(Pl.air?1.2:0);
   let wWant;
-  if(ctrl==='mouse'){let d=Pl.camYaw-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));wWant=d*4}
+  if(hdgWant!==null){let d=hdgWant-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));wWant=d*4}
   else wWant=-inp.turn*wMax;
   wWant=clamp(wWant,-wMax,wMax);Pl.w+=(wWant-Pl.w)*Math.min(1,dt*(Pl.air?2:6));
   Pl.yaw+=Pl.w*dt;
@@ -1237,7 +1321,7 @@ function updatePlayer(dt){
   for(let i=0;i<ns;i++){YREF=Pl.y;let h=stepMove(mvx*sl,mvz*sl,mvx,mvz);
     if(h&&h!==1){const n=wallNormal(Pl.x+mvx*.22,Pl.z+mvz*.22,mvx,mvz),c=Math.max(0,mvx*n[0]+mvz*n[1]);worst=Math.max(worst,c);
       let tx=mvx-c*n[0],tz=mvz-c*n[1];const tl=Math.hypot(tx,tz);
-      if(tl>.15){tx/=tl;tz/=tl;const s2=sl*tl;if(stepMove(tx*s2,tz*s2,tx,tz)===0){h=0;moved+=s2;if(Math.abs(inp.turn)<.1&&ctrl!=='mouse'&&Pl.v>0){const want=Math.atan2(-tx,-tz);let d=want-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.yaw+=d*Math.min(1,dt*3*tl)}}}
+      if(tl>.15){tx/=tl;tz/=tl;const s2=sl*tl;if(stepMove(tx*s2,tz*s2,tx,tz)===0){h=0;moved+=s2;if(Math.abs(inp.turn)<.1&&!locked&&Pl.v>0){const want=Math.atan2(-tx,-tz);let d=want-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.yaw+=d*Math.min(1,dt*3*tl)}}}
       if(h){hit=h;break}continue}
     if(h){hit=h;break}moved+=sl}
   const fresh=Pl.wallT<=0;if(worst>0||hit===6||hit===2||hit===5||hit===7)Pl.wallT=.25;
@@ -1282,22 +1366,29 @@ function animateSkater(dt){
   else{   /* gliding: knees bent, skates parallel, slight scissor in curves */
     const sc=Pl.lean*.35;T(hipL,crouch*.6+sc,0,-.06,kk);T(hipR,crouch*.6-sc,0,.06,kk);T(knL,-(crouch+.35),0,0,kk);T(knR,-(crouch+.35),0,0,kk);
     T(shL,.2,0,-.25-ln*.6,kk);T(shR,.2,0,.25+ln*.6,kk);T(torso,-(.3+.2*st),Pl.lean*.25,0,kk);T(head,.3+.12*st,-Pl.lean*.3,0,kk)}
-  {pelvis.position.y=1;sk.updateMatrixWorld(true);let lo=9;for(const w of WHEELS){w.getWorldPosition(TV);sk.worldToLocal(TV);lo=Math.min(lo,TV.y-.04)}pelvis.position.y=1-lo}
-  elL.rotation.x=elR.rotation.x=.55}
+  {pelvis.position.y=1;sk.updateMatrixWorld(true);let lo=9;for(const w of WHEELS){w.getWorldPosition(TV);sk.worldToLocal(TV);lo=Math.min(lo,TV.y-.05)}pelvis.position.y=1-lo}
+  elL.rotation.x=elR.rotation.x=.55;
+  /* wheels roll: angle = distance / 50 mm radius (free-spinning in the air) */
+  if(!Pl.air)Pl.wheelA=(Pl.wheelA||0)-Pl.v*dt/.05;for(const h of SPIN)h.rotation.z=Pl.wheelA||0}
 const camT=new THREE.Vector3(),look=new THREE.Vector3(),lookT=new THREE.Vector3();
+const camPiv=new THREE.Vector3();
 function updateCamera(dt,orbit){
-  /* touch/keyboard: the camera swings behind the direction of travel (so skating backwards shows the skater's face);
-     mouse: the camera goes where the mouse points */
-  if(ctrl!=='mouse'||!locked&&state!=='play'){const tgt=Pl.v<-.8?Pl.yaw+Math.PI:Pl.yaw;let d=tgt-Pl.camYaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.camYaw+=d*Math.min(1,dt*(Pl.v<-.8?1.6:4))}
-  const fx=-Math.sin(Pl.camYaw),fz=-Math.cos(Pl.camYaw),av=Math.abs(Pl.v),pit=ctrl==='mouse'?Pl.camPitch:.12;
-  if(orbit){const a=tAll*.06;camT.set(Pl.x+Math.sin(a)*22,Pl.y+9,Pl.z+Math.cos(a)*22);lookT.set(Pl.x,Pl.y+3,Pl.z)}
-  else{const back=6.2+av*.12;camT.set(Pl.x-fx*back*Math.cos(pit),Pl.y+1.4+back*Math.sin(pit)+.4,Pl.z-fz*back*Math.cos(pit));lookT.set(Pl.x+fx*7,Pl.y+1.3-Math.sin(pit)*3+.4,Pl.z+fz*7)}
-  /* keep the camera out of buildings: pull it in front of the first wall between skater and camera */
-  if(!orbit){const dx=camT.x-Pl.x,dz=camT.z-Pl.z,L=Math.hypot(dx,dz);for(let d=1;d<=L;d+=.5){const x=Pl.x+dx*d/L,z=Pl.z+dz*d/L;if(surf(x,z)===2&&!inDIY(x,z)){const k2=Math.max(.8,d-.7)/L;camT.x=Pl.x+dx*k2;camT.z=Pl.z+dz*k2;camT.y=Math.max(camT.y,Pl.y+2.2);break}}}
-  camT.y=Math.max(camT.y,G(camT.x,camT.z,Pl.y+1)+1.4);
-  if(!isFinite(camera.position.x+camera.position.y+camera.position.z)||camera.position.lengthSq()===0)camera.position.copy(camT);
-  if(!isFinite(look.x+look.y+look.z)||look.lengthSq()===0)look.copy(lookT);
-  const k=1-Math.exp(-dt*(orbit?2:ctrl==='mouse'&&locked?14:5));camera.position.lerp(camT,k);look.lerp(lookT,k);camera.lookAt(look);
+  if(orbit){const a=tAll*.06;camT.set(Pl.x+Math.sin(a)*22,Pl.y+9,Pl.z+Math.cos(a)*22);lookT.set(Pl.x,Pl.y+3,Pl.z);
+    if(!isFinite(camera.position.x)||camera.position.lengthSq()===0)camera.position.copy(camT);const k=1-Math.exp(-dt*2);camera.position.lerp(camT,k);look.lerp(lookT,k);camera.lookAt(look)}
+  else{
+    /* classic third-person orbit: pivot over the skater's shoulder, yaw/pitch from the mouse (or drag),
+       touch mode swings back behind the direction of travel when you stop looking around */
+    Pl.lookT+=dt;
+    if(!locked&&Pl.lookT>1.6&&!drag){const tgt=Pl.v<-.8?Pl.yaw+Math.PI:Pl.yaw;let d=tgt-Pl.camYaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.camYaw+=d*Math.min(1,dt*(Math.abs(Pl.v)>.5?2.5:.8));Pl.camPitch+=(.18-Pl.camPitch)*Math.min(1,dt*1.5)}
+    const fx=-Math.sin(Pl.camYaw),fz=-Math.cos(Pl.camYaw),rx=-fz,rz=fx,pit=Pl.camPitch,vy=Pl.visY===null?Pl.y:Pl.visY;
+    const tp=new THREE.Vector3(Pl.x+rx*.45,vy+1.55,Pl.z+rz*.45);if(camPiv.lengthSq()===0||camPiv.distanceTo(tp)>8)camPiv.copy(tp);else camPiv.lerp(tp,1-Math.exp(-dt*18));
+    const want=4.6+Math.abs(Pl.v)*.06,bx=-fx*Math.cos(pit),bz=-fz*Math.cos(pit),by=Math.sin(pit);
+    /* pull in in front of walls (instantly), ease back out */
+    let lim=want;for(let d=.6;d<=want;d+=.25){const x=camPiv.x+bx*d,z=camPiv.z+bz*d,y=camPiv.y+by*d;if(surf(x,z)===2&&!inDIY(x,z)||G(x,z,y)>y-.35){lim=Math.max(.7,d-.35);break}}
+    Pl.camD=lim<Pl.camD?lim:Pl.camD+(lim-Pl.camD)*Math.min(1,dt*2.5);
+    camera.position.set(camPiv.x+bx*Pl.camD,camPiv.y+by*Pl.camD,camPiv.z+bz*Pl.camD);
+    look.set(camPiv.x+fx*8,camPiv.y-Math.sin(pit)*2.5+.2,camPiv.z+fz*8);camera.lookAt(look)}
+  const k=1-Math.exp(-dt*3);
   const fov=60+Math.abs(Pl.v)*.8;if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*k;camera.updateProjectionMatrix()}
   sun.position.set(Pl.x+SUNV.x*300,Pl.y+SUNV.y*300,Pl.z+SUNV.z*300);sun.target.position.set(Pl.x,Pl.y,Pl.z);sun.target.updateMatrixWorld();
   clouds.position.copy(camera.position);if(!THREE.Sky)sky.position.copy(camera.position)}

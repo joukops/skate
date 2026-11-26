@@ -48,6 +48,9 @@ function parse(j){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1,1],tr=T
   return added}
 async function get(url,opt){const r=await fetch(url,opt);const t=await r.text();return{status:r.status,type:r.headers.get('content-type'),text:t}}
 async function main(){
+  fs.mkdirSync('data',{recursive:true});
+  for(const u of [WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&count=1',WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&count=1&outputFormat=application/json',WFS+'?service=WFS&version=2.0.0&request=DescribeFeatureType&typeNames=bldg:Building','http://3d.hel.ninja/data/citygml/','https://3d.hel.ninja/data/citygml/','https://kartta.hel.fi/3d/','https://kartta.hel.fi/avoindata/','https://kartta.hel.fi/ws/geoserver/avoindata/wfs?service=WFS&version=2.0.0&request=GetCapabilities']){
+    try{const r=await get(u);L('extra',u,'->',r.status,r.type,r.text.length,'|',r.text.slice(0,900).replace(/\s+/g,' '))}catch(err){L('extra',u,'error',err.message)}}
   // probe which request form the server accepts
   const s=BB.s,n=BB.s+.004,w=BB.w+.02,e=BB.w+.028;const[E0,N0]=toGK(s+.015,w);const[E1,N1]=toGK(s+.019,e);
   const base=WFS+'?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&outputFormat=application/json';
@@ -57,7 +60,7 @@ async function main(){
     (a,b,c,d)=>{const[x0,y0]=toGK(a,b),[x1,y1]=toGK(c,d);return base+'&bbox='+[x0,y0,x1,y1].map(v=>v.toFixed(1)).join(',')+',EPSG:3879'}];
   let form=null;
   for(let i=0;i<forms.length&&!form;i++){const u=forms[i](60.1855,24.9700,60.1875,24.9760);try{const r=await get(u);let j=null;try{j=JSON.parse(r.text)}catch(_){}
-      const nObj=j&&j.CityObjects?Object.keys(j.CityObjects).length:-1;L('probe',i,'status',r.status,r.type,'bytes',r.text.length,'objects',nObj,'|',r.text.slice(0,200).replace(/\s+/g,' '));
+      const nObj=j&&j.CityObjects?Object.keys(j.CityObjects).length:-1;L('probe',i,'status',r.status,r.type,'bytes',r.text.length,'objects',nObj,'|',r.text.slice(0,700).replace(/\s+/g,' '));
       if(nObj>0)form=forms[i]}catch(err){L('probe',i,'error',err.message)}}
   if(!form){L('No request form returned buildings.');fs.writeFileSync('data/city-log.txt',log.join('\n')+'\n');return}
   const NX=10,NY=10;let tiles=0;

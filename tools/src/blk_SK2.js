@@ -11,7 +11,7 @@ function taper(len,rs,seg=18){const p=[new THREE.Vector2(.001,0)];const n=rs.len
   const r0=rs[0];p.splice(1,0,new THREE.Vector2(r0*.7,r0*.35));const g=new THREE.LatheGeometry(p,seg);g.computeVertexNormals();return g}
 function fabric(base,lines){const c=mk(128,128),g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,128,128);speckle(g,128,128,2500,.06,.06);
   if(lines){g.strokeStyle='rgba(0,0,0,.08)';for(let y=0;y<128;y+=3){g.beginPath();g.moveTo(0,y);g.lineTo(128,y+2);g.stroke()}}return c}
-const WHEELS=[],SPIN=[],ANK=[],TV=new THREE.Vector3();const sk=new THREE.Group();scene.add(sk);const UPV=new THREE.Vector3(0,1,0),ZV=new THREE.Vector3(0,0,1),surfN=new THREE.Vector3(0,1,0),tmpN=new THREE.Vector3(),qA=new THREE.Quaternion(),qY=new THREE.Quaternion(),qL=new THREE.Quaternion();
+const WHEELS=[],SPIN=[],ANK=[],CUFF=[],TV=new THREE.Vector3();const sk=new THREE.Group();scene.add(sk);const UPV=new THREE.Vector3(0,1,0),ZV=new THREE.Vector3(0,0,1),surfN=new THREE.Vector3(0,1,0),tmpN=new THREE.Vector3(),qA=new THREE.Quaternion(),qY=new THREE.Quaternion(),qL=new THREE.Quaternion();
 const skin=M({color:lin('#c99476'),roughness:.6}),
   jacket=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2f6fa8'),roughness:.62}),jacket2=M({color:lin('#1f4f7c'),roughness:.7}),
   pants=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2b3442'),roughness:.88}),
@@ -75,10 +75,11 @@ for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.
   const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
   add(BOOT,shellM,sk3,0,0,0);
   add(new THREE.BoxGeometry(.33,.012,.09),soleM,sk3,.135,-.004,0);
-  const cuff=add(new THREE.CylinderGeometry(.062,.066,.12,18,1,true),shellA,sk3,.06,.24,0);cuff.scale.set(1.12,1,.95);cuff.material.side=THREE.DoubleSide;
-  add(new THREE.TorusGeometry(.06,.012,8,20),linerM,sk3,.055,.305,0).rotation.x=Math.PI/2;
-  add(new THREE.BoxGeometry(.012,.02,.13),strapM,sk3,.115,.25,0).rotation.z=.3;   /* power strap */
-  add(new THREE.BoxGeometry(.03,.012,.012),buckleM,sk3,.12,.262,-.055);
+  const cg=new THREE.Group();cg.position.set(.06,.12,0);sk3.add(cg);CUFF.push(cg);   /* the cuff hinges at the ankle and follows the shin */
+  const cuff=add(new THREE.CylinderGeometry(.062,.066,.12,18,1,true),shellA,cg,0,.12,0);cuff.scale.set(1.12,1,.95);cuff.material.side=THREE.DoubleSide;
+  add(new THREE.TorusGeometry(.06,.012,8,20),linerM,cg,-.005,.185,0).rotation.x=Math.PI/2;
+  add(new THREE.BoxGeometry(.012,.02,.13),strapM,cg,.055,.13,0).rotation.z=.3;   /* power strap */
+  add(new THREE.BoxGeometry(.03,.012,.012),buckleM,cg,.06,.142,-.055);
   add(new THREE.BoxGeometry(.11,.012,.115),strapM,sk3,.17,.115,0).rotation.z=-.55; /* instep buckle */
   add(new THREE.BoxGeometry(.028,.01,.012),buckleM,sk3,.17,.125,-.06);
   for(let i=0;i<4;i++)add(new THREE.BoxGeometry(.004,.003,.07),M({color:lin('#8a8f95'),roughness:.6}),sk3,.215+i*.02,.092-i*.008,0).rotation.z=-.45;   /* laces */

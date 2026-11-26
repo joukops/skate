@@ -15,6 +15,7 @@ const PJ = (lat, lon) => [(lon - LON0) * KX, -(lat - LAT0) * KZ];
 const D2R = Math.PI / 180, R = [BB.w * D2R, BB.s * D2R, BB.e * D2R, BB.n * D2R];
 const inPlantBox = (x, z) => x > -360 && x < -190 && z > 40 && z < 210;   // modelled by hand in the game
 const OUT = 'data/tiles';
+const MAXGE = +(process.env.MAXGE || 5.5);   // stop at ~300 m tiles (finer levels split the area into ~1600 files)
 const log = []; const L = (...a) => { const m = a.join(' '); console.log(m); log.push(m) };
 
 // ---------- helpers ----------
@@ -38,7 +39,7 @@ async function visit(node, url, T, refine) {
   const c = node.content && (node.content.uri || node.content.url);
   const kids = node.children || [];
   if (c && /\.json$/.test(c)) { const u = new URL(c, url).href; const sub = await get(u); await visit(sub.root, u, M, refine) }
-  else if (c && (refine === 'ADD' || !kids.length)) leaves.push({url: new URL(c, url).href, M, ge: node.geometricError, refine});
+  else if (c && (refine === 'ADD' || !kids.length || node.geometricError <= MAXGE)) { leaves.push({url: new URL(c, url).href, M, ge: node.geometricError, refine}); if (refine !== 'ADD') return }
   for (const k of kids) await visit(k, url, M, refine);
 }
 
@@ -46,7 +47,7 @@ async function visit(node, url, T, refine) {
 let dm, basis;
 async function initDecoders() {
   dm = await draco3d.createDecoderModule({});
-  const dir = path.dirname(require.resolve('three/package.json')) + '/examples/jsm/libs/basis/';
+  const dir = path.resolve(path.dirname(require.resolve('three')), '..') + '/examples/jsm/libs/basis/';
   const src = fs.readFileSync(dir + 'basis_transcoder.js', 'utf8');
   const BASIS = new Function('module', 'exports', src + '\n;return typeof BASIS!=="undefined"?BASIS:module.exports')({exports: {}}, {});
   basis = await BASIS({wasmBinary: fs.readFileSync(dir + 'basis_transcoder.wasm')});

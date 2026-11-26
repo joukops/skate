@@ -362,6 +362,22 @@ function parseCity(j,out){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1
     const foot=acc.foot.length?acc.foot:acc.rfoot;if(!foot.length)continue;
     let yr=NaN;for(const k in attrs)if(/year|vuosi/i.test(k)){yr=parseInt(attrs[k]);break}
     out.push({w:new Float32Array(acc.wall),r:new Float32Array(acc.roof),f:foot,h:top-gz,yr})}}
+/* textured LOD2 buildings from the city's 3D map, converted by tools/tiles.mjs */
+async function loadTiles(p0,p1){try{const r=await fetch('data/tiles/index.json',{cache:'no-cache'});if(!r.ok)return null;const ix=await r.json();if(!ix.tiles||!ix.tiles.length)return null;
+  const out=[];let k=0;for(const t of ix.tiles){k++;status('Loading textured buildings '+k+' / '+ix.tiles.length,p0+(p1-p0)*k/ix.tiles.length);try{const b=await (await fetch('data/tiles/'+t.file)).arrayBuffer();out.push({t,b})}catch(e){}}
+  return out.length?out:null}catch(e){return null}}
+function buildTiles(list){const TL=new THREE.TextureLoader();let tris=0;
+  const ao=m=>{m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.)).y;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.6,1.,smoothstep(0.,4.,vWY));')};return m};
+  for(const{b}of list){const dv=new DataView(b),hl=dv.getUint32(0,true),head=JSON.parse(new TextDecoder().decode(new Uint8Array(b,4,hl).filter(c=>c!==0))),base=4+hl;
+    for(const p of head.prims){const P=new Int16Array(b,base+p.pos,p.n*3),F=new Float32Array(p.n*3);for(let i=0;i<p.n;i++){F[i*3]=P[i*3]/10+head.ox;F[i*3+1]=P[i*3+1]/10;F[i*3+2]=P[i*3+2]/10+head.oz}
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(F,3));
+      const I=p.i32?new Uint32Array(b,base+p.idx,p.ni):new Uint16Array(b,base+p.idx,p.ni);g.setIndex(new THREE.BufferAttribute(p.i32?new Uint32Array(I):new Uint16Array(I),1));
+      let mat;if(p.tex&&p.uv!==undefined){const U=new Uint16Array(b,base+p.uv,p.n*2),UF=new Float32Array(p.n*2);for(let i=0;i<p.n*2;i++)UF[i]=U[i]/65535;g.setAttribute('uv',new THREE.BufferAttribute(UF,2));
+        const tx=TL.load('data/tiles/'+p.tex);tx.flipY=false;tx.encoding=THREE.sRGBEncoding;tx.anisotropy=maxAniso;mat=wet(M({map:tx,roughness:.88,side:THREE.DoubleSide}),.35)}
+      else mat=wet(M({color:new THREE.Color(`rgb(${p.color.join(',')})`).convertSRGBToLinear(),roughness:.85,side:THREE.DoubleSide}),.35);
+      g.computeVertexNormals();const m=new THREE.Mesh(g,ao(mat));m.castShadow=m.receiveShadow=true;scene.add(m);tris+=p.ni/3}}
+  return tris}
 /* compact model built by the repo's GitHub Action (tools/city.mjs) and served with the game */
 function decodeCity(ab){const dv=new DataView(ab);if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='HKB1')throw new Error('bad city file');
   const n=dv.getUint32(4,true),out=[];let o=12;
@@ -796,7 +812,9 @@ function buildWorld(D){
   const geo={res:{p:[],u:[],c:[]},glass:{p:[],u:[],c:[]},ind:{p:[],u:[],c:[]},brick:{p:[],u:[],c:[]},roof:{p:[],c:[]}};
   let nb=0;
   const HZB=[];
-  for(const b of BLD){if(b.noMesh)continue;if(b.hz&&(inPlant(b.cx,b.cz)||/Sosiaali/.test(b.t.name||'')||isRound(b.rings.outers[0]))){HZB.push(b);continue}
+  for(const b of BLD){if(b.noMesh)continue;
+    if(D.tiles){if(b.hz&&inPlant(b.cx,b.cz))HZB.push(b);continue}   /* textured city tiles draw everything except the hand-made plant */
+    if(b.hz&&(inPlant(b.cx,b.cz)||/Sosiaali/.test(b.t.name||'')||isRound(b.rings.outers[0]))){HZB.push(b);continue}
     const t=b.t;const outer=b.rings.outers;let area=0;for(const P of outer)area+=Math.abs(polyArea(P));
     if(b.city){const cb=b.city,h=cb.h,cx=outer[0][0][0],cz=outer[0][0][1];let z0=zone(cx,cz,t,area);if(cb.yr<1945&&z0==='new')z0='old';if(cb.yr>1995&&z0==='old')z0='new';
       let col=t['building:colour']||t.colour;let C;try{C=col?new THREE.Color(col).convertSRGBToLinear():null}catch(e){C=null}if(!C){const pal=PAL[z0];C=lin(pal[(nb*7+Math.floor(Math.abs(cx*13+cz*7)))%pal.length])}
@@ -821,6 +839,7 @@ function buildWorld(D){
       const tri=THREE.ShapeUtils.triangulateShape(pts,holes);const all=pts.concat(...holes);for(const f of tri){for(const k of [f[0],f[2],f[1]]){geo.roof.p.push(all[k].x,h,all[k].y);geo.roof.c.push(roofC.r,roofC.g,roofC.b)}
         if(mh>.5)for(const k of [f[0],f[1],f[2]]){geo.roof.p.push(all[k].x,mh,all[k].y);geo.roof.c.push(roofC.r*.6,roofC.g*.6,roofC.b*.6)}}}}catch(e){}}
   buildHanasaari(HZB);
+  if(D.tiles){const n=buildTiles(D.tiles);D.tileTris=n}
   const FT={res:facadeTile('res'),glass:facadeTile('glass'),ind:facadeTile('ind'),brick:facadeTile('brick')};
   for(const k of ['res','glass','ind','brick']){const A=geo[k];if(!A.p.length)continue;const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));gm.computeVertexNormals();
     const fm=wet(M({map:tex(FT[k]),vertexColors:true,roughness:k==='glass'?.25:.85,metalness:k==='glass'?.35:0,side:THREE.DoubleSide}),k==='glass'?.1:.6);
@@ -1194,7 +1213,8 @@ let cityOK=false,cityMsg='';
 (async()=>{
   try{
     const D={};D.ways=await overpass('streets',QUERIES.ways,.02,.25);D.buildings=await overpass('buildings',QUERIES.buildings,.25,.45);D.land=await overpass('coast and parks',QUERIES.land,.45,.52);
-    try{D.city=await loadCity(.52,.61);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
+    try{D.city=await loadCity(.52,.58);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
+    D.tiles=await loadTiles(.58,.62);
     await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();
     if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}

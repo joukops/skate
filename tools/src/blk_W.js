@@ -1,7 +1,7 @@
 /* =====================================================================
    RENDERER, SKY, CLOUDS, WEATHER
    ===================================================================== */
-const renderer=new THREE.WebGPURenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance',forceWebGL:/[#&?]gl=webgl/.test(location.href)});
+const renderer=new THREE.WebGPURenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance',forceWebGL:!/[#&?]gl=webgpu/.test(location.href)});
 await renderer.init();
 const BACKEND=renderer.backend.isWebGPUBackend?'WebGPU':'WebGL 2';
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.55;

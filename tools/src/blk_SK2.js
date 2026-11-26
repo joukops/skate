@@ -57,7 +57,7 @@ for(const el of [elL,elR]){add(new THREE.CylinderGeometry(.034,.036,.09,12),padM
   add(capsule(.013,.03,8),padM,el,.03*(el===elL?1:-1),-.27,-.02).rotation.z=.6*(el===elL?1:-1)}
 const [hipL,knL]=limb(pelvis,-.088,-.01,.44,.42,.082,.056,pants,pants),[hipR,knR]=limb(pelvis,.088,-.01,.44,.42,.082,.056,pants,pants);
 /* inline skate: side profile of the hard-shell boot (u = from heel to toe, y = up from the sole) */
-function bootGeo(){const s=new THREE.Shape();const P=[[0,0],[.285,0],[.3,.02],[.298,.05],[.27,.075],[.2,.1],[.15,.135],[.13,.2],[.13,.27],[.115,.3],[.01,.31],[-.025,.29],[-.03,.2],[-.025,.1],[-.03,.04],[-.015,.008]];
+function bootGeo(P){const s=new THREE.Shape();
   s.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length;i++)s.lineTo(P[i][0],P[i][1]);s.closePath();
   const g=new THREE.ExtrudeGeometry(s,{depth:.07,bevelEnabled:true,bevelThickness:.016,bevelSize:.014,bevelSegments:4,curveSegments:8});g.translate(0,0,-.035);
   /* narrow the toe and the cuff a little */
@@ -68,28 +68,40 @@ function frameGeo(){const s=new THREE.Shape();s.moveTo(-.035,0);s.lineTo(.335,0)
   const g=new THREE.ExtrudeGeometry(s,{depth:.006,bevelEnabled:true,bevelThickness:.001,bevelSize:.001,bevelSegments:1});return g}
 function wheelGeo(){/* 100 mm urethane tyre, 24 mm wide, rounded profile */const R=.05,w=.012,pts=[];for(let i=0;i<=12;i++){const a=-Math.PI/2+i/12*Math.PI;pts.push(new THREE.Vector2(R-.012+Math.cos(a)*.012,Math.sin(a)*w))}
   pts.unshift(new THREE.Vector2(.022,-w));pts.push(new THREE.Vector2(.022,w));const g=new THREE.LatheGeometry(pts,32);g.rotateZ(Math.PI/2);return g}
-const BOOT=bootGeo(),FRAME=frameGeo(),WHEEL=wheelGeo(),HUB=new THREE.CylinderGeometry(.022,.022,.026,6).rotateZ(Math.PI/2),BEAR=new THREE.CylinderGeometry(.0095,.0095,.03,12).rotateZ(Math.PI/2),SPOKE=new THREE.BoxGeometry(.024,.004,.03);
+/* the shoe stays on the frame; the shaft above the ankle is a separate piece that hinges with the shin */
+const BOOT=bootGeo([[0,0],[.285,0],[.3,.02],[.298,.05],[.27,.075],[.2,.1],[.15,.135],[.135,.165],[-.028,.165],[-.025,.1],[-.03,.04],[-.015,.008]]),
+  SHAFT=bootGeo([[.075,.02],[.07,.08],[.07,.15],[.055,.18],[-.05,.19],[-.085,.17],[-.09,.08],[-.088,.02]]),FRAME=frameGeo(),WHEEL=wheelGeo(),HUB=new THREE.CylinderGeometry(.022,.022,.026,6).rotateZ(Math.PI/2),BEAR=new THREE.CylinderGeometry(.0095,.0095,.03,12).rotateZ(Math.PI/2),SPOKE=new THREE.BoxGeometry(.024,.004,.03);
+const shoeM=M({color:lin('#2c3036'),roughness:.7}),shoeS=M({color:lin('#e9e6df'),roughness:.8});
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
-  /* boot: heel at +z, toe at -z (forward); sole 8 cm below the ankle */
+  /* sneaker: heel at +z, toe at -z; sole 8.5 cm below the ankle */
   const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
-  add(BOOT,shellM,sk3,0,0,0);
-  add(new THREE.BoxGeometry(.33,.012,.09),soleM,sk3,.135,-.004,0);
-  const cg=new THREE.Group();cg.position.set(.06,.12,0);sk3.add(cg);CUFF.push(cg);   /* the cuff hinges at the ankle and follows the shin */
-  const cuff=add(new THREE.CylinderGeometry(.062,.066,.12,18,1,true),shellA,cg,0,.12,0);cuff.scale.set(1.12,1,.95);cuff.material.side=THREE.DoubleSide;
-  add(new THREE.TorusGeometry(.06,.012,8,20),linerM,cg,-.005,.185,0).rotation.x=Math.PI/2;
-  add(new THREE.BoxGeometry(.012,.02,.13),strapM,cg,.055,.13,0).rotation.z=.3;   /* power strap */
-  add(new THREE.BoxGeometry(.03,.012,.012),buckleM,cg,.06,.142,-.055);
-  add(new THREE.BoxGeometry(.11,.012,.115),strapM,sk3,.17,.115,0).rotation.z=-.55; /* instep buckle */
-  add(new THREE.BoxGeometry(.028,.01,.012),buckleM,sk3,.17,.125,-.06);
-  for(let i=0;i<4;i++)add(new THREE.BoxGeometry(.004,.003,.07),M({color:lin('#8a8f95'),roughness:.6}),sk3,.215+i*.02,.092-i*.008,0).rotation.z=-.45;   /* laces */
-  /* frame: two aluminium rails, mounts under heel and toe */
-  for(const zz of [-.022,.016])add(FRAME,frameM,sk3,0,-.05,zz);
-  add(new THREE.BoxGeometry(.05,.03,.04),frameM,sk3,.03,-.02,0);add(new THREE.BoxGeometry(.05,.03,.04),frameM,sk3,.24,-.02,0);
-  /* four 100 mm wheels; axles 5 cm above the ground */
-  for(let w=0;w<4;w++){const hub=new THREE.Group();hub.position.set(-.012+w*.103,-.05-.008,0);sk3.add(hub);
-    const t=add(WHEEL,tyreM,hub,0,0,0);t.rotation.y=Math.PI/2;
-    const h=add(HUB,hubM,hub,0,0,0);h.rotation.y=Math.PI/2;
-    for(let k=0;k<5;k++){const sp=add(SPOKE,hubM,hub,0,0,0);sp.rotation.z=k/5*Math.PI;sp.position.set(0,0,0)}
-    add(BEAR,bearM,hub,0,0,0).rotation.y=Math.PI/2;
-    WHEELS.push(hub);SPIN.push(hub)}}
+  add(BOOT,shoeM,sk3,0,.012,0).scale.set(1,.8,1.05);add(new THREE.BoxGeometry(.31,.022,.095),shoeS,sk3,.14,.006,0);
+  for(let i=0;i<4;i++)add(new THREE.BoxGeometry(.004,.003,.06),shoeS,sk3,.17+i*.022,.105-i*.01,0).rotation.z=-.45;   /* laces */
+  CUFF.push(new THREE.Group())}
+/* powered skateboard: 98 cm deck, grip tape, two trucks, four 90 mm wheels, belt drives on the rear truck, battery under the deck */
+const board=new THREE.Group();sk.add(board);const DECKY=.128;
+{const deckS=new THREE.Shape(),L=.49,W=.125;deckS.moveTo(-W,-L+.1);deckS.quadraticCurveTo(-W,-L,0,-L);deckS.quadraticCurveTo(W,-L,W,-L+.1);deckS.lineTo(W,L-.1);deckS.quadraticCurveTo(W,L,0,L);deckS.quadraticCurveTo(-W,L,-W,L-.1);deckS.closePath();
+ const dg=new THREE.ExtrudeGeometry(deckS,{depth:.014,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:2,curveSegments:10});dg.rotateX(Math.PI/2);
+ {const p=dg.attributes.position;for(let i=0;i<p.count;i++){const z=p.getZ(i),k=Math.max(0,Math.abs(z)-.36);p.setY(i,p.getY(i)+k*k*3.2+.0)}dg.computeVertexNormals()}   /* kicktails */
+ const woodM=M({color:lin('#c79a5e'),roughness:.6}),gripM=M({color:lin('#1b1c1e'),roughness:.95});
+ const deck=add(dg,woodM,board,0,DECKY,0);
+ const gg=dg.clone();const grip=add(gg,gripM,board,0,DECKY+.0012,0);grip.scale.set(.985,.2,.99);
+ const trM=M({color:lin('#9aa0a6'),roughness:.35,metalness:.85}),bushM=M({color:lin('#e8b321'),roughness:.6}),urM=M({color:lin('#f0ede2'),roughness:.45}),coreM=M({color:lin('#2a2c30'),roughness:.4}),
+   batM=M({color:lin('#26282b'),roughness:.5,metalness:.2}),motM=M({color:lin('#3a3d42'),roughness:.3,metalness:.8}),ledM=M({color:lin('#3fb6ff'),emissive:lin('#2a8fff'),emissiveIntensity:2,roughness:.4});
+ for(const tz of [-.31,.31]){add(new THREE.BoxGeometry(.065,.012,.09),trM,board,0,DECKY-.02,tz);                    /* baseplate */
+   add(new THREE.CylinderGeometry(.018,.018,.03,10),bushM,board,0,DECKY-.04,tz);                                    /* bushing */
+   add(new THREE.BoxGeometry(.2,.026,.03),trM,board,0,.052,tz);                                                    /* hanger */
+   add(new THREE.CylinderGeometry(.005,.005,.27,8).rotateZ(Math.PI/2),trM,board,0,.045,tz);                        /* axle */
+   for(const sx of [-1,1]){const hub=new THREE.Group();hub.position.set(sx*.118,.045,tz);board.add(hub);
+     const wg=new THREE.CylinderGeometry(.045,.045,.05,24).rotateZ(Math.PI/2);add(wg,urM,hub);
+     add(new THREE.CylinderGeometry(.024,.024,.052,10).rotateZ(Math.PI/2),coreM,hub);
+     for(let k=0;k<3;k++)add(new THREE.BoxGeometry(.054,.006,.03),coreM,hub).rotation.x=k*Math.PI/3;
+     WHEELS.push(hub);SPIN.push(hub)}}
+ for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.027,.027,.055,14).rotateX(Math.PI/2),motM,board,sx*.075,.06,.38);   /* motors behind the rear truck */
+   add(new THREE.BoxGeometry(.012,.07,.1),M({color:lin('#202224'),roughness:.6}),board,sx*.15,.05,.35)}                     /* belt covers */
+ add(new THREE.BoxGeometry(.17,.032,.5),batM,board,0,DECKY-.03,0);                 /* battery enclosure */
+ add(new THREE.BoxGeometry(.004,.008,.42),ledM,board,.087,DECKY-.035,0);add(new THREE.BoxGeometry(.004,.008,.42),ledM,board,-.087,DECKY-.035,0)}
+/* throttle remote in the back hand */
+add(new THREE.BoxGeometry(.035,.09,.03),M({color:lin('#151618'),roughness:.4}),elR,0,-.3,-.02);
+pelvis.rotation.y=-Math.PI/2;   /* stands sideways on the board, facing the right-hand side (regular stance: left foot at the nose) */

@@ -93,7 +93,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <div id="osm">© OpenStreetMap contributors · Helsinki 3D, CC BY 4.0</div>
 </div>
 <div id="joy" aria-label="Joystick: push up to skate, sideways to steer, double-tap to jump"><div id="knob"></div></div>
-<div id="joyHint">Push up to skate<br>Sideways to steer<br>Pull back to brake · backwards<br>Double-tap to jump</div>
+<div id="joyHint">Push up for throttle<br>Sideways to steer<br>Pull back to brake · backwards<br>Double-tap to jump</div>
 <div id="mouseHint">Click to steer with the mouse · W/S skate &amp; brake · Space jump · Esc frees the mouse</div>
 <div id="pops"></div>
 <div id="diag"></div>
@@ -105,13 +105,13 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <p class="lede" id="lede">Every street, path, bridge and building between Vallila, Kallio, Hakaniemi, Sörnäinen, Hermanni, Kalasatama and Korkeasaari, built from OpenStreetMap. Skate your spots, roll over Merihaansilta, Finkensilta and Kruunuvuorensilta, and session the Suvilahti DIY.</p>
   <div id="status">Starting…</div><div id="bar"><i></i></div>
   <div class="ctrl" id="ctrlTouch">
-    <div><b>Joystick up</b><span>Push further to skate faster. Pull down to brake, keep holding to skate backwards.</span></div>
-    <div><b>Sideways</b><span>Steer. Smooth asphalt is fast, grass and gravel slow.</span></div>
+    <div><b>Joystick up</b><span>Push further for more throttle. Pull down to brake, keep holding to reverse slowly.</span></div>
+    <div><b>Sideways</b><span>Steer. Smooth asphalt is fast, grass rolls just as well.</span></div>
     <div><b>Double-tap</b><span>Jump: ollie up kerbs, ledges and DIY obstacles.</span></div>
   </div>
   <div class="ctrl" id="ctrlMouse">
     <div><b>Mouse</b><span>Click the game, then move sideways to steer and up/down to tilt the view.</span></div>
-    <div><b>W / ↑ · S / ↓</b><span>Push. Hold back to brake, then to skate backwards.</span></div>
+    <div><b>W / ↑ · S / ↓</b><span>Throttle. Hold back to brake, then to reverse.</span></div>
     <div><b>A D / ← → · Space</b><span>Steer as well · jump. Esc frees the mouse.</span></div>
   </div>
   <div class="row seg" role="group" aria-label="Start at" id="startSeg"><span class="lbl">Start at</span></div>
@@ -442,7 +442,7 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const built=inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0;
       if(onBeach(mx-nx*2,mz-nz*2)||onBeach(mx+nx*2,mz+nz*2)){const o=9;quad(Sd,[a[0]-nx*1.5,T(a[0]-nx*1.5,a[1]-nz*1.5)+.02,a[1]-nz*1.5],[b[0]-nx*1.5,T(b[0]-nx*1.5,b[1]-nz*1.5)+.02,b[1]-nz*1.5],[b[0]+nx*o,SEA-.7,b[1]+nz*o],[a[0]+nx*o,SEA-.7,a[1]+nz*o],u0,u1,0,1)}
       else if(built){const ta=Math.max(SEA+.4,T(a[0]-nx*.8,a[1]-nz*.8))+.15,tb=Math.max(SEA+.4,T(b[0]-nx*.8,b[1]-nz*.8))+.15;quad(Q,[a[0],ta,a[1]],[b[0],tb,b[1]],[b[0],SEA-1.2,b[1]],[a[0],SEA-1.2,a[1]],u0,u1,0,(ta-SEA+1.2)/4);
-        quad(C,[a[0]-nx*.6,ta,a[1]-nz*.6],[b[0]-nx*.6,tb,b[1]-nz*.6],[b[0]+nx*.25,tb,b[1]+nz*.25],[a[0]+nx*.25,ta,a[1]+nz*.25],u0,u1,0,.2);
+        quad(C,[a[0]-nx*1.1,ta,a[1]-nz*1.1],[b[0]-nx*1.1,tb,b[1]-nz*1.1],[b[0]+nx*.35,tb,b[1]+nz*.35],[a[0]+nx*.35,ta,a[1]+nz*.35],u0,u1,0,.3);
         quad(C,[a[0]+nx*.25,ta,a[1]+nz*.25],[b[0]+nx*.25,tb,b[1]+nz*.25],[b[0]+nx*.25,ta-.4,b[1]+nz*.25],[a[0]+nx*.25,ta-.4,a[1]+nz*.25],u0,u1,0,.1)}
       else{const o=4.5;quad(Rk,[a[0]-nx*1.2,T(a[0]-nx*1.2,a[1]-nz*1.2)+.02,a[1]-nz*1.2],[b[0]-nx*1.2,T(b[0]-nx*1.2,b[1]-nz*1.2)+.02,b[1]-nz*1.2],[b[0]+nx*o,SEA-.6,b[1]+nz*o],[a[0]+nx*o,SEA-.6,a[1]+nz*o],u0,u1,0,1)}}}
   const mkM=(A,mat)=>{if(!A.p.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.castShadow=true;scene.add(m)};
@@ -513,7 +513,9 @@ const inPlantBox=(x,z)=>x>-360&&x<-190&&z>40&&z<210;
 const PATHW=3,isPathT=h=>/^(footway|cycleway|path|bridleway|track)$/.test(h||'');
 function wayW(t,HW,dflt){if(isPathT(t.highway))return PATHW;const w=t.width&&num(t.width)>0?num(t.width):0;return w||HW[t.highway]||dflt}
 function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
-  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const k=j*nx+i,x=x0+i*cs,z=z0+j*cs;if(isWater(x,z)){let edge=false;for(const[a,b]of [[cs,0],[-cs,0],[0,cs],[0,-cs]])if(!isWater(x+a,z+b))edge=true;H[k]=Math.min(H[k],edge?SEA-.25:SEA-1.6)}else H[k]=Math.max(H[k],SEA+.5)}
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const k=j*nx+i,x=x0+i*cs,z=z0+j*cs;if(isWater(x,z)){let edge=-1e9;for(const[a,b]of [[cs,0],[-cs,0],[0,cs],[0,-cs]])if(!isWater(x+a,z+b))edge=Math.max(edge,H[k+(a?Math.sign(a):Math.sign(b)*nx)]);
+      /* next to a raised shore the ground stays level out past the waterline and is cut off there, so the quay wall stands vertical; low shores slope under the water */
+      H[k]=edge>SEA+1.2?Math.max(SEA+.5,edge):Math.min(H[k],edge>-1e8?SEA-.25:SEA-1.6)}else H[k]=Math.max(H[k],SEA+.5)}
   const N=nx*nz,SW=new Float32Array(N),SH=new Float32Array(N),MX=new Float32Array(N),gentle=/footway|cycleway|path|pedestrian|track|bridleway|living_street|service/;
   for(const e of ways){const t=e.tags||{};if(!t.highway||isTunnel(t)||t.area==='yes'||t.highway==='steps'||t.bridge&&t.bridge!=='no')continue;
     const P0=(e.geometry||[]).filter(Boolean).map(g=>PJ(g.lat,g.lon));if(P0.length<2)continue;const P=dens(P0,2);const n=P.length;
@@ -725,7 +727,7 @@ function buildWorld(D){
      geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));geo.setIndex(new THREE.BufferAttribute(idx,1))}
    else{const N=UL?560:FA?260:420;geo=new THREE.PlaneGeometry(X1-X0,Z1-Z0,N,N);geo.rotateX(-Math.PI/2);geo.translate((X0+X1)/2,0,(Z0+Z1)/2);const p=geo.attributes.position,uv=geo.attributes.uv;
      for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i);p.setY(i,0);uv.setXY(i,(x-X0)*GS/GT,1-(z-Z0)*GS/GT)}}
-    geo.computeVertexNormals();diyHoleStd(groundMat);if(!TER)seaHole(groundMat);groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
+    geo.computeVertexNormals();diyHoleStd(groundMat);seaHole(groundMat);groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
   {const ring=new THREE.Mesh(new THREE.RingGeometry(3200,14000,48,1),M({color:lin('#56685a'),roughness:1}));ring.rotation.x=-Math.PI/2;ring.position.set((X0+X1)/2,-.5,(Z0+Z1)/2);scene.add(ring)}
   /* sea */
   {const wg=new THREE.PlaneGeometry(14000,14000);if(THREE.Water){try{water=new THREE.Water(wg,{waterNormals:tex(waterNormals(),1,1,false),sunDirection:new THREE.Vector3(0,1,0),sunColor:0xffffff,waterColor:0x1b3d4a,distortionScale:2,size:1.6,resolution:UL?.5:.25});water.rotation.x=-Math.PI/2;water.position.set((X0+X1)/2,SEA,(Z0+Z1)/2);{const f0=water.material.fragmentNode;water.material.fragmentNode=Fn(()=>{If(diyIn(positionWorld.xz),()=>{Discard()});const dd=TSL.positionView.z.negate().mul(FOGD),k=float(1).sub(TSL.exp(dd.mul(dd).negate()));return vec4(mix(f0.rgb,FOGC,k),f0.a)})();water.material.needsUpdate=true}scene.add(water)}catch(e){water=null;report('water: '+e.message)}}
@@ -787,15 +789,15 @@ function buildWorld(D){
      for(const c of ch){c.peak=peak;c.name=named||c.names[0]||[...names][0]||''}}
    /* LOD3 bridge models: the deck height under each point of the mapped path, from the model's upward faces */
    if(D.bridgeGeo){const BT=new Map(),bk=(i,j)=>i*100003+j;for(const{F,I}of D.bridgeGeo)for(let t=0;t<I.length;t+=3){const a=I[t]*3,b=I[t+1]*3,c=I[t+2]*3;
-       const ux=F[b]-F[a],uy=F[b+1]-F[a+1],uz=F[b+2]-F[a+2],vx=F[c]-F[a],vy=F[c+1]-F[a+1],vz=F[c+2]-F[a+2],nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,nl=Math.hypot(nx,ny,nz);if(nl<1e-6||Math.abs(ny)/nl<.8)continue;
+       const ux=F[b]-F[a],uy=F[b+1]-F[a+1],uz=F[b+2]-F[a+2],vx=F[c]-F[a],vy=F[c+1]-F[a+1],vz=F[c+2]-F[a+2],nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,nl=Math.hypot(nx,ny,nz);if(nl<.1||Math.abs(ny)/nl<.8)continue;   /* nl is twice the area: skip tiny slivers */
        const tr=[F[a],F[a+1],F[a+2],F[b],F[b+1],F[b+2],F[c],F[c+1],F[c+2]];for(let i=Math.floor(Math.min(F[a],F[b],F[c])/4);i<=Math.floor(Math.max(F[a],F[b],F[c])/4);i++)for(let j=Math.floor(Math.min(F[a+2],F[b+2],F[c+2])/4);j<=Math.floor(Math.max(F[a+2],F[b+2],F[c+2])/4);j++){const k=bk(i,j);if(!BT.has(k))BT.set(k,[]);BT.get(k).push(tr)}}
      D.deckAt=(x,z,est)=>{const L2=BT.get(bk(Math.floor(x/4),Math.floor(z/4)));if(!L2)return null;let best=null;for(const q of L2){const d=(q[5]-q[8])*(q[0]-q[6])+(q[6]-q[3])*(q[2]-q[8]);if(Math.abs(d)<1e-9)continue;
          const l1=((q[5]-q[8])*(x-q[6])+(q[6]-q[3])*(z-q[8]))/d,l2=((q[8]-q[2])*(x-q[6])+(q[0]-q[6])*(z-q[8]))/d,l3=1-l1-l2;if(l1<-.001||l2<-.001||l3<-.001)continue;const h=l1*q[1]+l2*q[4]+l3*q[7];
-         if(Math.abs(h-est)<14&&(best===null||Math.abs(h-est)<Math.abs(best-est)))best=h}return best}}
+         if(Math.abs(h-est)<14&&(best===null||h>best))best=h}return best}}   /* the highest walkable face: the deck, not the girders under it */
    for(const c of chains){c.hs=c.keys.map(k=>H.get(k)||0);
      if(D.deckAt&&c.peak>=.9){const S=c.P.map((p,i)=>D.deckAt(p[0],p[1],c.hs[i]));const n=S.filter(v=>v!==null).length;
        if(n>=c.P.length*.6){let last=null;for(let i=0;i<S.length;i++){if(S[i]!==null)last=S[i];else if(last!==null){let j=i;while(j<S.length&&S[j]===null)j++;S[i]=j<S.length?lerp(last,S[j],1/(j-i+1)):null}}
-         for(let i=0;i<S.length;i++)if(S[i]===null)S[i]=c.hs[i];c.hs=S.map(v=>v+.03);c.lod3=true}}if(c.name==='Kruunuvuorensilta'&&!c.base.rail&&(!longest||c.L>longest.L))longest=c;addDeck(c.P,c.hs,c.base.w,c.name,c.base.rail)}
+         for(let i=0;i<S.length;i++)if(S[i]===null)S[i]=c.hs[i];c.hs=S.map(v=>v+.06);c.lod3=true}}if(c.name==='Kruunuvuorensilta'&&!c.base.rail&&(!longest||c.L>longest.L))longest=c;addDeck(c.P,c.hs,c.base.w,c.name,c.base.rail)}
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
   for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.07)}
   /* ground ribbons */
@@ -1153,9 +1155,9 @@ function blocked(x,z){
   if(inDIY(x,z))return treeHit(x,z)?5:0;if(diyWall(x,z))return 2;const s=surf(x,z);if(s===2)return 2;if(s===1)return 1;if(s===5)return 2;
   if(treeHit(x,z))return 5;return 0}
 const nearWater=(x,z)=>{for(let a=0;a<8;a++)if(isWater(x+Math.cos(a*.785)*6,z+Math.sin(a*.785)*6))return true;return false};
-function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;const b=blocked(nx,nz);if(b)return b;if(inDIY(Pl.x,Pl.z)&&!inDIY(nx,nz)&&Pl.y>DIYB+.3)return 6;
+function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;const b=blocked(nx,nz);if(b&&!(b!==1&&blocked(Pl.x,Pl.z)))return b;   /* already inside an obstacle's edge: let the skater move out */if(inDIY(Pl.x,Pl.z)&&!inDIY(nx,nz)&&Pl.y>DIYB+.3)return 6;
   const g=G(nx,nz);
-  if(!Pl.air){if(g-Pl.y>.19||wallAt(nx,nz,fx,fz,false))return 6}else if(wallAt(nx,nz,fx,fz,true))return 6;
+  if(!Pl.air){if(g-Pl.y>.19||wallAt(nx,nz,fx,fz,false)&&!wallAt(Pl.x,Pl.z,fx,fz,false))return 6}else if(wallAt(nx,nz,fx,fz,true))return 6;
   if(TER&&!Pl.air&&Math.abs(g-T(nx,nz))<.3&&(g<SEA+.3||T(nx,nz)-T(nx+fx*.6,nz+fz*.6)>.2&&nearWater(nx,nz)))return 1;
   Pl.x=nx;Pl.z=nz;
   if(!Pl.air){if(g<Pl.y-.16){Pl.air=true;Pl.vy=Math.min(Pl.gvy,0)}else if(g<Pl.y-.035&&Pl.gvy>1.2){Pl.air=true;Pl.vy=Pl.gvy}else Pl.y=g}
@@ -1167,7 +1169,7 @@ function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;const b=blocked(nx,nz
    - heel brake 3.5 m/s^2; backwards C-cuts at lower power, max ~5.5 m/s
    - inline skates roll only along their heading: turning curvature is limited by grip/lean
      (lateral accel <= g*tan(50°)) and by geometry (radius >= 3 m, pivoting allowed at walking pace); lean = atan(v*omega/g) */
-const SK={m:75,P:300,Pb:105,brake:3.5,cda:.45,rho:1.2,maxLean:.87,rmin:3,pivot:1.8,vback:4.2};
+const SK={m:83,P:1500,F:260,vmax:11.1,brake:3.2,cda:.45,rho:1.2,maxLean:.6,rmin:2.2,pivot:1.4,vback:2.5};   /* rider + powered board: 1.5 kW belt drive, ~40 km/h, regenerative brake, slow reverse */
 function updatePlayer(dt){
   YREF=Pl.y;
   const k=inp.keys,up=k.arrowup||k.w,dn=k.arrowdown||k.s,lf=k.arrowleft||k.a,rt=k.arrowright||k.d;let fwd=inp.jy,turn=inp.jx,hdgWant=null;
@@ -1177,7 +1179,7 @@ function updatePlayer(dt){
   else{Pl.mYaw=null;if(up)fwd=1;if(dn)fwd=-1;if(lf)turn=-1;if(rt)turn=1}   /* joystick or keys without the mouse: steer */
   inp.fwd+=(fwd-inp.fwd)*Math.min(1,dt*8);inp.turn+=(turn-inp.turn)*Math.min(1,dt*7);
   const du=deckUnder(Pl.x,Pl.z,Pl.y);Pl.deck=du?du.d:null;
-  const sf=surf(Pl.x,Pl.z),paved=sf===4||!!du||inDIY(Pl.x,Pl.z);
+  const sf=surf(Pl.x,Pl.z),paved=true;   /* every surface rolls the same */
   const g=9.81,av=Math.abs(Pl.v);
   /* --- steering: desired yaw rate, limited by what wheels and lean allow at this speed --- */
   const kMax=Math.min(1/SK.rmin,g*Math.tan(SK.maxLean)/Math.max(.01,av*av)),wMax=Math.max(av*kMax*(Pl.air?.0:1),av<1.6?SK.pivot*(1-av/1.6*.5):0)+(Pl.air?1.2:0);
@@ -1190,10 +1192,10 @@ function updatePlayer(dt){
   /* --- longitudinal forces --- */
   let a=0;Pl.mode='coast';
   if(!Pl.air){
-    if(inp.fwd>.05){ if(Pl.v<-.3){a+=SK.brake*.7*inp.fwd;Pl.mode='brakeB'}else{const stride=1+.55*Math.sin(Pl.ph*2);a+=inp.fwd*SK.P/(SK.m*Math.max(1.4,Pl.v))*stride*(paved?1:.45);Pl.mode='push'}}
-    else if(inp.fwd<-.05){ if(Pl.v>.35){a-=SK.brake*(-inp.fwd);Pl.mode='brake'}else if(Pl.v>-SK.vback){const stride=1+.5*Math.sin(Pl.ph*2);a-=(-inp.fwd)*SK.Pb/(SK.m*Math.max(1.2,-Pl.v))*stride*(paved?1:.4);Pl.mode='back'}}
+    if(inp.fwd>.05){ if(Pl.v<-.3){a+=SK.brake*inp.fwd;Pl.mode='brakeB'}else if(Pl.v<SK.vmax){a+=inp.fwd*Math.min(SK.F,SK.P/Math.max(.5,Pl.v))/SK.m*Math.min(1,(SK.vmax-Pl.v)*2);Pl.mode='push'}}   /* throttle */
+    else if(inp.fwd<-.05){ if(Pl.v>.35){a-=SK.brake*(-inp.fwd);Pl.mode='brake'}else if(Pl.v>-SK.vback){a-=(-inp.fwd)*1.2;Pl.mode='back'}}   /* regen brake, then reverse */
     const grade=(G(Pl.x+fx*.3,Pl.z+fz*.3)-G(Pl.x-fx*.3,Pl.z-fz*.3))/.6;Pl.grade=grade;a-=g*Math.sin(Math.atan(clamp(grade,-2,2)));
-    const crr=paved?(cur.wet>.5?.02:.012):.12,drag=.5*SK.rho*SK.cda*Pl.v*Pl.v/SK.m;
+    const crr=cur.wet>.5?.022:.015,drag=.5*SK.rho*SK.cda*Pl.v*Pl.v/SK.m;
     const res=crr*g+drag+(Math.abs(Pl.w)*av*.04);   /* carving scrubs a little speed */
     if(Math.abs(Pl.v)>.02)a-=Math.sign(Pl.v)*res;else if(Math.abs(a)<crr*g)a=0;
     const nv=Pl.v+a*dt;if(Pl.mode==='brake'&&nv<0||Pl.mode==='brakeB'&&nv>0)Pl.v=0;else if(Pl.mode==='coast'&&Math.sign(nv)!==Math.sign(Pl.v)&&Math.abs(a)<.6)Pl.v=0;else Pl.v=nv}
@@ -1212,6 +1214,7 @@ function updatePlayer(dt){
       if(h){hit=h;break}continue}
     if(h){hit=h;break}moved+=sl}
   const fresh=Pl.wallT<=0;if(worst>0||hit===6||hit===2||hit===5||hit===7)Pl.wallT=.25;
+  if((hit===6||hit===2||hit===5)&&!blocked(Pl.x-mvx*.12,Pl.z-mvz*.12)){Pl.x-=mvx*.12;Pl.z-=mvz*.12}   /* bounce off a little so the skater is not left touching it */
   if(hit===1){if(Pl.warn<=0){pop('Mereen? Ei kiitos!');Pl.warn=2}Pl.v*=.1;Pl.avx*=.1;Pl.avz*=.1}
   else if(fresh&&(hit||worst>0)){const c=hit?Math.max(worst,.9):worst;if(c>.75&&Math.abs(Pl.v)>5&&Pl.hitT<=0){pop('Auts!');Pl.hitT=1}Pl.v*=1-.8*c*c;Pl.avx*=1-.8*c*c;Pl.avz*=1-.8*c*c}
   else if(hit){Pl.v=clamp(Pl.v,-1.5,1.5)}
@@ -1236,31 +1239,31 @@ function animateSkater(dt){
   if(Pl.visY===null||Pl.air||Math.abs(Pl.visY-Pl.y)>.6)Pl.visY=Pl.y;else Pl.visY=lerp(Pl.visY,Pl.y,Math.min(1,dt*22));sk.position.set(Pl.x,Pl.visY,Pl.z);
   if(Pl.air)tmpN.set(0,1,0);else{const e=.3,c=G(Pl.x,Pl.z),f=v=>Math.abs(v-c)>.2?0:v-c;tmpN.set(f(G(Pl.x-e,Pl.z))-f(G(Pl.x+e,Pl.z)),2*e,f(G(Pl.x,Pl.z-e))-f(G(Pl.x,Pl.z+e))).normalize()}
   surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);qL.setFromAxisAngle(ZV,Pl.lean);sk.quaternion.copy(qA).multiply(qY).multiply(qL);
-  const ln=Math.abs(Pl.lean),crouch=.25+.35*st+.5*ln;   /* deeper knees in fast carves */
-  const T=(o,x,y,z,k)=>{o.rotation.x+=(x-o.rotation.x)*k;o.rotation.y+=(y-o.rotation.y)*k;o.rotation.z+=(z-o.rotation.z)*k};const kk=Math.min(1,dt*12);
-  if(md==='air'){T(hipL,.9,0,-.08,kk);T(hipR,.9,0,.08,kk);T(knL,-1.25,0,0,kk);T(knR,-1.25,0,0,kk);T(shL,.3,0,-.9,kk);T(shR,.3,0,.9,kk);T(torso,-.3,0,0,kk);T(head,.25,0,0,kk)}
-  else if(md==='push'){const pl=Math.max(0,-s),pr=Math.max(0,s);   /* the pushing leg extends out to the side and back */
-    T(hipL,crouch*.6-pl*.35*st,0,-pl*.55*st-.04,kk);T(hipR,crouch*.6-pr*.35*st,0,pr*.55*st+.04,kk);
-    T(knL,-(crouch+.3*(1-pl)),0,0,kk);T(knR,-(crouch+.3*(1-pr)),0,0,kk);
-    T(shL,-s*.9*st+.15,0,-.12-.25*st*Math.max(0,s),kk);T(shR,s*.9*st+.15,0,.12+.25*st*Math.max(0,-s),kk);
-    T(torso,-(.35+.25*st),-s*.18*st,s*.08*st,kk);T(head,.32+.2*st,0,0,kk)}
-  else if(md==='back'){const c=Math.sin(Pl.ph);   /* C-cuts: hips sway, feet sweep out and in, looking over the shoulder */
-    T(hipL,crouch*.7,0,-.18-.2*Math.max(0,c),kk);T(hipR,crouch*.7,0,.18+.2*Math.max(0,-c),kk);T(knL,-(crouch+.35),0,0,kk);T(knR,-(crouch+.35),0,0,kk);
-    T(shL,.2,0,-.35,kk);T(shR,.2,0,.35,kk);T(torso,-.22,c*.18,0,kk);T(head,.15,1.1*(Pl.w>=0?1:-1),0,kk)}
-  else if(md==='brake'){   /* heel brake: braking skate ahead, weight back */
-    T(hipL,crouch*.8,0,-.05,kk);T(hipR,.75,0,.03,kk);T(knL,-(crouch+.45),0,0,kk);T(knR,-.12,0,0,kk);T(shL,-.35,0,-.45,kk);T(shR,-.35,0,.45,kk);T(torso,-.05,0,0,kk);T(head,.2,0,0,kk)}
-  else if(md==='brakeB'){T(hipL,.2,0,-.25,kk);T(hipR,.2,0,.25,kk);T(knL,-.9,0,0,kk);T(knR,-.9,0,0,kk);T(shL,.1,0,-.5,kk);T(shR,.1,0,.5,kk);T(torso,-.15,0,0,kk);T(head,.1,.9,0,kk)}
-  else{   /* gliding: knees bent, skates parallel, slight scissor in curves */
-    const sc=Pl.lean*.35;T(hipL,crouch*.6+sc,0,-.06,kk);T(hipR,crouch*.6-sc,0,.06,kk);T(knL,-(crouch+.35),0,0,kk);T(knR,-(crouch+.35),0,0,kk);
-    T(shL,.2,0,-.25-ln*.6,kk);T(shR,.2,0,.25+ln*.6,kk);T(torso,-(.3+.2*st),Pl.lean*.25,0,kk);T(head,.3+.12*st,-Pl.lean*.3,0,kk)}
+  const ln=Math.abs(Pl.lean),thr=md==='push'?inp.fwd:md==='brake'?-1:0,crouch=md==='air'?.55:.12+.22*st+.55*ln+(md==='brake'?.12:0);
+  const T=(o,x,y,z,k)=>{o.rotation.x+=(x-o.rotation.x)*k;o.rotation.y+=(y-o.rotation.y)*k;o.rotation.z+=(z-o.rotation.z)*k};const kk=Math.min(1,dt*10);
+  /* upper body: faces the toe side, looks toward the nose, leans into the throttle and back against the brake */
+  Pl.acc=lerp(Pl.acc||0,thr,Math.min(1,dt*3));
+  pelvis.position.x+=((-Pl.lean*.12)-pelvis.position.x)*kk;pelvis.position.z+=(-Pl.acc*.05-pelvis.position.z)*kk;
+  pelvis.position.y+=((DECKY+.085+.84-crouch*.3)-pelvis.position.y)*kk;
+  T(torso,-(.12+.12*st+crouch*.25),.28,Pl.acc*.14,kk);T(head,.12,1.15,-Pl.acc*.05,kk);
+  T(shL,.15+ln*.2,0,-(.3+ln*.7+st*.15),kk);T(shR,.55,0,.22+ln*.3,kk);
+  /* legs: two-bone IK so the feet stay planted on the deck, knees toward the toe side */
+  sk.updateMatrixWorld(true);
+  for(let i=0;i<2;i++){const hip=i?hipR:hipL,kn=i?knR:knL,zf=i?.21:-.21;
+    TV.set(0,DECKY+.085,zf).applyMatrix4(sk.matrixWorld);pelvis.worldToLocal(TV);
+    IKd.copy(TV).sub(hip.position);const Lt=.44,Ls=.42,dist=clamp(IKd.length(),.25,Lt+Ls-.004);IKd.normalize();
+    const kb=Math.PI-Math.acos(clamp((Lt*Lt+Ls*Ls-dist*dist)/(2*Lt*Ls),-1,1)),al=Math.acos(clamp((Lt*Lt+dist*dist-Ls*Ls)/(2*Lt*dist),-1,1));
+    IKk.set(0,0,-1).addScaledVector(IKd,IKd.z).normalize();   /* knee direction: body forward, square to the hip-ankle line */
+    IKt.copy(IKd).multiplyScalar(Math.cos(al)).addScaledVector(IKk,Math.sin(al)).normalize();
+    IKy.copy(IKt).negate();IKz.copy(IKk).negate().addScaledVector(IKt,IKk.dot(IKt)).normalize();IKx.crossVectors(IKy,IKz);
+    IKm.makeBasis(IKx,IKy,IKz);hip.quaternion.setFromRotationMatrix(IKm);kn.rotation.set(-kb,0,0)}
+  /* feet flat on the deck, across the board: front foot angled toward the nose */
   {sk.updateMatrixWorld(true);const sq=sk.getWorldQuaternion(qA2);for(let i=0;i<2;i++){const f=ANK[i],kq=f.parent.getWorldQuaternion(qK2);
-     const toe=md==='push'?(i?-1:1)*.22*st:md==='back'?(i?1:-1)*.25*Math.sin(Pl.ph+(i?Math.PI:0)):0;   /* V-push: toes out; backward C-cuts sweep the heels */
-     qE2.setFromEuler(eE2.set(0,toe,0));f.quaternion.copy(kq.invert()).multiply(sq).multiply(qE2);
-     TV.set(0,1,0).applyQuaternion(qK2.copy(f.quaternion).invert());CUFF[i].rotation.z=-clamp(Math.atan2(-TV.z,TV.y),-.1,.55)}}
-  {pelvis.position.y=1;sk.updateMatrixWorld(true);let lo=9;for(const w of WHEELS){w.getWorldPosition(TV);sk.worldToLocal(TV);lo=Math.min(lo,TV.y-.05)}pelvis.position.y=1-lo}
+     qE2.setFromEuler(eE2.set(0,i?-Math.PI/2-.08:-Math.PI/2+.4,0));f.quaternion.copy(kq.invert()).multiply(sq).multiply(qE2)}}
   elL.rotation.x=elR.rotation.x=.55;
   /* wheels roll: angle = distance / 50 mm radius (free-spinning in the air) */
-  if(!Pl.air)Pl.wheelA=(Pl.wheelA||0)-Pl.v*dt/.05;for(const h of SPIN)h.rotation.z=Pl.wheelA||0}
+  if(!Pl.air)Pl.wheelA=(Pl.wheelA||0)+Pl.v*dt/.045;for(const h of SPIN)h.rotation.x=Pl.wheelA||0}
+const IKd=new THREE.Vector3(),IKk=new THREE.Vector3(),IKt=new THREE.Vector3(),IKx=new THREE.Vector3(),IKy=new THREE.Vector3(),IKz=new THREE.Vector3(),IKm=new THREE.Matrix4();
 const qA2=new THREE.Quaternion(),qK2=new THREE.Quaternion(),qE2=new THREE.Quaternion(),eE2=new THREE.Euler();
 const camT=new THREE.Vector3(),look=new THREE.Vector3(),lookT=new THREE.Vector3();
 const camPiv=new THREE.Vector3();
@@ -1305,7 +1308,7 @@ function frame(now){
   }catch(e){report(e.message)}
 }
 if(/test/.test(location.hash))window.__MAPBG=()=>mapBg;
-if(/test/.test(location.hash))window.__T={scene,renderer,hemi,sun,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
+if(/test/.test(location.hash))window.__T={scene,renderer,hemi,sun,bridgeTop,T,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
 let cityOK=false,cityMsg='';

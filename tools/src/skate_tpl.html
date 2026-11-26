@@ -131,10 +131,16 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <div class="row" style="justify-content:center"><button class="pri" id="resBtn">Resume</button><button id="menuBtn">Menu</button></div>
 </div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Water.js"></script>
-<script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+/* three.js r170 with the WebGPU renderer (falls back to WebGL 2 where WebGPU is missing); materials are node materials, custom shading is TSL */
+import * as T3 from 'three/webgpu';import * as TSL from 'three/tsl';import {SkyMesh} from 'three/addons/objects/SkyMesh.js';import {WaterMesh} from 'three/addons/objects/WaterMesh.js';
+T3.ColorManagement.enabled=false;
+const THREE=Object.assign({},T3,{MeshStandardMaterial:T3.MeshStandardNodeMaterial,MeshBasicMaterial:T3.MeshBasicNodeMaterial,LineBasicMaterial:T3.LineBasicNodeMaterial,SpriteMaterial:T3.SpriteNodeMaterial,Sky:SkyMesh,Water:WaterMesh,LuminanceFormat:T3.RedFormat,sRGBEncoding:T3.SRGBColorSpace});
+const {Fn,If,Discard,positionWorld,positionLocal,attribute,texture,uniform,vec2,vec3,vec4,float,mix,smoothstep,materialColor}=TSL;
+/* multiply the base colour by a shading factor; cut fragments away where a condition holds */
+function mulColor(m,f){const b=m.colorNode||materialColor;m.colorNode=vec4(b.rgb.mul(f),b.a);m.needsUpdate=true;return m}
+function addDiscard(m,cond){const b=m.colorNode||materialColor;m.colorNode=Fn(()=>{If(cond(),()=>{Discard()});return b})();m.needsUpdate=true;return m}
 {
 const $=id=>document.getElementById(id);
 const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
@@ -146,7 +152,7 @@ const errs=[];
 function report(m){m=String(m).slice(0,220);if(errs.includes(m))return;errs.push(m);const d=$('diag');d.style.display='block';d.textContent='Problem: '+errs.slice(-3).join(' | ')}
 addEventListener('error',e=>report(e.message||'script error'));
 addEventListener('unhandledrejection',e=>report(e.reason&&e.reason.message||e.reason));
-if(!window.THREE){$('status').textContent='The 3D engine could not load. Check your connection and reload.';throw new Error('no three')}
+if(!THREE.WebGPURenderer){$('status').textContent='The 3D engine could not load. Check your connection and reload.';throw new Error('no three')}
 const mobile=matchMedia('(pointer:coarse)').matches;
 let quality='high',weather='sunny';
 let storedQ=null;try{storedQ=localStorage.getItem('skh-q');weather=localStorage.getItem('skh-w')||'sunny'}catch(e){}
@@ -174,9 +180,10 @@ const BRIDGES={Kruunuvuorensilta:{peak:22,s:'1,191 m — Finland\'s longest and 
 //@W
 //@T
 /* ---------- GPU tier: tablets with a flagship GPU (Galaxy Tab S: Adreno 7xx/8xx, Xclipse, Immortalis) get Ultra ---------- */
-const GPU=(()=>{try{const gl=renderer.getContext(),e=gl.getExtension('WEBGL_debug_renderer_info');return String(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER))}catch(e){return''}})();
-const MAXTEX=renderer.capabilities.maxTextureSize||4096;
-const strongGPU=!mobile||/Adreno[^0-9]*(6[4-9]\d|[7-9]\d\d)|Xclipse|Immortalis|Mali-G(7[1-9]|[89]\d|[1-9]\d\d)|Apple|NVIDIA|GeForce|Radeon|Intel/i.test(GPU);
+const GPU=await (async()=>{try{const be=renderer.backend;if(be.isWebGPUBackend){const ad=be.adapter||await navigator.gpu.requestAdapter();const i=ad.info||(ad.requestAdapterInfo?await ad.requestAdapterInfo():{});return ['WebGPU',i.vendor,i.architecture,i.device,i.description].filter(Boolean).join(' ')}
+  const gl=be.gl,e=gl.getExtension('WEBGL_debug_renderer_info');return String(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER))}catch(e){return''}})();
+const MAXTEX=(()=>{try{const be=renderer.backend;return be.isWebGPUBackend?be.device.limits.maxTextureDimension2D:be.gl.getParameter(be.gl.MAX_TEXTURE_SIZE)}catch(e){return 4096}})()||4096;
+const strongGPU=!mobile||/^WebGPU (arm|qualcomm|samsung|apple|nvidia|amd|intel)/i.test(GPU)||/Adreno[^0-9]*(6[4-9]\d|[7-9]\d\d)|Xclipse|Immortalis|Mali-G(7[1-9]|[89]\d|[1-9]\d\d)|Apple|NVIDIA|GeForce|Radeon|Intel/i.test(GPU);
 quality=['ultra','high','fast'].includes(storedQ)?storedQ:strongGPU?'ultra':'fast';
 const BUILDQ=quality;   /* texture sizes and instance counts fixed at load; reload to change them */
 const UL=BUILDQ==='ultra',FA=BUILDQ==='fast';
@@ -274,10 +281,9 @@ function rasterTiles(geo,g){const toR=(x,z)=>[(x-X0)/RS,(z-Z0)/RS];let n=0;g.beg
       if(ar<0){const tx=bx,tz=bz;bx=cx;bz=cz;cx=tx;cz=tz}g.moveTo(ax,az);g.lineTo(bx,bz);g.lineTo(cx,cz);g.closePath();if(++n%20000===0){g.fill();g.beginPath()}}}
   g.fill()}
 function buildTiles(geo){const TL=new THREE.TextureLoader();let tris=0;
-  const ao=m=>{m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;attribute float aB;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.)).y-aB;');
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.6,1.,smoothstep(0.,4.,vWY));')};return m};
+  const ao=m=>mulColor(m,mix(.6,1,smoothstep(0,4,positionWorld.y.sub(attribute('aB','float')))));
   for(const{F,I,UF,p,dir}of geo){const g=new THREE.BufferGeometry();{const B=new Float32Array(F.length/3);for(let i=0;i<B.length;i++)B[i]=T(F[i*3],F[i*3+2]);g.setAttribute('aB',new THREE.BufferAttribute(B,1))}g.setAttribute('position',new THREE.BufferAttribute(F,3));g.setIndex(new THREE.BufferAttribute(I,1));
-    let mat;if(UF){g.setAttribute('uv',new THREE.BufferAttribute(UF,2));const tx=TL.load('data/'+dir+'/'+p.tex);tx.flipY=false;tx.encoding=THREE.sRGBEncoding;tx.anisotropy=maxAniso;mat=wet(M({map:tx,roughness:.88,side:THREE.DoubleSide}),.35)}
+    let mat;if(UF){g.setAttribute('uv',new THREE.BufferAttribute(UF,2));const tx=TL.load('data/'+dir+'/'+p.tex);tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;mat=wet(M({map:tx,roughness:.88,side:THREE.DoubleSide}),.35)}
     else mat=wet(M({color:new THREE.Color(`rgb(${p.color.join(',')})`).convertSRGBToLinear(),roughness:.85,side:THREE.DoubleSide}),.35);
     g.computeVertexNormals();const m=new THREE.Mesh(g,ao(mat));m.castShadow=m.receiveShadow=true;scene.add(m);tris+=I.length/3}
   return tris}
@@ -394,11 +400,9 @@ function dsp(u,v){if(!HG.a)return 0;const fi=clamp(u/HG.d,0,HG.n-1.001),fj=clamp
 function diyWall(x,z){return false}
 let DIYB=0;function diyAt(x,z){const[u,v]=toLocal(x,z);if(u<0||v<0||u>DW||v>DD)return null;return dsp(u,v)+.03+DIYB}
 /* shared uniforms that cut the ground and sea out under the park */
-const DIYU={uDC:{value:new THREE.Vector4()},uDS:{value:new THREE.Vector2()}};
-const DIYGLSL='uniform vec4 uDC;uniform vec2 uDS;\nbool diyIn(vec2 p){vec2 d=p-uDC.xy;float lu=d.x*uDC.z-d.y*uDC.w+uDS.x*.5,lv=d.x*uDC.w+d.y*uDC.z+uDS.y*.5;return lu>.05&&lv>.05&&lu<uDS.x-.05&&lv<uDS.y-.05;}\n';
-function diyHoleStd(m){const prev=m.onBeforeCompile;m.onBeforeCompile=sh=>{if(prev)prev(sh);Object.assign(sh.uniforms,DIYU);
-  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vDW;').replace('#include <begin_vertex>','#include <begin_vertex>\nvDW=(modelMatrix*vec4(transformed,1.)).xz;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vDW;\n'+DIYGLSL).replace('void main() {','void main() {\nif(diyIn(vDW))discard;')};m.needsUpdate=true}
+const DIYU={uDC:uniform(new THREE.Vector4()),uDS:uniform(new THREE.Vector2())};
+const diyIn=p=>{const C=DIYU.uDC,S=DIYU.uDS,d=p.sub(C.xy),lu=d.x.mul(C.z).sub(d.y.mul(C.w)).add(S.x.mul(.5)),lv=d.x.mul(C.w).add(d.y.mul(C.z)).add(S.y.mul(.5));return lu.greaterThan(.05).and(lv.greaterThan(.05)).and(lu.lessThan(S.x.sub(.05))).and(lv.lessThan(S.y.sub(.05)))};
+function diyHoleStd(m){addDiscard(m,()=>diyIn(positionWorld.xz))}
 /* =====================================================================
    BUILD THE CITY
    ===================================================================== */
@@ -416,9 +420,7 @@ const num=v=>{const f=parseFloat(String(v||'').replace(',','.'));return isFinite
 
 /* the ground plane is cut away wherever the map says water, so the sea shows 3 m below street level */
 let WTEX=null;
-function seaHole(m){const prev=m.onBeforeCompile;m.onBeforeCompile=sh=>{if(prev)prev(sh);sh.uniforms.uWM={value:WTEX};sh.uniforms.uWB={value:new THREE.Vector4(X0,Z0,RW*RS,RH*RS)};
-  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vSW;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSW=(modelMatrix*vec4(transformed,1.)).xz;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vSW;uniform sampler2D uWM;uniform vec4 uWB;').replace('void main() {','void main() {\nif(texture2D(uWM,(vSW-uWB.xy)/uWB.zw).r>.5)discard;')};m.needsUpdate=true}
+function seaHole(m){addDiscard(m,()=>texture(WTEX,positionWorld.xz.sub(vec2(X0,Z0)).div(vec2(RW*RS,RH*RS))).r.greaterThan(.5))}
 function graniteCanvas(){const W=256,H=256,c=mk(W,H),g=c.getContext('2d');g.fillStyle='#55524d';g.fillRect(0,0,W,H);
   for(let row=0;row<8;row++){let x=-rnd(0,40);while(x<W){const w=rnd(50,90),y=row*32;const k=rnd(-14,14);g.fillStyle=`rgb(${128+k},${124+k},${118+k})`;g.fillRect(x+2,y+2,w-4,28);speckle(g,0,0,0,0,0);x+=w}}
   speckle(g,W,H,6000,.12,.12);const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.62,'rgba(0,0,0,0)');gr.addColorStop(.72,'rgba(40,46,30,.55)');gr.addColorStop(1,'rgba(20,28,24,.8)');g.fillStyle=gr;g.fillRect(0,0,W,H);return c}
@@ -462,8 +464,7 @@ function buildHanasaari(list,city){if(!list.length)return;const hg=new THREE.Gro
   const LV=3.7,brick=wet(M({map:tex(hanaBrickCanvas()),vertexColors:true,roughness:.85,side:THREE.DoubleSide}),.5),
     metal=wet(M({map:tex(hanaMetalCanvas()),vertexColors:true,roughness:.55,metalness:.35,side:THREE.DoubleSide}),.15),
     roof=wet(M({color:lin('#3b3936'),roughness:.9,side:THREE.DoubleSide}),.35);
-  for(const m of [brick,metal])m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=transformed.y;');
-    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.62,1.,smoothstep(0.,6.,vWY));')};
+  for(const m of [brick,metal])mulColor(m,mix(.62,1,smoothstep(0,6,positionLocal.y)));
   const G={brick:{p:[],u:[],c:[]},metal:{p:[],u:[],c:[]},roof:{p:[]}};const conc=M({map:tex(chimneyCanvas(),1,1),roughness:.9,color:lin('#ddd7cc')});
   const steel=M({color:lin('#8e959b'),roughness:.35,metalness:.85}),rust=wet(M({color:lin('#6e3f2c'),roughness:.7,metalness:.25}),.2);
   let chimneys=[];
@@ -652,10 +653,10 @@ function buildWorld(D){
   {const img=gg.getImageData(0,0,GT,GT),d=img.data;for(let j=0;j<GT;j++)for(let i=0;i<GT;i++){const x=X0+i/GS,z=Z0+j/GS;if(isWater(x,z)){const o=(j*GT+i)*4;d[o]=58;d[o+1]=74;d[o+2]=72}}gg.putImageData(img,0,0)}
   gg.strokeStyle='rgba(60,60,58,.5)';gg.lineWidth=Math.max(1,1.5*GS);for(const e of ways){const t=tags(e);if(t.railway!=='rail'&&t.railway!=='subway'||isTunnel(t))continue;gpath(wayPts(e));gg.stroke()}
   for(let i=0;i<GT*GT/30;i++){gg.fillStyle=Math.random()<.5?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)';gg.fillRect(Math.random()*GT,Math.random()*GT,2,2)}
-  const groundTex=new THREE.CanvasTexture(gc);groundTex.encoding=THREE.sRGBEncoding;groundTex.anisotropy=maxAniso;
+  const groundTex=new THREE.CanvasTexture(gc);groundTex.colorSpace=THREE.SRGBColorSpace;groundTex.anisotropy=maxAniso;
   const detail=tex(grassDetail(),1,1,false);
   const groundMat=wet(new THREE.MeshStandardMaterial({map:groundTex,roughness:.95}),.6);
-  groundMat.onBeforeCompile=sh=>{sh.uniforms.uDet={value:detail};sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n{float dv=texture2D(uDet,vUv*'+((X1-X0)/3.5).toFixed(1)+').r;diffuseColor.rgb*=mix(.8,1.18,dv);}').replace('void main() {','uniform sampler2D uDet;\nvoid main() {')};
+  mulColor(groundMat,mix(.8,1.18,texture(detail,TSL.uv().mul((X1-X0)/3.5)).r));
   {let geo;
    if(TER){/* ground on the elevation grid, same triangles as T() */const c=TER.cs*TK,ni=Math.floor((TER.nx-1)/TK)+1,nj=Math.floor((TER.nz-1)/TK)+1,pos=new Float32Array(ni*nj*3),uv=new Float32Array(ni*nj*2);
      for(let j=0;j<nj;j++)for(let i=0;i<ni;i++){const k=j*ni+i,x=TER.x0+i*c,z=Math.max(Z0,TER.z0+j*c);pos[k*3]=x;pos[k*3+1]=TER.h[j*TK*TER.nx+i*TK];pos[k*3+2]=z;uv[k*2]=(x-X0)*GS/GT;uv[k*2+1]=1-(z-Z0)*GS/GT}
@@ -666,7 +667,7 @@ function buildWorld(D){
     geo.computeVertexNormals();diyHoleStd(groundMat);if(!TER)seaHole(groundMat);groundMesh=new THREE.Mesh(geo,groundMat);groundMesh.receiveShadow=true;scene.add(groundMesh)}
   {const ring=new THREE.Mesh(new THREE.RingGeometry(3200,14000,48,1),M({color:lin('#56685a'),roughness:1}));ring.rotation.x=-Math.PI/2;ring.position.set((X0+X1)/2,-.5,(Z0+Z1)/2);scene.add(ring)}
   /* sea */
-  {const wg=new THREE.PlaneGeometry(14000,14000);if(THREE.Water){try{water=new THREE.Water(wg,{textureWidth:UL?1024:512,textureHeight:UL?1024:512,waterNormals:tex(waterNormals(),1,1,false),sunDirection:new THREE.Vector3(0,1,0),sunColor:0xffffff,waterColor:0x1b3d4a,distortionScale:2,fog:true});water.rotation.x=-Math.PI/2;water.position.set((X0+X1)/2,SEA,(Z0+Z1)/2);water.material.uniforms.size.value=1.6;Object.assign(water.material.uniforms,DIYU);water.material.fragmentShader=DIYGLSL+water.material.fragmentShader.replace('void main() {','void main() {\nif(diyIn(worldPosition.xz))discard;');water.material.needsUpdate=true;scene.add(water)}catch(e){water=null;report('water: '+e.message)}}
+  {const wg=new THREE.PlaneGeometry(14000,14000);if(THREE.Water){try{water=new THREE.Water(wg,{waterNormals:tex(waterNormals(),1,1,false),sunDirection:new THREE.Vector3(0,1,0),sunColor:0xffffff,waterColor:0x1b3d4a,distortionScale:2,size:1.6,resolution:UL?.5:.25});water.rotation.x=-Math.PI/2;water.position.set((X0+X1)/2,SEA,(Z0+Z1)/2);{const f0=water.material.fragmentNode;water.material.fragmentNode=Fn(()=>{If(diyIn(positionWorld.xz),()=>{Discard()});const dd=TSL.positionView.z.negate().mul(FOGD),k=float(1).sub(TSL.exp(dd.mul(dd).negate()));return vec4(mix(f0.rgb,FOGC,k),f0.a)})();water.material.needsUpdate=true}scene.add(water)}catch(e){water=null;report('water: '+e.message)}}
    {const swm=M({color:lin('#28505c'),roughness:.06,metalness:.3});diyHoleStd(swm);simpleWater=new THREE.Mesh(wg.clone(),swm)}simpleWater.rotation.x=-Math.PI/2;simpleWater.position.set((X0+X1)/2,SEA,(Z0+Z1)/2);scene.add(simpleWater)}
 
   /* inland ponds sit at their own level, not at sea level */
@@ -844,8 +845,7 @@ function buildWorld(D){
   const FT={res:facadeTile('res'),glass:facadeTile('glass'),ind:facadeTile('ind'),brick:facadeTile('brick')};
   for(const k of ['res','glass','ind','brick']){const A=geo[k];if(!A.p.length)continue;const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));gm.computeVertexNormals();
     const fm=wet(M({map:tex(FT[k]),vertexColors:true,roughness:k==='glass'?.25:.85,metalness:k==='glass'?.35:0,side:THREE.DoubleSide}),k==='glass'?.1:.6);
-    fm.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.)).y;');
-      sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.5,1.,smoothstep(0.,4.,vWY));')};
+    mulColor(fm,mix(.5,1,smoothstep(0,4,positionWorld.y.sub(attribute('aB','float')))));
     const m=new THREE.Mesh(gm,fm);m.castShadow=m.receiveShadow=true;scene.add(m)}
   if(geo.roof.p.length){const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(geo.roof.p,3));gm.setAttribute('color',new THREE.Float32BufferAttribute(geo.roof.c,3));gm.computeVertexNormals();const m=new THREE.Mesh(gm,wet(M({vertexColors:true,roughness:.8,side:THREE.DoubleSide}),.3));m.castShadow=m.receiveShadow=true;scene.add(m)}
 
@@ -912,7 +912,7 @@ function buildDIY(){
   const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.BufferAttribute(pos,3));gm.setAttribute('uv',new THREE.BufferAttribute(uv,2));gm.setIndex(idx);gm.computeVertexNormals();
   const pt=tex(diyPaint(),1,1);pt.wrapS=pt.wrapT=THREE.ClampToEdgeWrapping;
   const mm=wet(M({map:pt,roughness:.62}),.15);
-  {const det=tex(diyCanvas(),1,1);mm.onBeforeCompile=sh=>{sh.uniforms.uCd={value:det};sh.fragmentShader=sh.fragmentShader.replace('void main() {','uniform sampler2D uCd;\nvoid main() {').replace('#include <map_fragment>','#include <map_fragment>\n{float cd=texture2D(uCd,vUv*vec2('+(DW/3).toFixed(1)+','+(DD/3).toFixed(1)+')).g;diffuseColor.rgb*=mix(.82,1.12,cd);}')}}
+  {const det=tex(diyCanvas(),1,1);mulColor(mm,mix(.82,1.12,texture(det,TSL.uv().mul(vec2(DW/3,DD/3))).g))}
   const mesh=new THREE.Mesh(gm,mm);mesh.receiveShadow=mesh.castShadow=true;grp.add(mesh);
   /* outer skirt: vertical concrete faces where the slab meets the lot */
   {const sk=[],edge=(i0,j0,di,dj,cnt)=>{for(let k=0;k<cnt;k++){const a=(j0+dj*k)*n+(i0+di*k),b=(j0+dj*(k+1))*n+(i0+di*(k+1));const A=[pos[a*3],pos[a*3+1],pos[a*3+2]],B=[pos[b*3],pos[b*3+1],pos[b*3+2]];sk.push(A[0],-1.5,A[2],B[0],-1.5,B[2],B[0],B[1],B[2],A[0],-1.5,A[2],B[0],B[1],B[2],A[0],A[1],A[2])}};
@@ -1056,7 +1056,7 @@ function applyQuality(){const ul=quality==='ultra',hi=ul||quality==='high';rende
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===quality))}
 document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{quality=b.dataset.q;try{localStorage.setItem('skh-q',quality)}catch(e){}applyQuality();
   $('gpuInfo').textContent=quality!==BUILDQ?'Reload the page to also change texture detail and tree counts.':gpuLine()});
-const gpuLine=()=>'Graphics chip: '+(GPU.replace(/ANGLE \(|\)$/g,'').slice(0,60)||'unknown')+(strongGPU&&mobile?' — fast enough for Ultra':'');
+const gpuLine=()=>'Graphics: '+BACKEND+' · '+(GPU.replace(/ANGLE \(|\)$/g,'').replace(/^WebGPU /,'').slice(0,60)||'unknown chip')+(strongGPU&&mobile?' — fast enough for Ultra':'');
 $('gpuInfo').textContent=gpuLine();
 document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>setWeather(b.dataset.w));
 
@@ -1233,7 +1233,6 @@ function frame(now){
     if(state==='play')updatePlayer(dt);
     if(!isFinite(Pl.x+Pl.z+Pl.y+Pl.v+Pl.yaw))spawn(lastStart);
     animateSkater(state==='pause'?0:dt);updateCamera(dt,state!=='play'&&state!=='pause');updateRain(dt);
-    if(water)water.material.uniforms.time.value+=dt*(.5+cur.rain*.6);
     if(LAMPMAT)LAMPMAT.emissiveIntensity=lerp(LAMPMAT.emissiveIntensity,weather==='golden'?1.6:weather==='rain'?1.3:weather==='cloudy'?.4:0,Math.min(1,dt*2));
     for(const s of SPOTS)if(s.label){const d=Math.hypot(camera.position.x-s.x,camera.position.z-s.z);s.label.material.opacity=clamp((d-14)/16)}
     if(state==='play'&&(hudT+=dt)>.12){hudT=0;$('spd').textContent=Math.round(Math.abs(Pl.v)*3.6)+(Pl.v<-.3?' km/h ↓':' km/h');$('dist').textContent=fmtD(St.dist);$('spots').textContent=seen.size+' / '+SPOTS.length;$('time').textContent=fmtT(St.t);$('where').textContent=whereName();drawMap()}
@@ -1242,7 +1241,7 @@ function frame(now){
   }catch(e){report(e.message)}
 }
 if(/test/.test(location.hash))window.__MAPBG=()=>mapBg;
-if(/test/.test(location.hash))window.__T={Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
+if(/test/.test(location.hash))window.__T={scene,renderer,hemi,sun,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
 let cityOK=false,cityMsg='';

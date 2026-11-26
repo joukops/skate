@@ -1,11 +1,13 @@
 /* =====================================================================
    RENDERER, SKY, CLOUDS, WEATHER
    ===================================================================== */
-const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance'});
-renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.55;
+const renderer=new THREE.WebGPURenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance',forceWebGL:/[#&?]gl=webgl/.test(location.href)});
+await renderer.init();
+const BACKEND=renderer.backend.isWebGPUBackend?'WebGPU':'WebGL 2';
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.55;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.setClearColor(0xcfdbe5);
 $('c').addEventListener('webglcontextlost',e=>{e.preventDefault();report('graphics memory ran out — choose Fast graphics and reload')});
-const maxAniso=renderer.capabilities.getMaxAnisotropy();
+const maxAniso=renderer.getMaxAnisotropy?renderer.getMaxAnisotropy():8;
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(60,1,.1,16000);
 let cw=0,ch=0;
@@ -13,23 +15,22 @@ function resize(){const c=$('c');const w=c.clientWidth||innerWidth,h=c.clientHei
 const lin=h=>new THREE.Color(h).convertSRGBToLinear();
 scene.fog=new THREE.FogExp2(new THREE.Color(1,1.1,1.3),.0003);
 let sky=null;
+const FOGC=uniform(new THREE.Color(1,1.1,1.3)),FOGD=uniform(.0003);   /* fog for the water, which draws its own colour */
 if(THREE.Sky){sky=new THREE.Sky();sky.scale.setScalar(10000);scene.add(sky)}
 else{const g=new THREE.SphereGeometry(9000,32,16),p=g.attributes.position,cols=[];const zen=lin('#4f86c6'),hor=new THREE.Color(1,1.1,1.25);for(let i=0;i<p.count;i++){const y=Math.max(0,p.getY(i)/9000);const c=hor.clone().lerp(zen,Math.pow(y,.6));cols.push(c.r,c.g,c.b)}g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));sky=new THREE.Mesh(g,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false}));scene.add(sky)}
-const cloudMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.BackSide,fog:false,toneMapped:false,
-  uniforms:{uTime:{value:0},uCover:{value:.3},uDark:{value:0},uSun:{value:new THREE.Vector3(0,1,0)},uSunCol:{value:new THREE.Color(1,.9,.8)},uCol:{value:new THREE.Color(1,1,1)},uShd:{value:new THREE.Color(.7,.75,.8)},uHaze:{value:new THREE.Color(.8,.85,.9)},uHazeA:{value:0}},
-  vertexShader:'varying vec3 vDir;void main(){vDir=position;vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p;gl_Position.z=p.w*.99998;}',
-  fragmentShader:`precision highp float;uniform float uTime,uCover,uDark,uHazeA;uniform vec3 uSun,uSunCol,uCol,uShd,uHaze;varying vec3 vDir;
-  float hs(vec2 p){p=fract(p*vec2(.1031,.1030));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}
-  float ns(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+vec2(1,1)),f.x),f.y);}
-  float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*ns(p);p=p*2.07+vec2(5.3,1.7);a*=.5;}return s;}
-  void main(){vec3 d=normalize(vDir);float hz=1.-smoothstep(0.,.16,abs(d.y));
-   if(d.y<0.){gl_FragColor=vec4(uHaze,uHazeA);return;}
-   vec2 uv=d.xz/(d.y+.08)*1.25+vec2(uTime*.006,uTime*.0025);
-   float n=fbm(uv);float c=smoothstep(.72-uCover*.62,.95-uCover*.45,n);
-   float n2=fbm(uv+normalize(uSun.xz+1e-4)*.06);float lit=clamp(.55+(n-n2)*3.,0.,1.);
-   vec3 col=mix(uShd,uCol,lit);float sd=max(dot(d,uSun),0.);col+=uSunCol*pow(sd,10.)*.6*(1.-uDark);
-   float fade=smoothstep(0.,.1,d.y);float a=c*fade*(.9+.1*uDark);
-   col=mix(col,uHaze,hz*.6);a=max(a,hz*uHazeA);gl_FragColor=vec4(col,a);}`});
+const CU={uTime:uniform(0),uCover:uniform(.3),uDark:uniform(0),uSun:uniform(new THREE.Vector3(0,1,0)),uSunCol:uniform(new THREE.Color(1,.9,.8)),uCol:uniform(new THREE.Color(1,1,1)),uShd:uniform(new THREE.Color(.7,.75,.8)),uHaze:uniform(new THREE.Color(.8,.85,.9)),uHazeA:uniform(0)};
+const cloudMat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,side:THREE.BackSide,fog:false,toneMapped:false});cloudMat.uniforms=CU;
+{const{fract,floor,dot,normalize,max,pow,clamp,abs,select,Loop}=TSL;
+ const hs=Fn(([q])=>{const p=fract(q.mul(vec2(.1031,.1030))).toVar();p.addAssign(dot(p,p.yx.add(33.33)));return fract(p.x.add(p.y).mul(p.x))});
+ const ns=Fn(([p])=>{const i=floor(p),f=fract(p),u=f.mul(f).mul(f.mul(-2).add(3));return mix(mix(hs(i),hs(i.add(vec2(1,0))),u.x),mix(hs(i.add(vec2(0,1))),hs(i.add(vec2(1,1))),u.x),u.y)});
+ const fbm=Fn(([q])=>{const p=vec2(q).toVar(),s=float(0).toVar(),a=float(.5).toVar();Loop(5,()=>{s.addAssign(a.mul(ns(p)));p.assign(p.mul(2.07).add(vec2(5.3,1.7)));a.mulAssign(.5)});return s});
+ cloudMat.colorNode=Fn(()=>{const d=normalize(positionLocal),hz=float(1).sub(smoothstep(0,.16,abs(d.y)));
+   const q=d.xz.div(max(d.y,0).add(.08)).mul(1.25).add(vec2(CU.uTime.mul(.006),CU.uTime.mul(.0025)));
+   const n=fbm(q),c=smoothstep(float(.72).sub(CU.uCover.mul(.62)),float(.95).sub(CU.uCover.mul(.45)),n);
+   const n2=fbm(q.add(normalize(CU.uSun.xz.add(1e-4)).mul(.06))),lit=clamp(float(.55).add(n.sub(n2).mul(3)),0,1);
+   const col=mix(CU.uShd,CU.uCol,lit).add(CU.uSunCol.mul(pow(max(dot(d,CU.uSun),0),10)).mul(.6).mul(float(1).sub(CU.uDark)));
+   const a=max(c.mul(smoothstep(0,.1,d.y)).mul(float(.9).add(CU.uDark.mul(.1))),hz.mul(CU.uHazeA));
+   return select(d.y.lessThan(0),vec4(CU.uHaze,CU.uHazeA),vec4(mix(col,CU.uHaze,hz.mul(.6)),a))})()}
 const clouds=new THREE.Mesh(new THREE.SphereGeometry(9000,48,24),cloudMat);clouds.renderOrder=-1;scene.add(clouds);
 const envClouds=new THREE.Mesh(new THREE.SphereGeometry(50,32,16),cloudMat);
 const envSkyG=new THREE.SphereGeometry(80,32,16);envSkyG.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(envSkyG.attributes.position.count*3),3));
@@ -43,6 +44,7 @@ sun.shadow.mapSize.set(mobile?1024:2048,mobile?1024:2048);
 Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:500});
 sun.shadow.bias=-.0004;sun.shadow.normalBias=.04;scene.add(sun,sun.target);
 const pmrem=new THREE.PMREMGenerator(renderer);let envRT=null;
+scene.environmentIntensity=3;   /* the old engine scaled sky light by pi internally; physical lighting does not */
 function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;if(envRT)envRT.dispose();envRT=rt}catch(e){report('sky lighting: '+e.message)}}
 
 const WX={
@@ -55,13 +57,13 @@ const WETMATS=[];
 const SUNV=new THREE.Vector3();
 function applyWeather(){
   const el=cur.el*Math.PI/180,az=cur.az*Math.PI/180;SUNV.set(Math.sin(az)*Math.cos(el),Math.sin(el),-Math.cos(az)*Math.cos(el)).normalize();
-  if(THREE.Sky){const u=sky.material.uniforms;u.turbidity.value=cur.turb;u.rayleigh.value=cur.ray;u.mieCoefficient.value=cur.mie;u.mieDirectionalG.value=cur.mieG;u.sunPosition.value.copy(SUNV)}
+  if(THREE.Sky){sky.turbidity.value=cur.turb;sky.rayleigh.value=cur.ray;sky.mieCoefficient.value=cur.mie;sky.mieDirectionalG.value=cur.mieG;sky.sunPosition.value.copy(SUNV)}
   const cu=cloudMat.uniforms;cu.uCover.value=cur.cover;cu.uDark.value=cur.dark;cu.uSun.value.copy(SUNV);cu.uSunCol.value.setRGB(...cur.sunC);cu.uCol.value.setRGB(...cur.col);cu.uShd.value.setRGB(...cur.shd);cu.uHaze.value.setRGB(...cur.haze);cu.uHazeA.value=cur.hazeA;
-  scene.fog.color.setRGB(...cur.fog);scene.fog.density=cur.fogD;
-  sun.intensity=cur.sunI;sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=scene.environment?cur.hemiI:cur.hemiI+.9;
+  scene.fog.color.setRGB(...cur.fog);scene.fog.density=cur.fogD;FOGC.value.setRGB(...cur.fog);FOGD.value=cur.fogD;
+  sun.intensity=cur.sunI*2.4;sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3;
   renderer.toneMappingExposure=cur.expo;
   for(const[m,d,w]of WETMATS){m.roughness=lerp(d,w,cur.wet);m.envMapIntensity=1+cur.wet*.8}
-  if(water){const wu=water.material.uniforms;wu.sunDirection.value.copy(SUNV);wu.sunColor.value.setRGB(...cur.sunC);wu.waterColor.value.setRGB(...cur.water);wu.distortionScale.value=cur.wave}
+  if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave}
   rain.visible=cur.rain>.05;rainMat.opacity=.32*cur.rain;
 }
 function setWeather(w){if(!WX[w])return;weather=w;envDirty=true;envT=0;try{localStorage.setItem('olp2-w',w)}catch(e){}

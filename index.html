@@ -484,6 +484,59 @@ function polyArea(r){let a=0;for(let i=0,j=r.length-1;i<r.length;j=i++)a+=(r[j][
 function inRing(x,z,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const xi=P[i][0],zi=P[i][1],xj=P[j][0],zj=P[j][1];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)c=!c}return c}
 const num=v=>{const f=parseFloat(String(v||'').replace(',','.'));return isFinite(f)?f:NaN};
 
+function isRound(r){if(r.length<13)return false;const[cx,cz]=[r.reduce((a,p)=>a+p[0],0)/r.length,r.reduce((a,p)=>a+p[1],0)/r.length];const d=r.map(p=>Math.hypot(p[0]-cx,p[1]-cz));const m=d.reduce((a,b)=>a+b,0)/d.length;return m>1&&d.every(v=>Math.abs(v-m)<m*.12)}
+/* ---------------- Hanasaari B power plant (Timo Penttilä, 1974) ----------------
+   Massing from the OSM building parts (floor counts x 3.7 m, which matches the city's measured
+   heights), on the plant's 5.4 m module. Brick-slip panels on most masses, copper-brown sheet
+   metal on the boiler halls, a 150 m slip-formed concrete chimney, the 97.7 m reserve-plant
+   chimney, the two coal-conveyor gantries and the oil tanks. */
+function hanaBrickCanvas(){const S=512,c=mk(S,S),g=c.getContext('2d');g.fillStyle='#d8c8b8';g.fillRect(0,0,S,S);
+  const bw=S/18,bh=S/3/17;for(let row=0;row<51;row++)for(let col=0;col<18;col++){const n=Math.random();g.fillStyle=`rgb(${(118+n*34+rnd(-8,8))|0},${(58+n*20+rnd(-5,5))|0},${(42+n*13)|0})`;g.fillRect(col*bw+.8,row*bh+.6,bw-1.6,bh-1.2)}
+  /* panel joints: 5.4 m x 1.8 m prefabricated elements */
+  g.fillStyle='rgba(40,22,16,.85)';for(let k=0;k<=3;k++)g.fillRect(0,k*S/3-1.5,S,3);g.fillRect(0,0,4,S);g.fillRect(S-4,0,4,S);
+  for(let i=0;i<5;i++){const x=rnd(0,S),y=rnd(0,S);const gr=g.createRadialGradient(x,y,0,x,y,rnd(30,90));gr.addColorStop(0,'rgba(60,30,20,.18)');gr.addColorStop(1,'rgba(60,30,20,0)');g.fillStyle=gr;g.fillRect(0,0,S,S)}return c}
+function hanaMetalCanvas(){const S=256,c=mk(S,S),g=c.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,S,S);
+  for(let x=0;x<S;x+=S/18){g.fillStyle='rgba(0,0,0,.16)';g.fillRect(x,0,2.5,S);g.fillStyle='rgba(255,255,255,.08)';g.fillRect(x+3,0,2,S)}
+  for(let i=0;i<40;i++){g.fillStyle=`rgba(40,20,10,${rnd(.02,.07)})`;g.fillRect(rnd(0,S),rnd(0,S*.5),rnd(2,6),rnd(30,200))}g.fillStyle='rgba(20,10,5,.5)';g.fillRect(0,0,S,3);return c}
+function chimneyCanvas(){const W=256,H=1024,c=mk(W,H),g=c.getContext('2d');g.fillStyle='#c9c3b8';g.fillRect(0,0,W,H);speckle(g,W,H,9000,.08,.07);
+  for(let y=0;y<H;y+=H/60){g.fillStyle=`rgba(80,70,60,${rnd(.08,.2)})`;g.fillRect(0,y,W,1.5)}
+  for(let i=0;i<30;i++){const x=rnd(0,W);g.fillStyle='rgba(70,62,55,.08)';g.fillRect(x,rnd(0,H*.2),rnd(3,10),rnd(100,600))}return c}
+function buildHanasaari(list){if(!list.length)return;
+  const LV=3.7,brick=wet(M({map:tex(hanaBrickCanvas()),vertexColors:true,roughness:.85,side:THREE.DoubleSide}),.5),
+    metal=wet(M({map:tex(hanaMetalCanvas()),vertexColors:true,roughness:.55,metalness:.35,side:THREE.DoubleSide}),.15),
+    roof=wet(M({color:lin('#3b3936'),roughness:.9,side:THREE.DoubleSide}),.35);
+  for(const m of [brick,metal])m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.)).y;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWY;').replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=mix(.62,1.,smoothstep(0.,6.,vWY));')};
+  const G={brick:{p:[],u:[],c:[]},metal:{p:[],u:[],c:[]},roof:{p:[]}};const conc=M({map:tex(chimneyCanvas(),1,1),roughness:.9,color:lin('#ddd7cc')});
+  const steel=M({color:lin('#8e959b'),roughness:.35,metalness:.85}),rust=wet(M({color:lin('#6e3f2c'),roughness:.7,metalness:.25}),.2);
+  let chimneys=[];
+  for(const b of list){const t=b.t,r=b.rings.outers[0];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of r){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}const w=Math.max(x1-x0,z1-z0),area=Math.abs(polyArea(r));
+    let h=num(t.height);const lv=num(t['building:levels']);if(!(h>0)&&lv>0)h=lv*LV;let mh=num(t.min_height);if(!(mh>=0))mh=num(t['building:min_level'])>0?num(t['building:min_level'])*LV:0;
+    const round=isRound(r);
+    if(round&&(h/w>4||/chimney/.test(t.man_made||''))){chimneys.push([b.cx,b.cz,w/2,h||100]);continue}
+    if(round){const th=h>0&&h<30?h:12;const m=cyl([b.cx,0,b.cz],[b.cx,th,b.cz],w/2,w/2,rust,40);m.castShadow=m.receiveShadow=true;scene.add(m);
+      const top=new THREE.Mesh(new THREE.CircleGeometry(w/2,40),rust);top.rotation.x=-Math.PI/2;top.position.set(b.cx,th+.02,b.cz);scene.add(top);continue}
+    if(!(h>0))h=area<80?4:area<600?9:14;if(h<=mh+.3)h=mh+3;
+    const isMetal=inPlantBox(b.cx,b.cz)&&area>2500&&lv>=11&&lv<=12,A=isMetal?G.metal:G.brick;
+    const tint=isMetal?[.36,.19,.13]:[.92,.9,.88],k=.93+.14*hash2(b.cx,b.cz);
+    const P=polyArea(r)>0?r:r.slice().reverse();let per=0;
+    for(let i=0;i<P.length-1;i++){const a=P[i],c=P[i+1],l=Math.hypot(c[0]-a[0],c[1]-a[1]);if(l<.05)continue;const u0=per/5.4,u1=(per+l)/5.4;per+=l;const v0=mh/5.4,v1=h/5.4;
+      A.p.push(a[0],mh,a[1],c[0],mh,c[1],c[0],h,c[1],a[0],mh,a[1],c[0],h,c[1],a[0],h,a[1]);A.u.push(u0,v0,u1,v0,u1,v1,u0,v0,u1,v1,u0,v1);for(let q=0;q<6;q++)A.c.push(tint[0]*k,tint[1]*k,tint[2]*k)}
+    try{const pts=P.slice(0,-1).map(p=>new THREE.Vector2(p[0],p[1]));for(const f of THREE.ShapeUtils.triangulateShape(pts,[])){for(const q of [f[0],f[2],f[1]])G.roof.p.push(pts[q].x,h,pts[q].y);if(mh>.5)for(const q of [f[0],f[1],f[2]])G.roof.p.push(pts[q].x,mh,pts[q].y)}}catch(e){}}
+  for(const[key,mat]of [['brick',brick],['metal',metal]]){const A=G[key];if(!A.p.length)continue;const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));gm.computeVertexNormals();const m=new THREE.Mesh(gm,mat);m.castShadow=m.receiveShadow=true;scene.add(m)}
+  if(G.roof.p.length){const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(G.roof.p,3));gm.computeVertexNormals();const m=new THREE.Mesh(gm,roof);m.receiveShadow=m.castShadow=true;scene.add(m)}
+  /* chimneys: slip-formed concrete, tapering, with a steel crown on the tall one */
+  if(!chimneys.length)chimneys=[[-245,149,6.5,150]];
+  for(const[x,z,r,h]of chimneys){const big=h>120,rb=Math.max(r,big?7:3),rt=rb*(big?.7:.85);const m=cyl([x,0,z],[x,h,z],rb,rt,conc,40);m.material=conc.clone();m.material.map=tex(chimneyCanvas(),2,Math.round(h/25));m.castShadow=true;m.receiveShadow=true;scene.add(m);
+    if(big){const crown=cyl([x,h-5,z],[x,h+1.2,z],rt+.35,rt+.35,steel,40);crown.material=new THREE.MeshStandardMaterial({color:lin('#8e959b'),metalness:.85,roughness:.35,wireframe:false,transparent:true,opacity:.92});scene.add(crown);
+      for(const y of [h-4.6,h-2,h+1])scene.add(cyl([x,y,z],[x,y+.25,z],rt+.5,rt+.5,steel,40))}
+    else for(const k of [0,1,2,3]){const a=k*Math.PI/2;scene.add(cyl([x+Math.cos(a)*rt*.5,h,z+Math.sin(a)*rt*.5],[x+Math.cos(a)*rt*.5,h+3,z+Math.sin(a)*rt*.5],.35,.35,steel,8))}}
+  /* coal conveyor gantries: closed copper-brown bridges between the east tower and the boiler masses */
+  const beam=(a,b,y,w=4.2,hh=3.8)=>{const dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);const o=new THREE.Mesh(new THREE.BoxGeometry(l,hh,w),rust);o.position.set((a[0]+b[0])/2,y,(a[1]+b[1])/2);o.rotation.y=-Math.atan2(dz,dx);o.castShadow=o.receiveShadow=true;scene.add(o);
+    const und=new THREE.Mesh(new THREE.BoxGeometry(l,.3,w*.9),M({color:lin('#3a2219'),roughness:.8}));und.position.set(o.position.x,y-hh/2-.15,o.position.z);und.rotation.y=o.rotation.y;scene.add(und)};
+  beam([-207,116],[-271,140],36);beam([-207,116],[-230,93],36);beam([-300,128],[-321,90],26,3.6,3.4);
+}
+const inPlantBox=(x,z)=>x>-360&&x<-190&&z>40&&z<210;
 function buildWorld(D){
   const tags=e=>e.tags||{};
   const wayPts=e=>(e.geometry||[]).filter(Boolean).map(g=>PJ(g.lat,g.lon));
@@ -548,21 +601,29 @@ function buildWorld(D){
   const isRoofOnly=t=>t.building==='roof'||t.building==='carport'||t['building:part']==='roof'||num(t.min_height)>=2||num(t['building:min_level'])>=1;
   /* OSM tags for each city-model building come from the OSM footprint it falls inside */
   const osmB=[];
-  for(const e of D.buildings.elements){const t=tags(e);if(t.building==='no'||t.building==='construction'&&!t.height&&!t['building:levels'])continue;let rings;
+  /* Hanasaari: the 2019 city model still has structures demolished since (coal silos, conveyors),
+     so the area is built from current OSM data plus a hand-made model of the power plant */
+  const inHZ=(x,z)=>x>-470&&x<-150&&z>-90&&z<260,inPlant=(x,z)=>x>-360&&x<-190&&z>40&&z<210;
+  const ringC=r=>{let cx=0,cz=0;for(const p of r){cx+=p[0];cz+=p[1]}return[cx/r.length,cz/r.length]};
+  for(const e of D.buildings.elements){const t=tags(e);if(t.building==='no')continue;let rings;
+    if(t.building==='construction'&&!t.height&&!t['building:levels']&&e.type==='way'){const P=wayPts(e);const c=P.length?ringC(P):[0,0];if(!inHZ(c[0],c[1]))continue}
     if(e.type==='way'){const P=wayPts(e);if(P.length<4)continue;rings={outers:[P],inners:[]}}else if(e.type==='relation')rings=ringsFromRelation(e);else continue;
     if(!rings.outers.length)continue;
-    if(t['building:part']&&!t.building){const h=num(t.height)||num(t['building:levels'])*3.2;if(!(h>=30))continue}
     let into=D.city?osmB:BLD;if(D.city&&D.city.failed.length){const p0=rings.outers[0][0],la=LAT0-p0[1]/KZ,lo=LON0+p0[0]/KX;if(D.city.failed.some(f=>la>=f[0]&&la<f[2]&&lo>=f[1]&&lo<f[3]))into=BLD}
-    into.push({t,rings,part:!!t['building:part']&&!t.building})}
+    {const c=ringC(rings.outers[0]);into.push({t,rings,part:!!t['building:part']&&!t.building,id:e.id,hz:inHZ(c[0],c[1]),cx:c[0],cz:c[1]})}}
   if(D.city){const OH=new Map();osmB.forEach((b,i)=>{if(b.part)return;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of b.rings.outers[0]){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}for(let i2=Math.floor(x0/20);i2<=Math.floor(x1/20);i2++)for(let j2=Math.floor(z0/20);j2<=Math.floor(z1/20);j2++){const k=i2*100003+j2;if(!OH.has(k))OH.set(k,[]);OH.get(k).push(b)}});
-    for(const cb of D.city.b){const f=cb.f[0];let cx=0,cz=0;for(const p of f){cx+=p[0];cz+=p[1]}cx/=f.length;cz/=f.length;let t={building:'yes'};for(const b of OH.get(Math.floor(cx/20)*100003+Math.floor(cz/20))||[])if(inRing(cx,cz,b.rings.outers[0])){t=b.t;break}
+    for(const cb of D.city.b){const f=cb.f[0];let cx=0,cz=0;for(const p of f){cx+=p[0];cz+=p[1]}cx/=f.length;cz/=f.length;if(inHZ(cx,cz))continue;let t={building:'yes'};for(const b of OH.get(Math.floor(cx/20)*100003+Math.floor(cz/20))||[])if(inRing(cx,cz,b.rings.outers[0])){t=b.t;break}
       const rings=cb.f.map(r=>{const q=r.slice();q.push(q[0]);return q});BLD.push({t,rings:{outers:rings,inners:[]},part:false,city:cb,cx,cz})}
     /* keep OSM buildings the city model doesn't have (outside its coverage, or built after it) */
     const CH=new Map();for(const b of BLD){if(!b.city)continue;const k=Math.floor(b.cx/20)*100003+Math.floor(b.cz/20);if(!CH.has(k))CH.set(k,[]);CH.get(k).push(b)}
-    let kept=0;for(const b of osmB){const r=b.rings.outers[0];let cx=0,cz=0;for(const p of r){cx+=p[0];cz+=p[1]}cx/=r.length;cz/=r.length;let hit=false;
+    let kept=0;for(const b of osmB){const r=b.rings.outers[0];let cx=0,cz=0;for(const p of r){cx+=p[0];cz+=p[1]}cx/=r.length;cz/=r.length;let hit=false;if(b.hz){BLD.push(b);kept++;continue}
       for(let di=-2;di<=2&&!hit;di++)for(let dj=-2;dj<=2&&!hit;dj++)for(const c of CH.get((Math.floor(cx/20)+di)*100003+Math.floor(cz/20)+dj)||[]){if(inRing(cx,cz,c.rings.outers[0])||inRing(c.cx,c.cz,r)){hit=true;break}}
       if(!hit){BLD.push(b);kept++}}
     status('Buildings: '+D.city.b.length+' from the Helsinki 3D city model, '+kept+' from OpenStreetMap',.73)}
+  /* outlines that have building:part pieces are drawn by their parts (still used for collisions) */
+  {const PH=new Map();for(const b of BLD){if(!b.part)continue;const k=Math.floor(b.cx/25)*100003+Math.floor(b.cz/25);if(!PH.has(k))PH.set(k,[]);PH.get(k).push(b)}
+   for(const b of BLD){if(b.part||b.city||b.cx===undefined)continue;const r=b.rings.outers[0];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of r){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}
+     outer:for(let i=Math.floor(x0/25);i<=Math.floor(x1/25);i++)for(let j=Math.floor(z0/25);j<=Math.floor(z1/25);j++)for(const q of PH.get(i*100003+j)||[])if(inRing(q.cx,q.cz,r)){b.noMesh=true;break outer}}}
   g.fillStyle='#000';g.fillRect(0,0,RW,RH);g.fillStyle='#fff';
   for(const b of BLD){if(isRoofOnly(b.t)||b.part)continue;for(const P of b.rings.outers){pathR(P,true);g.fill()}}
   const bd=g.getImageData(0,0,RW,RH).data;
@@ -582,7 +643,7 @@ function buildWorld(D){
   const GS=GT/Math.max(X1-X0,Z1-Z0),GX=x=>(x-X0)*GS,GZ=z=>(z-Z0)*GS;
   const gpath=(P,close)=>{gg.beginPath();P.forEach((p,i)=>i?gg.lineTo(GX(p[0]),GZ(p[1])):gg.moveTo(GX(p[0]),GZ(p[1])));if(close)gg.closePath()};
   gg.fillStyle='#7c8866';gg.fillRect(0,0,GT,GT);
-  const LUC={residential:'#85896f',commercial:'#8d8b85',retail:'#8d8b85',industrial:'#88857c',railway:'#857e72',construction:'#a39882',brownfield:'#9a917f',grass:'#6c934a',meadow:'#7a9a50',forest:'#4b6a35',cemetery:'#678c48',allotments:'#728f4c',recreation_ground:'#6c934a',village_green:'#6c934a',flowerbed:'#6f8f45',religious:'#8d917f',education:'#8f937f'};
+  const LUC={residential:'#85896f',commercial:'#8d8b85',retail:'#8d8b85',industrial:'#88857c',railway:'#857e72',construction:'#8a8985',brownfield:'#86857f',grass:'#6c934a',meadow:'#7a9a50',forest:'#4b6a35',cemetery:'#678c48',allotments:'#728f4c',recreation_ground:'#6c934a',village_green:'#6c934a',flowerbed:'#6f8f45',religious:'#8d917f',education:'#8f937f'};
   const order=[];
   for(const e of D.land.elements){if(e.type!=='way')continue;const t=tags(e);const P=wayPts(e);if(P.length<4)continue;let c=null,z=0;
     if(t.landuse&&LUC[t.landuse]){c=LUC[t.landuse];z=t.landuse==='residential'||t.landuse==='commercial'||t.landuse==='industrial'?0:1}
@@ -734,7 +795,9 @@ function buildWorld(D){
     if(lon>24.969&&lat<60.1925||lon>24.985)return'new';return'old'};
   const geo={res:{p:[],u:[],c:[]},glass:{p:[],u:[],c:[]},ind:{p:[],u:[],c:[]},brick:{p:[],u:[],c:[]},roof:{p:[],c:[]}};
   let nb=0;
-  for(const b of BLD){const t=b.t;const outer=b.rings.outers;let area=0;for(const P of outer)area+=Math.abs(polyArea(P));
+  const HZB=[];
+  for(const b of BLD){if(b.noMesh)continue;if(b.hz&&(inPlant(b.cx,b.cz)||/Sosiaali/.test(b.t.name||'')||isRound(b.rings.outers[0]))){HZB.push(b);continue}
+    const t=b.t;const outer=b.rings.outers;let area=0;for(const P of outer)area+=Math.abs(polyArea(P));
     if(b.city){const cb=b.city,h=cb.h,cx=outer[0][0][0],cz=outer[0][0][1];let z0=zone(cx,cz,t,area);if(cb.yr<1945&&z0==='new')z0='old';if(cb.yr>1995&&z0==='old')z0='new';
       let col=t['building:colour']||t.colour;let C;try{C=col?new THREE.Color(col).convertSRGBToLinear():null}catch(e){C=null}if(!C){const pal=PAL[z0];C=lin(pal[(nb*7+Math.floor(Math.abs(cx*13+cz*7)))%pal.length])}
       const kind=z0==='brick'?'brick':/industrial|warehouse|garage|service|shed/.test(t.building||'')?'ind':z0==='new'&&(h>24||/commercial|office|retail/.test(t.building||''))?'glass':'res';
@@ -757,6 +820,7 @@ function buildWorld(D){
     try{for(const P of outer){const pts=P.slice(0,-1).map(p=>new THREE.Vector2(p[0],p[1]));const holes=b.rings.inners.filter(Q=>inRing(Q[0][0],Q[0][1],P)).map(Q=>Q.slice(0,-1).map(p=>new THREE.Vector2(p[0],p[1])));
       const tri=THREE.ShapeUtils.triangulateShape(pts,holes);const all=pts.concat(...holes);for(const f of tri){for(const k of [f[0],f[2],f[1]]){geo.roof.p.push(all[k].x,h,all[k].y);geo.roof.c.push(roofC.r,roofC.g,roofC.b)}
         if(mh>.5)for(const k of [f[0],f[1],f[2]]){geo.roof.p.push(all[k].x,mh,all[k].y);geo.roof.c.push(roofC.r*.6,roofC.g*.6,roofC.b*.6)}}}}catch(e){}}
+  buildHanasaari(HZB);
   const FT={res:facadeTile('res'),glass:facadeTile('glass'),ind:facadeTile('ind'),brick:facadeTile('brick')};
   for(const k of ['res','glass','ind','brick']){const A=geo[k];if(!A.p.length)continue;const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));gm.computeVertexNormals();
     const fm=wet(M({map:tex(FT[k]),vertexColors:true,roughness:k==='glass'?.25:.85,metalness:k==='glass'?.35:0,side:THREE.DoubleSide}),k==='glass'?.1:.6);

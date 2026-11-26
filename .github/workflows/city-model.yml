@@ -1,4 +1,4 @@
-name: Build city model
+name: Build map data
 # Downloads the Helsinki 3D city model (CityGML LOD2 buildings) for the game area
 # and converts it into a compact binary the game loads from GitHub Pages.
 on:
@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: 20
       - run: npm install --no-save earcut@2.2.4
+      - run: node tools/osm.mjs
+      - run: node tools/tiles-probe.mjs || true
       - run: node --max-old-space-size=6000 tools/city.mjs
       - name: Commit result
         run: |
@@ -26,4 +28,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/
           git diff --cached --quiet || git commit -m "Update city model data"
+          git pull --rebase || true
           git push

@@ -358,7 +358,17 @@ function parseCity(j,out){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1
     const foot=acc.foot.length?acc.foot:acc.rfoot;if(!foot.length)continue;
     let yr=NaN;for(const k in attrs)if(/year|vuosi/i.test(k)){yr=parseInt(attrs[k]);break}
     out.push({w:new Float32Array(acc.wall),r:new Float32Array(acc.roof),f:foot,h:top-gz,yr})}}
+/* compact model built by the repo's GitHub Action (tools/city.mjs) and served with the game */
+function decodeCity(ab){const dv=new DataView(ab);if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='HKB1')throw new Error('bad city file');
+  const n=dv.getUint32(4,true),out=[];let o=12;
+  for(let k=0;k<n;k++){const ox=dv.getFloat32(o,true),oz=dv.getFloat32(o+4,true);o+=12;const nv=dv.getUint16(o,true),nW=dv.getUint16(o+2,true),nR=dv.getUint16(o+4,true),nF=dv.getUint16(o+6,true),yr=dv.getUint16(o+8,true);o+=10;
+    const V=new Float32Array(nv*3);let top=0;for(let i=0;i<nv;i++){V[i*3]=dv.getInt16(o,true)/10+ox;V[i*3+1]=dv.getInt16(o+2,true)/10;V[i*3+2]=dv.getInt16(o+4,true)/10+oz;top=Math.max(top,V[i*3+1]);o+=6}
+    const tri=(cnt)=>{const A=new Float32Array(cnt*9);for(let i=0;i<cnt*3;i++){const v=dv.getUint16(o,true);o+=2;A[i*3]=V[v*3];A[i*3+1]=V[v*3+1];A[i*3+2]=V[v*3+2]}return A};
+    const w=tri(nW),r=tri(nR);const f=[];for(let i=0;i<nF;i++){f.push([dv.getInt16(o,true)/10+ox,dv.getInt16(o+2,true)/10+oz]);o+=4}
+    out.push({w,r,f:[f],h:top,yr:yr||NaN})}
+  return out}
 async function loadCity(p0,p1){
+  try{status('Loading Helsinki 3D city model…',p0);const r=await fetch('data/city3d.bin',{cache:'no-cache'});if(r.ok){const b=decodeCity(await r.arrayBuffer());if(b.length){status('3D city model: '+b.length+' buildings',p1);return{b,failed:[]}}}}catch(e){}
   const c=await cacheGet('city3d-v1');if(c&&c.b&&c.b.length){status('3D city model (saved on this device)',p1);return c}
   const out=[],failed=[],NX=5,NY=5;let done=0,fails=0;
   for(let a=0;a<NY;a++)for(let b=0;b<NX;b++){const s=BB.s+(BB.n-BB.s)*a/NY,n=BB.s+(BB.n-BB.s)*(a+1)/NY,w=BB.w+(BB.e-BB.w)*b/NX,e=BB.w+(BB.e-BB.w)*(b+1)/NX;
@@ -492,16 +502,20 @@ function buildWorld(D){
   const pathR=(P,close)=>{g.beginPath();P.forEach((p,i)=>i?g.lineTo(RX(p[0]),RZ(p[1])):g.moveTo(RX(p[0]),RZ(p[1])));if(close)g.closePath()};
   /* coastline: draw as barrier, seed the sea on its right-hand side, flood fill */
   const coast=D.land.elements.filter(e=>e.type==='way'&&tags(e).natural==='coastline');
-  const fillSea=lw=>{g.fillStyle='#fff';g.fillRect(0,0,RW,RH);g.strokeStyle='#000';g.lineWidth=lw;g.lineCap='round';
+  /* label every region the coastline separates, then let each coastline segment vote:
+     OSM coastlines have land on the left and water on the right. Robust to narrow canals and piers. */
+  const fillSea=lw=>{g.fillStyle='#fff';g.fillRect(0,0,RW,RH);g.strokeStyle='#000';g.lineWidth=lw;g.lineCap='round';g.lineJoin='round';
     for(const e of coast){const P=wayPts(e);if(P.length>1){pathR(P);g.stroke()}}
-    const bar=g.getImageData(0,0,RW,RH).data;WMASK=new Uint8Array(RW*RH);const ST=new Int32Array(RW*RH);let sp=0;
-    const push=p=>{if(!WMASK[p]&&bar[p*4]>=128){WMASK[p]=1;ST[sp++]=p}};
-    const seed=(x,z)=>{const i=Math.floor(RX(x)),j=Math.floor(RZ(z));if(i>=0&&j>=0&&i<RW&&j<RH)push(j*RW+i)};
-    for(const e of coast){const P=wayPts(e);for(let k=0;k<P.length-1;k++){const a=P[k],b=P[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);if(l<1)continue;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;seed(mx-dz/l*(lw+3),mz+dx/l*(lw+3))}}
-    while(sp>0){const p=ST[--sp];const i=p%RW,j=(p-i)/RW;if(i>0)push(p-1);if(i<RW-1)push(p+1);if(j>0)push(p-RW);if(j<RH-1)push(p+RW)}
-    for(let p=0;p<RW*RH;p++)if(!WMASK[p]&&bar[p*4]<128){const i=p%RW,j=(p-i)/RW;let w=0;if(i>0&&WMASK[p-1])w++;if(i<RW-1&&WMASK[p+1])w++;if(j>0&&WMASK[p-RW])w++;if(j<RH-1&&WMASK[p+RW])w++;if(w>=2)WMASK[p]=1}
-    let n=0;for(let p=0;p<RW*RH;p++)n+=WMASK[p];return n/(RW*RH)};
-  if(fillSea(1.6)>.6&&fillSea(3.6)>.6){WMASK.fill(0);report('coastline data incomplete — sea shown only where water areas are mapped')}
+    const bar=g.getImageData(0,0,RW,RH).data,N=RW*RH,lab=new Int32Array(N).fill(-1),ST=new Int32Array(N);let nc=0;
+    for(let p0=0;p0<N;p0++){if(lab[p0]>=0||bar[p0*4]<128)continue;let sp=0;ST[sp++]=p0;lab[p0]=nc;
+      while(sp>0){const p=ST[--sp],i=p%RW;const nb=[i>0?p-1:-1,i<RW-1?p+1:-1,p>=RW?p-RW:-1,p<N-RW?p+RW:-1];for(const q of nb)if(q>=0&&lab[q]<0&&bar[q*4]>=128){lab[q]=nc;ST[sp++]=q}}nc++}
+    const vote=new Float64Array(nc),off=(lw/2+1.3)*RS,at=(x,z)=>{const i=Math.floor(RX(x)),j=Math.floor(RZ(z));return i>=0&&j>=0&&i<RW&&j<RH?lab[j*RW+i]:-1};
+    for(const e of coast){const P=wayPts(e);for(let k=0;k<P.length-1;k++){const a=P[k],b=P[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);if(l<.5)continue;const nx=-dz/l,nz=dx/l;
+      for(let t=.5*RS/l;t<1;t+=2*RS/l){const x=a[0]+dx*t,z=a[1]+dz*t,r=at(x+nx*off,z+nz*off),L=at(x-nx*off,z-nz*off);if(r>=0)vote[r]+=1;if(L>=0)vote[L]-=1}}}
+    WMASK=new Uint8Array(N);for(let p=0;p<N;p++)if(lab[p]>=0&&vote[lab[p]]>0)WMASK[p]=1;
+    for(let p=0;p<N;p++)if(lab[p]<0){const i=p%RW;let w=0;if(i>0&&WMASK[p-1])w++;if(i<RW-1&&WMASK[p+1])w++;if(p>=RW&&WMASK[p-RW])w++;if(p<N-RW&&WMASK[p+RW])w++;if(w>=2)WMASK[p]=1}
+    let n=0;for(let p=0;p<N;p++)n+=WMASK[p];return n/N};
+  {const f=fillSea(1.6);if(f>.7){WMASK.fill(0);status('Coastline data looked incomplete — showing sea only where water areas are mapped',.62)}}
   g.fillStyle='#fff';g.fillRect(0,0,RW,RH);g.fillStyle='#000';
   const waterPolys=[];
   for(const e of D.land.elements){const t=tags(e);if(!(t.natural==='water'||t.water||t.waterway==='riverbank'))continue;

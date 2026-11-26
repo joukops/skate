@@ -1,4 +1,4 @@
-name: Build textured buildings
+name: Build 3D data (terrain, buildings, bridges)
 # Converts the city's textured LOD2 building tiles (3D Tiles 1.1, Draco + KTX2) for the game area
 # into plain binary meshes + JPEG textures under data/tiles/.
 on:

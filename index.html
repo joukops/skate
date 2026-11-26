@@ -813,7 +813,7 @@ function buildWorld(D){
   let nb=0;
   const HZB=[];
   for(const b of BLD){if(b.noMesh)continue;
-    if(D.tiles){if(b.hz&&inPlant(b.cx,b.cz))HZB.push(b);continue}   /* textured city tiles draw everything except the hand-made plant */
+    if(D.tiles){if(b.hz&&(inPlant(b.cx,b.cz)||isRound(b.rings.outers[0])))HZB.push(b);continue}   /* textured city tiles draw everything except the hand-made plant */
     if(b.hz&&(inPlant(b.cx,b.cz)||/Sosiaali/.test(b.t.name||'')||isRound(b.rings.outers[0]))){HZB.push(b);continue}
     const t=b.t;const outer=b.rings.outers;let area=0;for(const P of outer)area+=Math.abs(polyArea(P));
     if(b.city){const cb=b.city,h=cb.h,cx=outer[0][0][0],cz=outer[0][0][1];let z0=zone(cx,cz,t,area);if(cb.yr<1945&&z0==='new')z0='old';if(cb.yr>1995&&z0==='old')z0='new';

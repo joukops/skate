@@ -1,0 +1,57 @@
+LAYER 2021_terrain | TerrainLayer | https://kartta.hel.fi/3d/datasource-data/4383570b-33a3-4a9f-ae16-93373aff5ffa/tileset.json | {}
+  status 404
+LAYER Rakennukset_LOD2_tekstuureilla | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/tileset.json | {"featureInfo":"BalloonFeatureInfoView","exportWorkbench":"https://kartta.hel.fi/3d/fmedatadownload/VirtualCitySystems/MultiExporter_Helsinki.fmw","title":"Rakennukset tekstuureilla (LOD2)","attributi
+  asset {"tilesetVersion":"308380607749","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]}
+  content bytes 1935 magic {
+ 
+LAYER Rakennukset_LOD2 | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/tileset.json | {"featureInfo":"BalloonFeatureInfoView","title":"Rakennukset (LOD2)","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja
+  asset {"tilesetVersion":"308380567866","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-2.3500000033527613,148.76799999829382]}
+  content bytes 1935 magic {
+ 
+LAYER Rakennukset_LOD1 | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/28b3e52b-761b-4211-aff8-682c11648c3e/tileset.json | {"title":"Rakennukset (LOD1)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja
+  asset {"tilesetVersion":"308380775829","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-9998.999998995103,148.33428401499987]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.43335524818033244,1.0487855475398835,0.4406435932781109,1.052362195395322,-9998.999998995103,148.33428401499987]}
+  content bytes 1931 magic {
+ 
+LAYER Rakennukset_LOD2_puretut_tekstuureilla | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/da3f20e1-6b5c-41f1-8fd9-60d3835018e5/tileset.json | {"title":"Puretut rakennukset tekstuureilla (LOD2)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa
+  asset {"tilesetVersion":"308380543801","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]}
+  content bytes 1923 magic {
+ 
+LAYER Rakennukset_LOD2_puretut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/7b918ec0-7694-436b-8787-d8cc7fa9f30b/tileset.json | {"title":"Puretut rakennukset (LOD2)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/k
+  asset {"tilesetVersion":"308380527940","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,0.04599999915808439,93.00000000093132]}
+  content bytes 1923 magic {
+ 
+LAYER Rakennukset_LOD1_puretut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/9f75214e-0db3-4e7f-ad35-10509cb0d4e5/tileset.json | {"title":"Puretut rakennukset (LOD1)","featureInfo":"BalloonFeatureInfoView","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/k
+  asset {"tilesetVersion":"308380815871","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,-0.46400000154972076,93.00000000186265]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.4334098781548434,1.048947051881007,0.4406282972234514,1.052361995104664,-0.46400000154972076,93.00000000186265]}
+  content bytes 1927 magic {
+ 
+LAYER Katu_ja_puistopuut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/tileset.json | {"featureInfo":"@vcmap/dynamic-layer","title":"Katu- ja puistopuut","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-
+  asset {"tilesetVersion":"303007720360","version":"1.1"} gE 2147483647 root bv {"region":[0.43342121432302066,1.0496563401901933,0.4399519621684228,1.0522333711483924,-16.11960296332836,80.92828570026904]} children 0 extUsed [] props {}
+  leaf depth 0 content 4/9/4.json bv {"region":[0.43342121432302066,1.0496563401901933,0.4399519621684228,1.0522333711483924,-16.11960296332836,80.92828570026904]}
+  content bytes 2457 magic {
+ 
+LAYER Tontti_ja_metsapuut | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/tileset.json | {"featureInfo":"@vcmap/dynamic-layer","title":"Tontti- ja metsäpuut","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja
+  asset {"version":"1.1","tilesetVersion":"300497315794"} gE 2147483647 root bv {"sphere":[0,0,0,8582621.44053734]} children 0 extUsed [] props {}
+  leaf depth 0 content 1/1/0.json bv {"sphere":[0,0,0,8582621.44053734]}
+  content bytes 1742 magic {
+ 
+LAYER Sillat_LOD3 | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/b1300b5d-3ebb-4bd4-9ade-5c810c4a3a4b/tileset.json | {"featureInfo":"@vcmap/dynamic-layer","title":"Sillat (LOD3)","attributions":{"provider":"Helsingin kaupunki","url":"https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikka
+  asset {"tilesetVersion":"307242549667","version":"1.1"} gE 56192.46908732494 root bv {"region":[0.43341195528301774,1.0496120002958071,0.44059765616556745,1.0522874023175088,-7.0550000024959445,136.604284000583]} children 0 extUsed [] props {}
+  leaf depth 0 content 3/4/2.json bv {"region":[0.43341195528301774,1.0496120002958071,0.44059765616556745,1.0522874023175088,-7.0550000024959445,136.604284000583]}
+  content bytes 1935 magic {
+ 
+LAYER Solar_rakennukset | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/a43e65e7-b2b1-4204-b428-e1c627fbf00f/tileset.json | {"title":"Aurinkoenergia (ilman puustoa)","featureInfo":"SolarFeatureInfo(1)"}
+  asset {"version":"1.0","tilesetVersion":"289519103163"} gE 781.25 root bv {"region":[0.433349572,1.048859363,0.440731855,1.052406694,-7.1,148.7]} children 16 extUsed [] props {"ZMax":{"valueType":"DOUBLE","minimum":-2.1,"maximum":10002.3},"solarArea":{"valueType":"DOUBLE","minimum":0,"maximum":28307.42},"Address":{"valueType":"SIMPLEADDRESS"},"SVF_max":{"valueType":"DOUBLE","minimum":-999,"maximum":1},"storeysAboveGround":{"valueType":"INTEGER","minimum":1,"maximum":35},
+  leaf depth 1 content 11/2330/338.json bv {"region":[0.433349572,1.050776839,0.434131427,1.05231082,1.8,78.4]}
+  content bytes 758743 magic {
+  
+LAYER Solar_bldg_tree_3d | CesiumTilesetLayer | https://kartta.hel.fi/3d/datasource-data/a5c57582-2eef-4c41-847b-8aec0b7a5c33/tileset.json | {"title":"Aurinkoenergia (puuston varjostus)","featureInfo":"SolarFeatureInfo(1)"}
+  asset {"version":"1.0","tilesetVersion":"283395194365"} gE 781.25 root bv {"region":[0.433349572,1.048859363,0.440731855,1.052406694,-7.1,148.7]} children 16 extUsed [] props {"ZMax":{"valueType":"DOUBLE","minimum":-2.1,"maximum":10002.3},"solarArea":{"valueType":"DOUBLE","minimum":0,"maximum":28307.42},"Address":{"valueType":"SIMPLEADDRESS"},"SVF_max":{"valueType":"DOUBLE","minimum":-999,"maximum":1},"storeysAboveGround":{"valueType":"INTEGER","minimum":1,"maximum":35},
+  leaf depth 1 content 11/2330/338.json bv {"region":[0.433349572,1.050776839,0.434131427,1.05231082,1.8,78.4]}
+  content bytes 758743 magic {
+  

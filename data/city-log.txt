@@ -1,12 +1,54 @@
-extra https://kartta.hel.fi/3d/citydb-wfs/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&count=1 -> 403 text/xml;charset=UTF-8 579 | <?xml version="1.0" standalone="yes"?> <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd" version="2.0.0" xml:lang="en"> <ows:Exception exceptionCode="OperationProcessingFailed" locator="GetFeature"> <ows:ExceptionText>The service is currently unavailable because it is overloaded. Generally, this is a temporary state. Please retry later.</ows:ExceptionText> </ows:Exception> </ows:ExceptionReport>
-extra https://kartta.hel.fi/3d/citydb-wfs/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=bldg:Building&count=1&outputFormat=application/json -> 403 text/xml;charset=UTF-8 579 | <?xml version="1.0" standalone="yes"?> <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd" version="2.0.0" xml:lang="en"> <ows:Exception exceptionCode="OperationProcessingFailed" locator="GetFeature"> <ows:ExceptionText>The service is currently unavailable because it is overloaded. Generally, this is a temporary state. Please retry later.</ows:ExceptionText> </ows:Exception> </ows:ExceptionReport>
-extra https://kartta.hel.fi/3d/citydb-wfs/wfs?service=WFS&version=2.0.0&request=DescribeFeatureType&typeNames=bldg:Building -> 200 text/xml;charset=UTF-8 36300 | <?xml version="1.0" encoding="UTF-8"?> <!-- CityGML Version No. 2.0, February 2012 --> <!-- CityGML - GML 3.1.1 application schema for 3D city models --> <!-- International encoding standard of the Open Geospatial Consortium, see http://www.opengeospatial.org/standards/citygml --> <!-- Jointly developed by the Special Interest Group 3D (SIG 3D) of GDI-DE, see http://www.sig3d.org --> <!-- For further information see: http://www.citygml.org --> <xs:schema xmlns="http://www.opengis.net/citygml/building/2.0" xmlns:core="http://www.opengis.net/citygml/2.0" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:gml="http://www.opengis.net/gml" targetNamespace="http://www.opengis.net/citygml/building/2.0" elementFormDefault="qualified" attributeFormDefault="unqualified" version="2.0.0"> <xs:annotation> <xs:documentation> CityGML is an OGC Standard. Copyright (c) 201
-extra http://3d.hel.ninja/data/citygml/ -> 200 text/html 308 | <html> <head><title>Index of /data/citygml/</title></head> <body> <h1>Index of /data/citygml/</h1><hr><pre><a href="../">../</a> <a href="Helsinki3D_CityGML_Kalasatama_20190326.zip">Helsinki3D_CityGML_Kalasatama_20190326.zip</a> 15-Oct-2025 12:24 23546638 </pre><hr></body> </html> 
-extra https://3d.hel.ninja/data/citygml/ -> 200 text/html 308 | <html> <head><title>Index of /data/citygml/</title></head> <body> <h1>Index of /data/citygml/</h1><hr><pre><a href="../">../</a> <a href="Helsinki3D_CityGML_Kalasatama_20190326.zip">Helsinki3D_CityGML_Kalasatama_20190326.zip</a> 15-Oct-2025 12:24 23546638 </pre><hr></body> </html> 
-extra https://kartta.hel.fi/3d/ -> 200 text/html 2631 | <!DOCTYPE html> <html class="vcs-ui" lang="en"> <head> <title>VC Map</title> <meta charset="utf-8"> <meta name="viewport" content="width=device-width,initial-scale=1.0, maximum-scale=1"> <link class="vcs-favicon" rel="icon" type="image/png" href="./assets/favicon-32-4c4ce5df.png" sizes="32x32" > <link class="vcs-favicon" rel="icon" type="image/png" href="./assets/favicon-128-4c4ce5df.png" sizes="128x128" > <link class="vcs-favicon" rel="icon" type="image/png" href="./assets/favicon-180-4c4ce5df.png" sizes="180x180" > <link class="vcs-favicon" rel="icon" type="image/png" href="./assets/favicon-192-4c4ce5df.png" sizes="192x192" > <link class="vcs-favicon" rel="icon" type="image/svg+xml" href="./assets/favicon-4c4ce5df.svg"
-extra https://kartta.hel.fi/avoindata/ -> 200 text/html 232 | <html> <head> <meta http-equiv="refresh" content="0; url=https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto/paikkatiedot-tehokayttoon/avoimet-paikkatiedot/"> </head> <body> </body> </html>
-extra https://kartta.hel.fi/ws/geoserver/avoindata/wfs?service=WFS&version=2.0.0&request=GetCapabilities error fetch failed
-probe 0 status 403 text/xml;charset=UTF-8 bytes 579 objects -1 | <?xml version="1.0" standalone="yes"?> <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd" version="2.0.0" xml:lang="en"> <ows:Exception exceptionCode="OperationProcessingFailed" locator="GetFeature"> <ows:ExceptionText>The service is currently unavailable because it is overloaded. Generally, this is a temporary state. Please retry later.</ows:ExceptionText> </ows:Exception> </ows:ExceptionReport>
-probe 1 status 403 text/xml;charset=UTF-8 bytes 579 objects -1 | <?xml version="1.0" standalone="yes"?> <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd" version="2.0.0" xml:lang="en"> <ows:Exception exceptionCode="OperationProcessingFailed" locator="GetFeature"> <ows:ExceptionText>The service is currently unavailable because it is overloaded. Generally, this is a temporary state. Please retry later.</ows:ExceptionText> </ows:Exception> </ows:ExceptionReport>
-probe 2 status 403 text/xml;charset=UTF-8 bytes 579 objects -1 | <?xml version="1.0" standalone="yes"?> <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd" version="2.0.0" xml:lang="en"> <ows:Exception exceptionCode="OperationProcessingFailed" locator="GetFeature"> <ows:ExceptionText>The service is currently unavailable because it is overloaded. Generally, this is a temporary state. Please retry later.</ows:ExceptionText> </ows:Exception> </ows:ExceptionReport>
-No request form returned buildings.
+WFS probe 403 <?xml version="1.0" standalone="yes"?> <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd" version="2.0.0" xml:lang="en"> <ows:Exc
+cityObjectMember chunks 3011
+CityGML buildings 2919 extent local m -1505,-2163,1619,2223
+viewer layer Url
+viewer layer URL
+viewer layer URL
+viewer layer URL
+viewer layer URL
+viewer layer Imprint URL
+viewer layer Data protection URL
+viewer layer Provider URL
+viewer layer URL-osoite Nominatim-palveluun
+viewer layer URL
+viewer layer Syötä palvelun URL-osoite
+viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2024
+viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2024
+viewer layer http://www.openstreetmap.org/
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2015
+viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2017
+viewer layer https://kartta.hel.fi/3d/mesh/Alppila_2023
+viewer layer https://kartta.hel.fi/3d/mesh/Sompasaari_2019
+viewer layer https://kartta.hel.fi/3d/datasource-data/4383570b-33a3-4a9f-ae16-93373aff5ffa/
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer https://kartta.hel.fi/3d/datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer ./datasource-data/16fc3fd5-df6d-4f48-bfd5-9aeee430a02f/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer ./datasource-data/28b3e52b-761b-4211-aff8-682c11648c3e/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer ./datasource-data/da3f20e1-6b5c-41f1-8fd9-60d3835018e5/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer ./datasource-data/7b918ec0-7694-436b-8787-d8cc7fa9f30b/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer ./datasource-data/9f75214e-0db3-4e7f-ad35-10509cb0d4e5/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer https://kartta.hel.fi/3d/datasource-data/7afdc4b9-9a23-4a6f-a1ae-cf71495a731e/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer https://kartta.hel.fi/3d/datasource-data/561e9651-878a-45a6-99e3-e4e4704d8001/tileset.json
+viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
+viewer layer https://kartta.hel.fi/3d//datasource-data/b1300b5d-3ebb-4bd4-9ade-5c810c4a3a4b/tileset.json
+viewer layer https://kartta.hel.fi/3d/mesh/Saarinen/Scene/Malli_I_Cesium.json
+viewer layer ./datasource-data/a43e65e7-b2b1-4204-b428-e1c627fbf00f/tileset.json
+viewer layer ./datasource-data/a5c57582-2eef-4c41-847b-8aec0b7a5c33/tileset.json
+viewer layer https://kartta.hel.fi/3d/mesh/Uunisaari_2026
+viewer layer https://kartta.hel.fi/3d/fmedatastreaming/Rajapintapalvelut/rest_osoitteet.fmw?token=bf80b113dab7a488c40e9c1b7b0e11cb53048d9d&
+viewer name Name Type
+done: buildings 2919 bytes 2631502

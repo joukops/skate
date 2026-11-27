@@ -24,37 +24,53 @@ jobs:
           sudo apt-get install -y -qq colmap xvfb libimage-exiftool-perl > /dev/null
           colmap -h | head -3
       - run: npm install --no-save jpeg-js@0.4.4
-      - name: Download photos
+      - name: Reuse COLMAP results
+        id: sfm
+        uses: actions/cache@v4
+        with:
+          path: work
+          key: sfm-${{ hashFiles('tools/sfm-prep.mjs') }}-v2
+      - if: steps.sfm.outputs.cache-hit != 'true'
+        name: Download photos
         run: node tools/sfm-prep.mjs
         env:
           MAPILLARY_TOKEN: ${{ secrets.MAPILLARY_TOKEN }}
-      - name: Lens data into EXIF
+      - if: steps.sfm.outputs.cache-hit != 'true'
+        name: Lens data into EXIF
         run: exiftool -q -@ work/exif.args > /dev/null 2>&1 || true
-      - name: Features
+      - if: steps.sfm.outputs.cache-hit != 'true'
+        name: Features
         run: |
           colmap database_creator --database_path work/db.db
           xvfb-run -a colmap feature_extractor --database_path work/db.db --image_path work/images \
             --ImageReader.camera_model SIMPLE_RADIAL --ImageReader.single_camera_per_image 1 \
             --SiftExtraction.use_gpu 0 --SiftExtraction.max_num_features 6000 2>&1 | tail -3
-      - name: Matching
+      - if: steps.sfm.outputs.cache-hit != 'true'
+        name: Matching
         run: |
           xvfb-run -a colmap matches_importer --database_path work/db.db --match_list_path work/pairs.txt --match_type pairs \
             --SiftMatching.use_gpu 0 2>&1 | tail -3
-      - name: Reconstruction
+      - if: steps.sfm.outputs.cache-hit != 'true'
+        name: Reconstruction
         run: |
           mkdir -p work/sparse
           colmap mapper --database_path work/db.db --image_path work/images --output_path work/sparse --Mapper.ba_refine_principal_point 0 --Mapper.init_min_tri_angle 4 --Mapper.min_num_matches 20 > work/mapper.log 2>&1 || true
           grep -E "Elapsed" work/mapper.log | tail -2
           for d in work/sparse/[0-9]*; do echo "$d"; colmap model_analyzer --path $d 2>&1 | grep -E "Registered images|Points|Mean reprojection"; done
-      - name: Align to GPS
+      - name: Models to text
         run: |
-          for d in work/sparse/[0-9]*; do
-            [ -d "$d" ] || continue
-            colmap model_aligner --input_path $d --output_path $d-al --ref_images_path work/ref.txt --ref_is_gps 0 \
-              --alignment_type custom --robust_alignment 1 --robust_alignment_max_error 6 2>&1 | tail -4 || true
-            [ -f $d-al/images.bin ] && colmap model_converter --input_path $d-al --output_path $d-al --output_type TXT
-          done
-          ls -la work/sparse
+          for d in work/sparse/[0-9]*; do case "$d" in *-*) continue;; esac; mkdir -p $d-txt; colmap model_converter --input_path $d --output_path $d-txt --output_type TXT; done
+          ls work/sparse
+      - name: Keep the reconstruction for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfm
+          path: |
+            work/sparse/*-txt
+            work/ref.txt
+            work/meta.json
+            work/images
+          retention-days: 7
       - name: Fit and fuse
         run: node --max-old-space-size=6000 tools/sfm-fuse.mjs
       - name: Commit result

@@ -28,6 +28,34 @@ function readModel(dir) {
   const pts = []; for (const l of fs.readFileSync(dir + '/points3D.txt', 'utf8').split('\n')) { if (!l || l[0] === '#') continue; const p = l.trim().split(/\s+/); if (+p[7] > 2.5) continue; const tl = (p.length - 8) / 2; if (tl < 3) continue; pts.push([+p[1], +p[2], +p[3]]) }
   return {imgs, pts} }
 
+// ---------- GPS alignment: similarity (scale, rotation, shift) from camera centres to their GPS positions, RANSAC ----------
+function horn(A, B) {   /* best rotation + scale + translation taking points A onto B (Horn's quaternion method) */
+  const n = A.length, ca = [0, 0, 0], cb = [0, 0, 0]; for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) { ca[k] += A[i][k] / n; cb[k] += B[i][k] / n }
+  const S = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; let sa = 0, sb = 0;
+  for (let i = 0; i < n; i++) { const a = A[i].map((v, k) => v - ca[k]), b = B[i].map((v, k) => v - cb[k]); sa += a[0] ** 2 + a[1] ** 2 + a[2] ** 2; sb += b[0] ** 2 + b[1] ** 2 + b[2] ** 2; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) S[r][c] += a[r] * b[c] }
+  const [[xx, xy, xz], [yx, yy, yz], [zx, zy, zz]] = S;
+  const N = [[xx + yy + zz, yz - zy, zx - xz, xy - yx], [yz - zy, xx - yy - zz, xy + yx, zx + xz], [zx - xz, xy + yx, -xx + yy - zz, yz + zy], [xy - yx, zx + xz, yz + zy, -xx - yy + zz]];
+  /* largest eigenvector by power iteration on a shifted matrix */
+  let q = [1, .01, .01, .01]; const sh = Math.abs(xx) + Math.abs(yy) + Math.abs(zz) + 1e-9 + sb + sa;
+  for (let it = 0; it < 200; it++) { const r = [0, 1, 2, 3].map(i => N[i].reduce((s2, v, j) => s2 + v * q[j], 0) + sh * q[i]); const l = Math.hypot(...r); q = r.map(v => v / l) }
+  const [w, x, y, z] = q, R = qrot(w, x, y, z), sc = Math.sqrt(sb / Math.max(1e-9, sa));
+  const t = [0, 1, 2].map(k => cb[k] - sc * (R[k][0] * ca[0] + R[k][1] * ca[1] + R[k][2] * ca[2])); return {R, s: sc, t} }
+const apply = (T3, p) => [0, 1, 2].map(k => T3.s * (T3.R[k][0] * p[0] + T3.R[k][1] * p[1] + T3.R[k][2] * p[2]) + T3.t[k]);
+function alignGPS(model, ref) {
+  const A = [], B = []; for (const im of model.imgs) { const g = ref.get(path.basename(im.name)); if (!g) continue; const R = im.R, t = im.t; A.push([0, 1, 2].map(i => -(R[0][i] * t[0] + R[1][i] * t[1] + R[2][i] * t[2]))); B.push(g) }
+  if (A.length < 6) return null; let best = null, bi = 0;
+  for (let it = 0; it < 400; it++) { const idx = [0, 1, 2].map(() => Math.floor(Math.random() * A.length)); if (new Set(idx).size < 3) continue; const T3 = horn(idx.map(i => A[i]), idx.map(i => B[i])); if (!(T3.s > 0) || T3.s > 1e4) continue;
+    let n = 0; for (let i = 0; i < A.length; i++) { const p = apply(T3, A[i]); if (Math.hypot(p[0] - B[i][0], p[1] - B[i][1]) < 6) n++ } if (n > bi) { bi = n; best = T3 } }
+  if (!best || bi < 5) return null; const I = []; for (let i = 0; i < A.length; i++) { const p = apply(best, A[i]); if (Math.hypot(p[0] - B[i][0], p[1] - B[i][1]) < 6) I.push(i) }
+  const T3 = horn(I.map(i => A[i]), I.map(i => B[i])); let e = 0; for (const i of I) { const p = apply(T3, A[i]); e += Math.hypot(p[0] - B[i][0], p[1] - B[i][1]) }
+  L('  GPS fit: inliers', I.length, '/', A.length, 'mean error', (e / I.length).toFixed(2), 'm, scale', T3.s.toFixed(3));
+  /* move the model into the GPS frame: points X' = sRX + t; cameras R' = Rc R^T, t' = s tc - R' t */
+  model.pts = model.pts.map(p => apply(T3, p));
+  model.imgs = model.imgs.map(im => { const Rc = im.R, RT = [[T3.R[0][0], T3.R[1][0], T3.R[2][0]], [T3.R[0][1], T3.R[1][1], T3.R[2][1]], [T3.R[0][2], T3.R[1][2], T3.R[2][2]]];
+    const R2 = [0, 1, 2].map(r => [0, 1, 2].map(c => Rc[r][0] * RT[0][c] + Rc[r][1] * RT[1][c] + Rc[r][2] * RT[2][c])), t2 = [0, 1, 2].map(k => T3.s * im.t[k] - (R2[k][0] * T3.t[0] + R2[k][1] * T3.t[1] + R2[k][2] * T3.t[2]));
+    return {...im, R: R2, t: t2} });
+  return model }
+
 // ---------- buildings ----------
 const d = JSON.parse(zlib.gunzipSync(fs.readFileSync('data/osm-buildings.json.gz'))); const rings = [];
 for (const e of d.elements) { if (e.type === 'way' && e.geometry) rings.push(e.geometry.filter(Boolean).map(g => PJ(g.lat, g.lon))); else if (e.type === 'relation' && e.members) for (const m of e.members) if (m.role === 'outer' && m.geometry) rings.push(m.geometry.filter(Boolean).map(g => PJ(g.lat, g.lon))) }
@@ -81,10 +109,11 @@ const blocked = (p, q) => SEG.some(s => cross(p, q, s[0], s[1]));
 
 // ---------- main ----------
 try {
-  const dirs = fs.readdirSync('work/sparse').filter(n => n.endsWith('-al') && fs.existsSync(`work/sparse/${n}/images.txt`));
-  if (!dirs.length) throw new Error('no aligned COLMAP model');
+  const dirs = fs.readdirSync('work/sparse').filter(n => n.endsWith('-txt') && fs.existsSync(`work/sparse/${n}/images.txt`));
+  if (!dirs.length) throw new Error('no COLMAP model');
+  const ref = new Map(); for (const l of fs.readFileSync('work/ref.txt', 'utf8').split('\n')) { const p = l.trim().split(/\s+/); if (p.length === 4) ref.set(p[0], [+p[1], +p[2], +p[3]]) }
   let G = [];
-  for (const dn of dirs) { const m = readModel('work/sparse/' + dn); L('model', dn, 'images', m.imgs.length, 'points', m.pts.length); if (m.imgs.length < 8) continue; const fit = fitToWalls(m.pts); if (!fit) { L('  could not fit onto walls'); continue } G = G.concat(gameCams(m, fit)) }
+  for (const dn of dirs) { let m = readModel('work/sparse/' + dn); L('model', dn, 'images', m.imgs.length, 'points', m.pts.length); if (m.imgs.length < 8) continue; m = alignGPS(m, ref); if (!m) { L('  could not align to GPS'); continue } const fit = fitToWalls(m.pts); if (!fit) { L('  could not fit onto walls'); continue } G = G.concat(gameCams(m, fit)) }
   L('registered cameras', G.length);
   const imgCache = new Map(); const img = id => { if (!imgCache.has(id)) { try { imgCache.set(id, jpeg.decode(fs.readFileSync(`work/images/${id}.jpg`), {useTArray: true})) } catch (e) { imgCache.set(id, null) } } return imgCache.get(id) };
   const W = walls(); L('walls in the block', W.length);

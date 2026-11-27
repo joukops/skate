@@ -14,8 +14,11 @@ const jpeg = require('jpeg-js');
 const TOKEN = process.env.MAPILLARY_TOKEN;
 const LAT0 = 60.1850, LON0 = 24.9760, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KZ = 110540;
 const PJ = (lat, lon) => [(lon - LON0) * KX, -(lat - LAT0) * KZ];
-const BB = {s: 60.1610, w: 24.9370, n: 60.1985, e: 25.0450};
-const MAXIMG = +(process.env.MAXIMG || 3500), PXM = 10, ATLAS = 2048;
+const UNPJ = (x, z) => [LAT0 - z / KZ, LON0 + x / KX];
+/* region (game metres): Hanasaari and Kalasatama; walls within SHORE m of the water */
+const REG = JSON.parse(process.env.REGION || '[-720,80,380,860]'), SHORE = +(process.env.SHORE || 160);
+const BB = (() => { const [x0, z0, x1, z1] = REG, A = UNPJ(x0 - 70, z1 + 70), B = UNPJ(x1 + 70, z0 - 70); return {s: A[0], w: A[1], n: B[0], e: B[1]} })();
+const MAXIMG = +(process.env.MAXIMG || 5000), NCAND = +(process.env.NCAND || 10), PXM = 10, ATLAS = 2048;
 const log = []; const L = (...a) => { const m = a.join(' '); console.log(m); log.push(m) };
 const OUT = 'data/mapillary';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -82,7 +85,8 @@ function walls() {
   const tiles = readTiles(); const W = [], SEG = [];
   for (const R of rings) { if (R.length < 4) continue; let A = 0; for (let i = 0; i < R.length - 1; i++) A += R[i][0] * R[i + 1][1] - R[i + 1][0] * R[i][1]; const sg = A > 0 ? 1 : -1;
     for (let i = 0; i < R.length - 1; i++) { const a = R[i], b = R[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); SEG.push([a, b]); if (l < 4) continue;
-      const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; if (inZone(mx, mz)) continue;
+      const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; if (inZone(mx, mz) || mx < REG[0] || mx > REG[2] || mz < REG[1] || mz > REG[3]) continue;
+      let shore = false; for (let q = 0; q < 16 && !shore; q++) for (const r of [40, 80, 120, SHORE]) if (T(mx + Math.cos(q * .39) * r, mz + Math.sin(q * .39) * r) < -2.6) { shore = true; break } if (!shore) continue;
       const nx = -dz / l * sg, nz = dx / l * sg;   /* outward */
       const y0 = Math.min(T(a[0] + nx, a[1] + nz), T(b[0] + nx, b[1] + nz)); let y1 = 0, c = 0;
       for (const s of [.2, .5, .8]) { const t = tiles.top(a[0] + dx * s - nx * .8, a[1] + dz * s - nz * .8, 1); if (t !== null) { y1 += t; c++ } }
@@ -103,61 +107,85 @@ function choose(W, cams, blocked) {
   let tmax = 1; for (const c of cams) if (c.t > tmax) tmax = c.t; const picks = [];
   for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2; const cand = [];
     for (let i = Math.floor(mx / 40) - 1; i <= Math.floor(mx / 40) + 1; i++) for (let j = Math.floor(mz / 40) - 1; j <= Math.floor(mz / 40) + 1; j++) for (const c of CG.get(ck(i, j)) || []) {
-      const vx = c.x - mx, vz = c.z - mz, dist = Math.hypot(vx, vz), side = vx * w.n[0] + vz * w.n[1]; if (side < 8 || dist > 45) continue;
-      const face = -(c.fw[0] * w.n[0] + c.fw[1] * w.n[1]); if (face < .55) continue;   /* looking at the wall */
+      const vx = c.x - mx, vz = c.z - mz, dist = Math.hypot(vx, vz), side = vx * w.n[0] + vz * w.n[1]; if (side < 5 || dist > 60) continue;
+      const face = -(c.fw[0] * w.n[0] + c.fw[1] * w.n[1]); if (face < .3) continue;   /* looking at the wall */
       let inside = 0; const pts = []; for (const s of [0, .5, 1]) for (const h of [0, .5, 1]) { const X = w.a[0] + (w.b[0] - w.a[0]) * s, Z = w.a[1] + (w.b[1] - w.a[1]) * s, Y = w.y0 + (w.y1 - w.y0) * h; const q = project(c, X, Y, Z); if (q && q[0] > 0 && q[0] < 1 && q[1] > 0 && q[1] < 1) inside++ }
-      if (inside < 6) continue;
+      if (inside < 4) continue;
       const head = (vx * w.n[0] + vz * w.n[1]) / dist;   /* camera square on to the wall */
       const sc = inside / 9 * head * face * Math.exp(-Math.abs(dist - 16) / 25) * (.6 + .4 * (c.t / tmax));
-      if (head < .5) continue; cand.push([sc, c]) }
-    cand.sort((p, q) => q[0] - p[0]); const C = []; for (const [sc, c] of cand) { if (C.length >= 3) break; if (blocked([c.x, c.z], [w.a[0] + (w.b[0] - w.a[0]) * .5 + w.n[0] * .3, w.a[1] + (w.b[1] - w.a[1]) * .5 + w.n[1] * .3])) continue; C.push(c) }
+      if (head < .3) continue; cand.push([sc, c]) }
+    cand.sort((p, q) => q[0] - p[0]); const C = []; for (const [sc, c] of cand) { if (C.length >= NCAND) break; if (blocked([c.x, c.z], [w.a[0] + (w.b[0] - w.a[0]) * .5 + w.n[0] * .3, w.a[1] + (w.b[1] - w.a[1]) * .5 + w.n[1] * .3])) continue; C.push(c) }
     if (C.length) picks.push({w, C, s: cand[0][0]}) }
   /* cap the number of photos: keep the walls whose photos serve the most wall area */
   picks.sort((p, q) => q.w.l * (q.w.y1 - q.w.y0) * q.s - p.w.l * (p.w.y1 - p.w.y0) * p.s);
   L('walls with candidate photos', picks.length); return picks;
 }
 
-// ---------- 4. project + pack ----------
+// ---------- 4. register each photo to the wall, fuse, pack ----------
+const mm = (A, B) => A.map(r => B[0].map((_, j) => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+/* camera with a pose correction: dn metres along the wall normal, dt along the wall, dh up, yaw/pitch in radians */
+function perturb(c, w, dn, dt, dh, yaw, pitch) { const tx = (w.b[0] - w.a[0]) / w.l, tz = (w.b[1] - w.a[1]) / w.l;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const R = mm([[1, 0, 0], [0, cp, -sp], [0, sp, cp]], mm(c.R, [[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]]));
+  return {...c, x: c.x + w.n[0] * dn + tx * dt, z: c.z + w.n[1] * dn + tz * dt, y: c.y + dh, R} }
+/* sample the wall (h from hlo to hhi, 0 = foot, 1 = eaves) from a photo into tw x th RGB + mask */
+function sampleWall(c, img, w, tw, th, hlo, hhi) { const out = new Float32Array(tw * th * 3), m = new Uint8Array(tw * th); let n = 0;
+  for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const s2 = (u + .5) / tw, h = hhi - (hhi - hlo) * (v + .5) / th;
+    const X = w.a[0] + (w.b[0] - w.a[0]) * s2, Z = w.a[1] + (w.b[1] - w.a[1]) * s2, Y = w.y0 + (w.y1 - w.y0) * h, q = project(c, X, Y, Z); if (!q || q[0] < 0 || q[0] > 1 || q[1] < 0 || q[1] > 1) continue;
+    const fx = q[0] * (img.width - 1), fy = q[1] * (img.height - 1), x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(img.width - 1, x0 + 1), y1 = Math.min(img.height - 1, y0 + 1), du = fx - x0, dv = fy - y0, k = v * tw + u;
+    for (let ch = 0; ch < 3; ch++) { const P = (xx, yy) => img.data[(yy * img.width + xx) * 4 + ch]; out[k * 3 + ch] = (P(x0, y0) * (1 - du) + P(x1, y0) * du) * (1 - dv) + (P(x0, y1) * (1 - du) + P(x1, y1) * du) * dv } m[k] = 1; n++ }
+  return {d: out, m, n} }
+/* how right does the wall look: straight lines, sky starting at the eaves, wall filling the frame */
+const HLO = -.04, HHI = 1.22;
+function score(c, img, w) { const tw = 40, th = 48, S = sampleWall(c, img, w, tw, th, HLO, HHI), row = h => Math.round((HHI - h) / (HHI - HLO) * th - .5);
+  const r0 = row(1), r1 = row(0); let cov = 0, tot = 0; for (let v = r0; v <= r1; v++) for (let u = 0; u < tw; u++) { tot++; if (S.m[v * tw + u]) cov++ } if (cov < tot * .75) return -9;
+  const Y = k => .3 * S.d[k * 3] + .59 * S.d[k * 3 + 1] + .11 * S.d[k * 3 + 2];
+  let ax = 0, all = 0; for (let v = r0 + 1; v < r1; v++) for (let u = 1; u < tw - 1; u++) { const k = v * tw + u; if (!S.m[k] || !S.m[k - 1] || !S.m[k + 1] || !S.m[k - tw] || !S.m[k + tw]) continue;
+    const gx = Y(k + 1) - Y(k - 1), gy = Y(k + tw) - Y(k - tw), g = Math.hypot(gx, gy); if (g < 10) continue; all += g; const an = Math.abs(Math.atan2(gy, gx)) % (Math.PI / 2); if (an < .18 || an > Math.PI / 2 - .18) ax += g }
+  const axis = all > 0 ? ax / all : 0;
+  const sky = k => { const l = Y(k), r = S.d[k * 3], b = S.d[k * 3 + 2]; return l > 140 && b >= r - 8 ? 1 : 0 };
+  let above = 0, na = 0, below = 0, nb = 0; for (let u = 0; u < tw; u++) { for (let v = 0; v < r0 - 1; v++) { const k = v * tw + u; if (S.m[k]) { above += sky(k); na++ } } for (let v = r0 + 2; v < r0 + 8; v++) { const k = v * tw + u; if (S.m[k]) { below += sky(k); nb++ } } }
+  const top = (na ? above / na : 0) - (nb ? below / nb : 0);
+  return axis + .6 * top + (all / Math.max(1, cov) > 4 ? 0 : -.3) }   /* a blank (all-sky or blurred) patch is not a facade */
+function register(c, img, w) { let best = {s: -9, p: [0, 0, 0, 0, 0]};
+  const D = d => d * Math.PI / 180, tryP = p => { const s2 = score(perturb(c, w, ...p), img, w); if (s2 > best.s) best = {s: s2, p} };
+  for (const dn of [-6, -4, -2, 0, 2, 4, 6]) for (const dt of [-6, -3, 0, 3, 6]) for (const yaw of [-6, -3, 0, 3, 6]) for (const pitch of [-4, -2, 0, 2, 4]) tryP([dn, dt, 0, D(yaw), D(pitch)]);
+  for (let it = 0; it < 2; it++) { const [a0, b0, , y0, p0] = best.p, st = it ? .5 : 1;
+    for (const dn of [-st, 0, st]) for (const dt of [-st, 0, st]) for (const yaw of [-st, 0, st]) for (const pitch of [-st, 0, st]) tryP([a0 + dn, b0 + dt, 0, y0 + D(yaw * 1.5), p0 + D(pitch)]) }
+  return best }
+function small(img) { const k = Math.max(1, Math.floor(img.width / 512)); if (k === 1) return img; const W = Math.floor(img.width / k), H = Math.floor(img.height / k), d = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (let ch = 0; ch < 3; ch++) { let s2 = 0; for (let b = 0; b < k; b++) for (let a = 0; a < k; a++) s2 += img.data[((y * k + b) * img.width + x * k + a) * 4 + ch]; d[(y * W + x) * 4 + ch] = s2 / (k * k) } return {width: W, height: H, data: d} }
 async function render(picks) {
   fs.rmSync(OUT, {recursive: true, force: true}); fs.mkdirSync(OUT, {recursive: true});
-  let atlas = null, ax = 0, ay = 0, rowH = 0, ai = -1; const ATL = [], FAC = [];
+  let atlas = null, ax = 0, ay = 0, rowH = 0, ai = -1; const FAC = [];
   const newAtlas = () => { ai++; atlas = {i: ai, d: new Uint8Array(ATLAS * ATLAS * 4).fill(128)}; ax = ay = rowH = 0 };
-  const flush = () => { if (!atlas) return; const j = jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 80); fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, j.data); atlas = null };
-  const cache = new Map(), bad = new Set(); let downloads = 0, rej = {dark: 0, blur: 0, sky: 0, cover: 0};
+  const flush = () => { if (!atlas) return; const j = jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 82); fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, j.data); atlas = null };
+  const cache = new Map(), bad = new Set(); let downloads = 0; const st = {walls: 0, views: 0, used: 0, single: 0, fused: 0, none: 0};
   const getImg = async id => { if (cache.has(id)) { const v = cache.get(id); cache.delete(id); cache.set(id, v); return v } if (bad.has(id) || downloads >= MAXIMG) return null;
     try { downloads++; const j = await api(`https://graph.mapillary.com/${id}?fields=thumb_2048_url`); const r = await fetch(j.thumb_2048_url); const im = jpeg.decode(Buffer.from(await r.arrayBuffer()), {useTArray: true, maxMemoryUsageInMB: 1024});
-      cache.set(id, im); if (cache.size > 30) cache.delete(cache.keys().next().value); return im } catch (e) { bad.add(id); return null } };
-  newAtlas(); let n = 0;
-  for (const {w, C} of picks) { if (downloads >= MAXIMG && !C.some(c => cache.has(c.id))) continue;
+      const v = {im, sm: small(im)}; cache.set(id, v); if (cache.size > 60) cache.delete(cache.keys().next().value); return v } catch (e) { bad.add(id); return null } };
+  /* nearby walls share photos: go through them spatially */
+  picks.sort((p, q) => Math.floor(p.w.a[0] / 60) - Math.floor(q.w.a[0] / 60) || p.w.a[1] - q.w.a[1]);
+  newAtlas(); const t0 = Date.now();
+  for (const {w, C} of picks) { st.walls++;
     const tw = clamp(Math.round(w.l * PXM), 16, 640), th = clamp(Math.round((w.y1 - w.y0) * PXM), 16, 512);
-    let got = null;
-    for (const c of C) { const img = await getImg(c.id); if (!img) continue; c.W = img.width; c.H = img.height;
-      let ok = 0; const pix = new Uint8Array(tw * th * 4);
-      for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const s2 = (u + .5) / tw, h = 1 - (v + .5) / th; const X = w.a[0] + (w.b[0] - w.a[0]) * s2, Z = w.a[1] + (w.b[1] - w.a[1]) * s2, Y = w.y0 + (w.y1 - w.y0) * h;
-        const q = project(c, X, Y, Z), o = (v * tw + u) * 4; if (!q || q[0] < 0 || q[0] > 1 || q[1] < 0 || q[1] > 1) continue;
-        const fx = q[0] * (img.width - 1), fy = q[1] * (img.height - 1), x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(img.width - 1, x0 + 1), y1 = Math.min(img.height - 1, y0 + 1), du = fx - x0, dv = fy - y0;
-        for (let k = 0; k < 3; k++) { const P = (xx, yy) => img.data[(yy * img.width + xx) * 4 + k]; pix[o + k] = (P(x0, y0) * (1 - du) + P(x1, y0) * du) * (1 - dv) + (P(x0, y1) * (1 - du) + P(x1, y1) * du) * dv } pix[o + 3] = 255; ok++ }
-      if (ok < tw * th * .7) { rej.cover++; continue }
-      /* quality: daylight brightness, real detail (not motion blur), and no sky where the wall should be */
-      let lum = 0, grad = 0, gn = 0, sky = 0; const Y = i => .3 * pix[i] + .59 * pix[i + 1] + .11 * pix[i + 2];
-      for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = (v * tw + u) * 4; if (!pix[o + 3]) continue; const l = Y(o); lum += l;
-        if (u + 1 < tw && pix[o + 7]) { grad += Math.abs(Y(o + 4) - l); gn++ } if (pix[o + 2] > pix[o] + 18 && pix[o + 2] > pix[o + 1] + 4 && l > 120) sky++ }
-      lum /= ok; grad /= Math.max(1, gn);
-      /* a correctly straightened facade has mostly horizontal and vertical edges; a misplaced view has slanted ones */
-      let ax2 = 0, all = 0; for (let v = 1; v < th - 1; v++) for (let u = 1; u < tw - 1; u++) { const o = (v * tw + u) * 4; if (!pix[o + 3]) continue;
-        const gx = Y(o + 4) - Y(o - 4), gy = Y(o + tw * 4) - Y(o - tw * 4), m = Math.hypot(gx, gy); if (m < 40) continue; all += m;
-        const an = Math.abs(Math.atan2(gy, gx)) % (Math.PI / 2); if (an < .2 || an > Math.PI / 2 - .2) ax2 += m }
-      if (all > 0 && ax2 / all < .5) { rej.slant = (rej.slant || 0) + 1; continue }
-      if (lum < 55 || lum > 225) { rej.dark++; continue } if (grad < 4.5) { rej.blur++; continue } if (sky > ok * .15) { rej.sky++; continue }
-      got = {pix, ok, c}; break }
-    if (!got) continue; const {pix, ok} = got;
+    const V = [];
+    for (const c of C) { const I = await getImg(c.id); if (!I) continue; const cs = {...c, W: I.sm.width, H: I.sm.height}; const r = register(cs, I.sm, w); st.views++;
+      if (r.s < .62) continue; const cf = perturb({...c, W: I.im.width, H: I.im.height}, w, ...r.p); const S = sampleWall(cf, I.im, w, tw, th, 0, 1); if (S.n < tw * th * .7) continue; V.push({S, s: r.s, id: c.id}) }
+    if (!V.length) { st.none++; continue }
+    /* fuse: per-pixel median of the registered views, then drop views that disagree with it and fuse again */
+    const fuse = list => { const o = new Uint8Array(tw * th * 3), vals = []; for (let k = 0; k < tw * th; k++) for (let ch = 0; ch < 3; ch++) { vals.length = 0; for (const v of list) if (v.S.m[k]) vals.push(v.S.d[k * 3 + ch]); if (!vals.length) { o[k * 3 + ch] = 0; continue } vals.sort((a, b) => a - b); o[k * 3 + ch] = vals[vals.length >> 1] } return o };
+    let F = fuse(V);
+    if (V.length >= 3) { const ncc = v => { let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, n = 0; for (let k = 0; k < tw * th; k++) { if (!v.S.m[k]) continue; const a = v.S.d[k * 3 + 1], b = F[k * 3 + 1]; sa += a; sb += b; saa += a * a; sbb += b * b; sab += a * b; n++ } const ca = saa - sa * sa / n, cb = sbb - sb * sb / n; return (sab - sa * sb / n) / Math.sqrt(Math.max(1e-6, ca * cb)) };
+      const keep = V.filter(v => ncc(v) > .35); if (keep.length >= 2 && keep.length < V.length) F = fuse(keep); st.used += keep.length } else st.used += V.length;
+    V.length >= 2 ? st.fused++ : st.single++;
     if (ax + tw > ATLAS) { ax = 0; ay += rowH; rowH = 0 } if (ay + th > ATLAS) { flush(); newAtlas() }
-    let r = 0, g = 0, b = 0; for (let i = 0; i < tw * th; i++) if (pix[i * 4 + 3]) { r += pix[i * 4]; g += pix[i * 4 + 1]; b += pix[i * 4 + 2] } r /= ok; g /= ok; b /= ok;
-    for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = (v * tw + u) * 4, A = ((ay + v) * ATLAS + ax + u) * 4; if (pix[o + 3]) { atlas.d[A] = pix[o]; atlas.d[A + 1] = pix[o + 1]; atlas.d[A + 2] = pix[o + 2] } else { atlas.d[A] = r; atlas.d[A + 1] = g; atlas.d[A + 2] = b } }
-    FAC.push({a: w.a.map(v => +v.toFixed(2)), b: w.b.map(v => +v.toFixed(2)), n: w.n.map(v => +v.toFixed(3)), y0: +w.y0.toFixed(2), y1: +w.y1.toFixed(2), t: atlas.i, uv: [ax / ATLAS, ay / ATLAS, (ax + tw) / ATLAS, (ay + th) / ATLAS], img: got.c.id});
+    for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const k = v * tw + u, A = ((ay + v) * ATLAS + ax + u) * 4; atlas.d[A] = F[k * 3]; atlas.d[A + 1] = F[k * 3 + 1]; atlas.d[A + 2] = F[k * 3 + 2] }
+    FAC.push({a: w.a.map(v => +v.toFixed(2)), b: w.b.map(v => +v.toFixed(2)), n: w.n.map(v => +v.toFixed(3)), y0: +w.y0.toFixed(2), y1: +w.y1.toFixed(2), t: atlas.i, uv: [ax / ATLAS, ay / ATLAS, (ax + tw) / ATLAS, (ay + th) / ATLAS], views: V.length, img: V.map(v => v.id)});
     ax += tw + 2; rowH = Math.max(rowH, th + 2);
-    if (++n % 200 === 0) L('facades', n, 'downloads', downloads) }
-  L('rejected', JSON.stringify(rej), 'downloads', downloads);
+    if (st.walls % 50 === 0) L('walls', st.walls, '/', picks.length, JSON.stringify(st), 'downloads', downloads, 'min', ((Date.now() - t0) / 6e4).toFixed(1));
+    if (Date.now() - t0 > 95 * 6e4) { L('time budget reached'); break } }
+  L('done', JSON.stringify(st), 'downloads', downloads);
   flush();
   fs.writeFileSync(`${OUT}/facades.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0', atlases: ai + 1, size: ATLAS, facades: FAC}));
   L('facades written', FAC.length, 'atlases', ai + 1);

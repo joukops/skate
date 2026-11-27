@@ -26,19 +26,24 @@ for (let la = s; la < n; la += .0012) for (let lo = w; lo < e; lo += .0024) { co
   for (const m of j.data || []) { if (!m.computed_geometry || m.is_pano || /spherical|equirect/.test(m.camera_type || '') || (m.captured_at || 0) < Date.UTC(2018, 0, 1)) continue;
     const [lon, lat] = m.computed_geometry.coordinates, [x, z] = PJ(lat, lon); if (Math.hypot(x - CX, z - CZ) > RAD) continue; all.set(m.id, {...m, x, z}) } }
 console.log('photos in the block', all.size);
-/* keep a spread: newest first within 6 m x 30-degree cells, so no single drive dominates */
-const cells = new Map(); for (const m of [...all.values()].sort((a, b) => b.captured_at - a.captured_at)) { const k = Math.floor(m.x / 6) + ',' + Math.floor(m.z / 6) + ',' + Math.floor(((m.computed_compass_angle || 0) + 360) % 360 / 30); if (!cells.has(k)) cells.set(k, m) }
-let pick = [...cells.values()]; pick.sort((a, b) => Math.hypot(a.x - CX, a.z - CZ) - Math.hypot(b.x - CX, b.z - CZ)); pick = pick.slice(0, MAXIMG);
+/* structure-from-motion needs overlapping consecutive frames: take whole sequences (newest and densest first),
+   thinned to one frame per ~2.5 m along each sequence */
+const seqs = new Map(); for (const m of all.values()) { if (!seqs.has(m.sequence)) seqs.set(m.sequence, []); seqs.get(m.sequence).push(m) }
+const S = [...seqs.values()].map(L => { L.sort((a, b) => a.captured_at - b.captured_at); const K = []; let last = null; for (const m of L) { if (!last || Math.hypot(m.x - last.x, m.z - last.z) > 2.5) { K.push(m); last = m } } return K })
+  .filter(L => L.length >= 6).sort((a, b) => (b.length * (1 + (b[0].captured_at - Date.UTC(2018, 0, 1)) / 3e11)) - (a.length * (1 + (a[0].captured_at - Date.UTC(2018, 0, 1)) / 3e11)));
+let pick = []; for (const L of S) { if (pick.length + L.length > MAXIMG) continue; pick = pick.concat(L) }
+console.log('sequences', S.length, 'used', new Set(pick.map(m => m.sequence)).size);
 fs.mkdirSync('work/images', {recursive: true});
 let ok = []; const q = pick.slice();
-await Promise.all([1, 2, 3, 4, 5, 6].map(async () => { while (q.length) { const m = q.pop(); try { const j = await api(`https://graph.mapillary.com/${m.id}?fields=thumb_1024_url`); const r = await fetch(j.thumb_1024_url); fs.writeFileSync(`work/images/${m.id}.jpg`, Buffer.from(await r.arrayBuffer())); ok.push(m) } catch (e) {} } }));
+await Promise.all([1, 2, 3, 4, 5, 6].map(async () => { while (q.length) { const m = q.pop(); try { const j = await api(`https://graph.mapillary.com/${m.id}?fields=thumb_2048_url`); const r = await fetch(j.thumb_2048_url); fs.writeFileSync(`work/images/${m.id}.jpg`, Buffer.from(await r.arrayBuffer())); ok.push(m) } catch (e) {} } }));
 console.log('downloaded', ok.length);
 /* pairs: same sequence within 4 frames, and any two photos within 40 m whose headings differ by < 70 degrees */
 const P = new Set(), add = (a, b) => { if (a.id === b.id) return; const k = a.id < b.id ? a.id + ' ' + b.id : b.id + ' ' + a.id; P.add(k) };
 const bySeq = new Map(); for (const m of ok) { if (!bySeq.has(m.sequence)) bySeq.set(m.sequence, []); bySeq.get(m.sequence).push(m) }
-for (const L of bySeq.values()) { L.sort((a, b) => a.captured_at - b.captured_at); for (let i = 0; i < L.length; i++) for (let k = 1; k <= 4 && i + k < L.length; k++) add(L[i], L[i + k]) }
+for (const L of bySeq.values()) { L.sort((a, b) => a.captured_at - b.captured_at); for (let i = 0; i < L.length; i++) for (let k = 1; k <= 8 && i + k < L.length; k++) add(L[i], L[i + k]) }
 for (const a of ok) { const nb = ok.filter(b => b !== a && Math.hypot(a.x - b.x, a.z - b.z) < 40 && Math.abs(((a.computed_compass_angle - b.computed_compass_angle + 540) % 360) - 180) < 70).sort((p, q) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(a.x - q.x, a.z - q.z)).slice(0, 25); for (const b of nb) add(a, b) }
 fs.writeFileSync('work/pairs.txt', [...P].map(k => k.split(' ').map(id => id + '.jpg').join(' ')).join('\n') + '\n');
 fs.writeFileSync('work/ref.txt', ok.map(m => `${m.id}.jpg ${m.x.toFixed(3)} ${(-m.z).toFixed(3)} ${(T(m.x, m.z) + 2).toFixed(3)}`).join('\n') + '\n');
+fs.writeFileSync('work/exif.args', ok.map(m => { const f = (m.camera_parameters || [])[0]; return f > .2 && f < 3 ? `-FocalLengthIn35mmFormat=${Math.round(f * 36)}\n-overwrite_original\nwork/images/${m.id}.jpg\n-execute` : '' }).filter(Boolean).join('\n') + '\n');
 fs.writeFileSync('work/meta.json', JSON.stringify({center: [CX, CZ], radius: RAD, photos: ok.map(m => ({id: m.id, x: m.x, z: m.z, t: m.captured_at, seq: m.sequence}))}));
 console.log('pairs', P.size);

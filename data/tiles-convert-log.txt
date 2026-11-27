@@ -27,13 +27,13 @@ layer CesiumTilesetLayer Solar_bldg_tree_3d https://kartta.hel.fi/3d/datasource-
 layer CesiumTilesetLayer Uunisaari (2026) https://kartta.hel.fi/3d/mesh/Uunisaari_2026
 using terrain https://kartta.hel.fi/3d/datasource-data/4383570b-33a3-4a9f-ae16-93373aff5ffa/ | buildings https://kartta.hel.fi/3d/datasource-data/e5e7158a-52df-45a1-9be0-1be8f2828abd/tileset.json | bridges Sillat_LOD3 https://kartta.hel.fi/3d//datasource-data/b1300b5d-3ebb-4bd4-9ade-5c810c4a3a4b/tileset.json
 terrain format quantized-mesh-1.0 scheme tms projection EPSG:4326 maxzoom 18 ext ["octvertexnormals"] tiles ["{z}/{x}/{y}.terrain?v={version}"]
-terrain zoom 17 tiles 1770
-terrain tiles 1770 missing 0 heights (source datum) p1 0.13 p5 0.18 p25 0.39 p50 3.00 p95 24.87 max 45.19
+terrain zoom 17 tiles 2320
+terrain tiles 2320 missing 0 heights (source datum) p1 0.15 p5 0.20 p25 0.50 p50 3.16 p95 24.68 max 45.37
 sea surface (source datum) 0.2
-terrain written 1108x1121 game height range -6.71 41.99
-buildings tiles in area 197
-buildings height of lowest point above terrain: median -0.46 p10 -2.73 p90 0.01 using -0.46
-buildings done files 197 triangles 352490
-bridges tiles in area 36
-bridges height of lowest point above terrain: median 0.15 p10 -0.57 p90 3.66 using -0.46
-bridges done files 36 triangles 622391
+terrain written 1496x1038 game height range -6.67 42.17
+buildings tiles in area 243
+buildings height of lowest point above terrain: median -0.52 p10 -2.75 p90 0.02 using -0.52
+buildings done files 241 triangles 427714
+bridges tiles in area 42
+bridges height of lowest point above terrain: median 0.27 p10 -0.58 p90 3.47 using -0.52
+bridges done files 42 triangles 637278

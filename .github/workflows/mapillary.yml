@@ -1,9 +1,7 @@
 name: Build Mapillary facade textures
 # Street-level photos from Mapillary (CC BY-SA 4.0) projected onto building walls outside the waterfront photo mesh.
 on:
-  push:
-    paths: ['tools/mapillary.mjs', '.github/workflows/mapillary.yml']
-  workflow_dispatch:
+  workflow_dispatch:   # run by hand
 concurrency:
   group: map-data
   cancel-in-progress: false

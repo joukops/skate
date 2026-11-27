@@ -810,7 +810,7 @@ async function streamMesh(){if(!/[#&]mesh\b/.test(location.hash))return;   /* ae
     n++;if(note){note.textContent='Loading the photo mesh of the waterfront '+n+' / '+ix.tiles.length;note.style.display='block'}}
   MESHZ=all;apply();if(note)note.style.display='none'}
 /* street-level facade photos from Mapillary, projected onto building walls by tools/mapillary.mjs; drawn as thin panels just outside the walls */
-async function loadFacades(){if(/nofacades/.test(location.hash))return;let ix;try{const r=await fetch('data/mapillary/facades.json',{cache:'no-cache'});if(!r.ok)return;ix=await r.json()}catch(e){return}
+async function loadFacades(){if(!/[#&]facades\b/.test(location.hash))return;   /* experimental, opt-in */let ix;try{const r=await fetch('data/mapillary/facades.json',{cache:'no-cache'});if(!r.ok)return;ix=await r.json()}catch(e){return}
   if(!ix.facades||!ix.facades.length)return;const TL=new THREE.TextureLoader(),G=[];for(let i=0;i<ix.atlases;i++)G.push({p:[],u:[]});
   for(const f of ix.facades){const g=G[f.t],o=.08,ax=f.a[0]+f.n[0]*o,az=f.a[1]+f.n[1]*o,bx=f.b[0]+f.n[0]*o,bz=f.b[1]+f.n[1]*o,[u0,v0,u1,v1]=f.uv;
     g.p.push(ax,f.y0,az,bx,f.y0,bz,bx,f.y1,bz,ax,f.y0,az,bx,f.y1,bz,ax,f.y1,az);g.u.push(u0,v1,u1,v1,u1,v0,u0,v1,u1,v0,u0,v0)}

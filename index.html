@@ -448,6 +448,9 @@ let WMASK=null;function isWater(x,z){if(!WMASK)return false;const i=Math.floor(R
 const SEA=-3;let BRGEO=null;
 /* Korkeasaari zoo entrance building "Paanu" (OSM 1571344481): footprint in local metres; the first 15 points are the curved front facing the plaza */
 /* Hanasaari construction site (the former coal field inside the waterfront cycle loop): fenced, levelled earth with a few low piles */
+/* built quays (Merihaka, Hakaniemi, Kalasatama, Sompasaari, Hanasaari): flat to the edge, at least 2.6 m above the sea */
+const BOLL=[];
+const inQuayZone=(x,z)=>x>-1150&&x<260&&z>150&&z<800;
 const SITE=[[-525,572],[-582,515],[-602,418],[-548,352],[-512,276],[-484,240],[-450,282],[-405,309],[-350,352],[-334,368]],SITE_BASE=-.9,
   SITE_PILES=[[-545,465,3.4,15],[-470,425,2.6,12],[-505,515,2.2,10],[-425,350,3,11]];
 const PAANU_ID=1571344481,PAANU=[[329,901],[337,902],[344,901],[355,902],[358,903],[361,903],[375,905],[379,905],[383,905],[400,898],[404,896],[413,896],[422,896],[427,896],[444,896],[438,899],[437,900],[438,902],[438,903],[439,905],[390,922],[356,923],[350,919],[347,916],[343,914],[331,904]],PAANU_FRONT=15;   /* game height 0 = typical waterfront street level, ~3 m above mean sea level */
@@ -469,11 +472,11 @@ function addDeck(pts,hs,w,name,rail){const d={pts,hs,w,name,rail,id:DECKS.length
   for(let k=0;k<pts.length-1;k++){const a=pts[k],b=pts[k+1];const x0=Math.floor((Math.min(a[0],b[0])-w)/DC),x1=Math.floor((Math.max(a[0],b[0])+w)/DC),z0=Math.floor((Math.min(a[1],b[1])-w)/DC),z1=Math.floor((Math.max(a[1],b[1])+w)/DC);
     for(let i=x0;i<=x1;i++)for(let j=z0;j<=z1;j++){const kk=dkey(i,j);if(!DH.has(kk))DH.set(kk,[]);DH.get(kk).push([d,k])}}}
 function decksAt(x,z){const L=DH.get(dkey(Math.floor(x/DC),Math.floor(z/DC)));if(!L)return null;let out=null;
-  for(const[d,k]of L){if(d.rail)continue;const a=d.pts[k],b=d.pts[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l2=dx*dx+dz*dz||1;let t=((x-a[0])*dx+(z-a[1])*dz)/l2;if(t<-.02||t>1.02)continue;t=clamp(t);
+  for(const[d,k]of L){if(d.rail)continue;const a=d.pts[k],b=d.pts[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l2=dx*dx+dz*dz||1;let t=clamp(((x-a[0])*dx+(z-a[1])*dz)/l2);   /* capsule per segment: round joins leave no gaps at bends */
     const px=a[0]+dx*t,pz=a[1]+dz*t;if((x-px)**2+(z-pz)**2>(d.w/2)**2)continue;(out||(out=[])).push({h:lerp(d.hs[k],d.hs[k+1],t),d})}return out}
 /* the surface under the skater: the highest deck within step reach, else the ground (or the DIY park) */
 let YREF=0;
-function G(x,z,yr){const y=yr===undefined?YREF:yr;const dp=diyAt(x,z);if(dp!==null)return dp;let g=Hground(x,z);const L=decksAt(x,z);if(L)for(const c of L)if(c.h<=y+.7&&c.h>g)g=c.h;return g+.05}
+function G(x,z,yr){const y=yr===undefined?YREF:yr;const dp=diyAt(x,z);if(dp!==null)return dp;let g=Hground(x,z);const L=decksAt(x,z);if(L)for(const c of L)if(c.h<=y+.1&&c.h>g)g=c.h;return g+.05}   /* stay on the deck you ride; a parallel lane a kerb higher is not a wall */
 function deckUnder(x,z,y){const L=decksAt(x,z);if(!L)return null;let best=null;for(const c of L)if(Math.abs(c.h-y+.05)<.8&&(!best||c.h>best.h))best=c;return best}
 
 /* =====================================================================
@@ -576,13 +579,14 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       else{const o=4.5;quad(Rk,[a[0]-nx*1.2,T(a[0]-nx*1.2,a[1]-nz*1.2)+.02,a[1]-nz*1.2],[b[0]-nx*1.2,T(b[0]-nx*1.2,b[1]-nz*1.2)+.02,b[1]-nz*1.2],[b[0]+nx*o,SEA-.6,b[1]+nz*o],[a[0]+nx*o,SEA-.6,a[1]+nz*o],u0,u1,0,1)}}}
   /* shore edge along the line where the ground is cut (marching squares on the smoothed water field): a vertical wall down into the sea with a coping on top;
      granite on built shores, rock on natural ones; none on beaches, which slope in */
-  if(TER&&WF){const F=(i,j)=>WF[j*RW+i],W=(x,y)=>[X0+(x+.5)*RS,Z0+(y+.5)*RS];let du=0;
+  if(TER&&WF){const F=(i,j)=>WF[j*RW+i],W=(x,y)=>[X0+(x+.5)*RS,Z0+(y+.5)*RS];let du=0,bacc=0;
     const seg=(p,q)=>{const mx=(p[0]+q[0])/2,mz=(p[1]+q[1])/2,dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.05)return;let nx=-dz/l,nz=dx/l;
       const gi=(mx-X0)/RS-.5,gj=(mz-Z0)/RS-.5,f1=wf(gi+nx/RS,gj+nz/RS),f0=wf(gi-nx/RS,gj-nz/RS);if(f0>f1){nx=-nx;nz=-nz}   /* n toward the water */
       if(onBeach(mx-nx*2,mz-nz*2)||onBeach(mx+nx*2,mz+nz*2))return;
       const ha=T(p[0]-nx*.7,p[1]-nz*.7),hb=T(q[0]-nx*.7,q[1]-nz*.7);if(Math.max(ha,hb)<SEA+.25)return;
-      const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0,u0=du/4,u1=(du+l)/4;du+=l;
+      const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=inQuayZone(mx,mz)||inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0,u0=du/4,u1=(du+l)/4;du+=l;
       const ta=ha+.06,tb=hb+.06,A=built?Q:Rk,cw=built?.75:.45;
+      if(built&&inQuayZone(mx,mz)){bacc+=l;if(bacc>24){bacc=0;BOLL.push([mx-nx*.9,mz-nz*.9,(ta+tb)/2,Math.atan2(nx,nz),mx,mz])}}
       quad(A,[p[0],ta,p[1]],[q[0],tb,q[1]],[q[0],SEA-1.5,q[1]],[p[0],SEA-1.5,p[1]],u0,u1,0,(ta-SEA+1.5)/4);
       quad(built?C:Rk,[p[0]-nx*cw,ta,p[1]-nz*cw],[q[0]-nx*cw,tb,q[1]-nz*cw],[q[0]+nx*.12,tb,q[1]+nz*.12],[p[0]+nx*.12,ta,p[1]+nz*.12],u0,u1,0,.25)};
     const wf=(x,y)=>{const i=clamp(Math.floor(x),0,RW-2),j=clamp(Math.floor(y),0,RH-2),u=clamp(x-i,0,1),v=clamp(y-j,0,1);return lerp(lerp(F(i,j),F(i+1,j),u),lerp(F(i,j+1),F(i+1,j+1),u),v)};
@@ -590,6 +594,14 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const t=(u,v)=>(.5-u)/(v-u),E=[W(i+t(a,b),j),W(i+1,j+t(b,c)),W(i+t(d,c),j+1),W(i,j+t(a,d))];   /* top, right, bottom, left */
       const S={1:[[3,0]],2:[[0,1]],3:[[3,1]],4:[[1,2]],5:[[3,0],[1,2]],6:[[0,2]],7:[[3,2]],8:[[2,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[1,2]],12:[[1,3]],13:[[0,1]],14:[[3,0]]}[k];
       for(const[e1,e2]of S)seg(E[e1],E[e2])}}
+  /* yellow mooring bollards on the quay edge and black rubber fenders on the wall below */
+  if(BOLL.length){const bp=[new THREE.Vector2(0,0),new THREE.Vector2(.2,0),new THREE.Vector2(.2,.05),new THREE.Vector2(.13,.09),new THREE.Vector2(.12,.42),new THREE.Vector2(.2,.47),new THREE.Vector2(.21,.53),new THREE.Vector2(.16,.57),new THREE.Vector2(0,.58)];
+    const bg=new THREE.LatheGeometry(bp,16),bm=M({color:lin('#e8b51c'),roughness:.55,metalness:.35}),fg=new THREE.BoxGeometry(1.6,1.1,.35),fm=M({color:lin('#1b1c1e'),roughness:.9});
+    const BI=new THREE.InstancedMesh(bg,bm,BOLL.length),FI=new THREE.InstancedMesh(fg,fm,BOLL.length),m4=new THREE.Matrix4(),qq=new THREE.Quaternion(),ee=new THREE.Euler(),one=new THREE.Vector3(1,1,1);
+    BOLL.forEach(([x,z,y,r,ex,ez],i)=>{m4.compose(new THREE.Vector3(x,y,z),qq.setFromEuler(ee.set(0,r,0)),one);BI.setMatrixAt(i,m4);
+      const nx=Math.sin(r),nz=Math.cos(r);m4.compose(new THREE.Vector3(ex+nx*.18,y-1.1,ez+nz*.18),qq.setFromEuler(ee.set(0,r,0)),one);FI.setMatrixAt(i,m4);
+      const key=dkey(Math.floor(x/6),Math.floor(z/6));if(!TH.has(key))TH.set(key,[]);TH.get(key).push([x,z,.6])});
+    BI.castShadow=BI.receiveShadow=FI.receiveShadow=true;scene.add(BI,FI)}
   const mkM=(A,mat)=>{if(!A.p.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.castShadow=true;scene.add(m)};
   mkM(Q,wet(M({map:tex(graniteCanvas()),roughness:.8,side:THREE.DoubleSide}),.3));mkM(C,wet(M({color:lin('#a3a098'),roughness:.7,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),.3));
   mkM(Rk,wet(M({map:tex(rockCanvas()),roughness:.9,side:THREE.DoubleSide}),.4));mkM(Sd,wet(M({map:tex(sandCanvas()),roughness:1,side:THREE.DoubleSide}),.3))}
@@ -664,7 +676,7 @@ function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
   const N=nx*nz,SW=new Float32Array(N),SH=new Float32Array(N),MX=new Float32Array(N),gentle=/footway|cycleway|path|pedestrian|track|bridleway|living_street|service/;
   /* where the city's bridge models land, the ground and the approaching paths meet the deck */
   const ANC=[];for(const e of ways){const t=e.tags||{};if(!(t.bridge&&t.bridge!=='no')||!t.highway)continue;const G0=(e.geometry||[]).filter(Boolean);if(G0.length<2)continue;
-    for(const g of [G0[0],G0[G0.length-1]]){const[x,z]=PJ(g.lat,g.lon);const h=bridgeTop(x,z,6);if(h!==null&&h-T(x,z)<3.5&&!ANC.some(a=>Math.hypot(a[0]-x,a[1]-z)<3))ANC.push([x,z,h,clamp(Math.max(Math.abs(h-T(x,z)),...[0,1,2,3,4,5,6,7].map(q=>{const px=x+Math.cos(q*.785)*25,pz=z+Math.sin(q*.785)*25;return isWater(px,pz)?0:h-T(px,pz)}))/.05,10,60)])}}   /* ramp radius: about 5% on average, under 8% at the steepest */
+    for(const g of [G0[0],G0[G0.length-1]]){const[x,z]=PJ(g.lat,g.lon);const h=bridgeTop(x,z,6);if(h!==null&&h-T(x,z)<8&&!ANC.some(a=>Math.hypot(a[0]-x,a[1]-z)<3))ANC.push([x,z,h,clamp(Math.max(Math.abs(h-T(x,z)),...[0,1,2,3,4,5,6,7].map(q=>{const px=x+Math.cos(q*.785)*25,pz=z+Math.sin(q*.785)*25;return isWater(px,pz)?0:h-T(px,pz)}))/.05,10,60)])}}   /* ramp radius: about 5% on average, under 8% at the steepest */
   for(const a of ANC)for(const b of ANC)if(a!==b&&Math.hypot(a[0]-b[0],a[1]-b[1])<12){const m=Math.max(a[2],b[2]);a[2]=b[2]=m;a[3]=b[3]=Math.max(a[3],b[3])}   /* a bridge end is level across its width */
   const ancW=(x,z)=>{let bw=0,bh=0;for(const a of ANC){const d=Math.hypot(a[0]-x,a[1]-z);if(d>=a[3])continue;let w=1-Math.max(0,d-3)/(a[3]-3);w=w*w*(3-2*w);if(w>bw){bw=w;bh=a[2]}}return[bw,bh]};
   const ancAt=(x,z)=>{for(const a of ANC)if(Math.hypot(a[0]-x,a[1]-z)<4)return a[2];return null};
@@ -682,6 +694,13 @@ function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
   for(const[ax,az,ah,ar]of ANC){for(let j=Math.max(0,Math.floor((az-ar-z0)/cs));j<=Math.min(nz-1,Math.ceil((az+ar-z0)/cs));j++)for(let i=Math.max(0,Math.floor((ax-ar-x0)/cs));i<=Math.min(nx-1,Math.ceil((ax+ar-x0)/cs));i++){
       const x=x0+i*cs,z=z0+j*cs;if(isWater(x,z)&&Math.hypot(x-ax,z-az)>10)continue;const[aw,ah2]=ancW(x,z);if(aw<=0)continue;const k=j*nx+i;H[k]+=(ah2-H[k])*aw}}   /* abutments: solid right at the bridge end even on the water mask */
   flattenKorkeasaari(ways);
+  {const R0=15,R1=25,step=Math.ceil(R1/cs);for(let j=0;j<nz;j++){const z=z0+j*cs;if(z<150-R1||z>800+R1)continue;for(let i=0;i<nx;i++){const x=x0+i*cs;if(!inQuayZone(x,z))continue;const k=j*nx+i;if(isWater(x,z))continue;
+     let d=1e9;for(let b=-step;b<=step;b++)for(let a=-step;a<=step;a++){if(a*a+b*b>step*step)continue;if(isWater(x+a*cs,z+b*cs))d=Math.min(d,Math.hypot(a,b)*cs)}if(d>R1)continue;
+     const w=d<=R0?1:1-(d-R0)/(R1-R0),q=Math.max(H[k],SEA+2.6);H[k]+=(q-H[k])*w*w*(3-2*w)}}
+   /* water points along those quays carry the quay level, so the ground is cut off flat at the edge */
+   {const SET=new Uint8Array(nx*nz);for(let r=0;r<2;r++){const ADD=[];for(let j=0;j<nz;j++){const z=z0+j*cs;for(let i=0;i<nx;i++){const x=x0+i*cs,k=j*nx+i;if(SET[k]||!inQuayZone(x,z)||!isWater(x,z))continue;let m=-1e9;
+       for(const[a,b]of [[1,0],[-1,0],[0,1],[0,-1]]){const ii=i+a,jj=j+b;if(ii<0||jj<0||ii>=nx||jj>=nz)continue;const kk=jj*nx+ii;if(SET[kk]||!isWater(x0+ii*cs,z0+jj*cs))m=Math.max(m,H[kk])}if(m>-1e8)ADD.push([k,m])}}
+     for(const[k,m]of ADD){H[k]=m;SET[k]=1}}}}   /* two rows, so the coarser ground of the Fast setting is level to the edge too */
   /* the construction site: the old 10-15 m coal heaps are gone; levelled earth and a few piles up to 3.5 m */
   {const ed=(x,z)=>{let d=1e9;for(let i=0,j=SITE.length-1;i<SITE.length;j=i++){const a=SITE[j],b=SITE[i],vx=b[0]-a[0],vz=b[1]-a[1],t=clamp(((x-a[0])*vx+(z-a[1])*vz)/(vx*vx+vz*vz),0,1);d=Math.min(d,Math.hypot(x-a[0]-vx*t,z-a[1]-vz*t))}return d};
    for(let j=0;j<nz;j++){const z=z0+j*cs;if(z<220||z>600)continue;for(let i=0;i<nx;i++){const x=x0+i*cs;if(x<-620||x>-320)continue;const k=j*nx+i;if(isWater(x,z))continue;
@@ -761,6 +780,14 @@ function buildSite(){if(!TER)return;
    box(G,2.3,.4,6,ST,0,.95,0);box(G,2.3,1.5,1.6,Y,0,1.85,-2.3);box(G,2.2,.8,1.5,GL,0,2.25,-2.33);box(G,2.5,1.3,4,Y,0,1.85,.9,0,0,-.04);place(G,-540,400,-.6)}
   {const G=new THREE.Group();for(const z of [-1.2,1.2])for(const x of [-1,1]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.7,.7,.55,14).rotateZ(Math.PI/2),K);w.position.set(x,.7,z);w.castShadow=true;G.add(w)}   /* wheel loader */
    box(G,1.6,1,3.6,Y,0,1.3,.2);box(G,1.3,1.3,1.2,Y,0,2.4,.6);box(G,1.2,1.15,1.1,GL,0,2.45,.6);box(G,.3,.3,2,Y,0,1.4,-2.3,0,0,-.3);box(G,2.4,.9,.9,ST,0,.8,-3.3);place(G,-430,470,2.2)}}
+function levelDecks(){
+   /* a lane that ends on another deck joins it at that deck's height, blended back over 25 m */
+  for(const d of DECKS){if(d.rail||d.pts.length<2)continue;const n=d.pts.length,S=[0];for(let k=1;k<n;k++)S.push(S[k-1]+Math.hypot(d.pts[k][0]-d.pts[k-1][0],d.pts[k][1]-d.pts[k-1][1]));
+    for(const e of [0,n-1]){const L=decksAt(d.pts[e][0],d.pts[e][1]);if(!L)continue;let best=null;for(const c of L)if(c.d!==d&&Math.abs(c.h-d.hs[e])<1.5&&(best===null||Math.abs(c.h-d.hs[e])<Math.abs(best-d.hs[e])))best=c.h;if(best===null)continue;
+      const dl=best-d.hs[e];for(let k=0;k<n;k++){const s=Math.abs(S[k]-S[e]);if(s<25)d.hs[k]+=dl*(1-s/25)}}}
+  for(let r=0;r<3;r++)for(const d of DECKS){if(d.rail)continue;const n=d.pts.length;for(let k=0;k<n;k++){const p=d.pts[k],q=d.pts[Math.min(n-1,k+1)],o=d.pts[Math.max(0,k-1)];let tx=q[0]-o[0],tz=q[1]-o[1];const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+     let m=d.hs[k];for(const f of [0,-.45,.45]){const L=decksAt(p[0]-tz*d.w*f,p[1]+tx*d.w*f);if(L)for(const c of L)if(c.d!==d&&Math.abs(c.h-d.hs[k])<.5)m=Math.max(m,c.h)}d.hs[k]=m}}   /* also at the lane's edges, where neighbouring lanes overlap */
+}
 function buildWorld(D){
   if(D.bridges&&!D.bridgeGeo)D.bridgeGeo=decodeTiles(D.bridges);BRGEO=D.bridgeGeo||null;
   const tags=e=>e.tags||{};
@@ -821,6 +848,11 @@ function buildWorld(D){
   for(const e of ways){const t=tags(e);if(!(t.railway==='rail'||t.railway==='subway')||isTunnel(t)||t.bridge&&t.bridge!=='no')continue;const P=wayPts(e);g.strokeStyle='rgb(0,0,255)';g.lineWidth=5/RS;pathR(P);g.stroke()}
   g.globalCompositeOperation='source-over';
   const sd=g.getImageData(0,0,RW,RH).data;
+  /* Korkeasaari: the entrance plaza and the Mieritzinranta corridor are new reclaimed land that the coastline data still shows as sea */
+  {let line=null;for(const e of ways){const t=e.tags||{};if(t.name==='Mieritzinranta'&&t.highway==='cycleway'&&!t.bridge){const P=(e.geometry||[]).filter(Boolean).map(g=>PJ(g.lat,g.lon));if(!line||P.length>line.length)line=P}}
+   for(let j=0;j<RH;j++){const z=Z0+(j+.5)*RS;if(z<820||z>1000)continue;for(let i=0;i<RW;i++){const x=X0+(i+.5)*RS;if(x<280||x>1000)continue;const p=j*RW+i;if(!WMASK[p])continue;
+     let land=x>=285&&x<=420&&z>=830&&z<=925;if(!land&&line)for(let q=0;q<line.length-1&&!land;q++){const a=line[q],b=line[q+1],vx=b[0]-a[0],vz=b[1]-a[1],t=clamp(((x-a[0])*vx+(z-a[1])*vz)/(vx*vx+vz*vz||1),0,1);if(Math.hypot(x-a[0]-vx*t,z-a[1]-vz*t)<10)land=true}
+     if(land)WMASK[p]=0}}}
   if(TER)conditionTerrain(ways,HW,isTunnel);
   /* buildings into the block layer */
   status('Raising buildings…',.72);
@@ -988,11 +1020,17 @@ function buildWorld(D){
    if(D.bridgeGeo){const BT=new Map(),bk=(i,j)=>i*100003+j;for(const{F,I}of D.bridgeGeo)for(let t=0;t<I.length;t+=3){const a=I[t]*3,b=I[t+1]*3,c=I[t+2]*3;
        const ux=F[b]-F[a],uy=F[b+1]-F[a+1],uz=F[b+2]-F[a+2],vx=F[c]-F[a],vy=F[c+1]-F[a+1],vz=F[c+2]-F[a+2],nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,nl=Math.hypot(nx,ny,nz);if(nl<.1||Math.abs(ny)/nl<.8)continue;   /* nl is twice the area: skip tiny slivers */
        const tr=[F[a],F[a+1],F[a+2],F[b],F[b+1],F[b+2],F[c],F[c+1],F[c+2]];for(let i=Math.floor(Math.min(F[a],F[b],F[c])/4);i<=Math.floor(Math.max(F[a],F[b],F[c])/4);i++)for(let j=Math.floor(Math.min(F[a+2],F[b+2],F[c+2])/4);j<=Math.floor(Math.max(F[a+2],F[b+2],F[c+2])/4);j++){const k=bk(i,j);if(!BT.has(k))BT.set(k,[]);BT.get(k).push(tr)}}
+     D.deckAll=(x,z)=>{const L2=BT.get(bk(Math.floor(x/4),Math.floor(z/4)));const out=[];if(!L2)return out;for(const q of L2){const d=(q[5]-q[8])*(q[0]-q[6])+(q[6]-q[3])*(q[2]-q[8]);if(Math.abs(d)<1e-9)continue;
+         const l1=((q[5]-q[8])*(x-q[6])+(q[6]-q[3])*(z-q[8]))/d,l2=((q[8]-q[2])*(x-q[6])+(q[0]-q[6])*(z-q[8]))/d,l3=1-l1-l2;if(l1<-.001||l2<-.001||l3<-.001)continue;out.push(l1*q[1]+l2*q[4]+l3*q[7])}return out};
      D.deckAt=(x,z,est)=>{const L2=BT.get(bk(Math.floor(x/4),Math.floor(z/4)));if(!L2)return null;let best=null;for(const q of L2){const d=(q[5]-q[8])*(q[0]-q[6])+(q[6]-q[3])*(q[2]-q[8]);if(Math.abs(d)<1e-9)continue;
          const l1=((q[5]-q[8])*(x-q[6])+(q[6]-q[3])*(z-q[8]))/d,l2=((q[8]-q[2])*(x-q[6])+(q[0]-q[6])*(z-q[8]))/d,l3=1-l1-l2;if(l1<-.001||l2<-.001||l3<-.001)continue;const h=l1*q[1]+l2*q[4]+l3*q[7];
          if(Math.abs(h-est)<14&&(best===null||h>best))best=h}return best}}   /* the highest walkable face: the deck, not the girders under it */
    for(const c of chains){c.hs=c.keys.map(k=>H.get(k)||0);
-     if(D.deckAt&&c.peak>=.9){const S=c.P.map((p,i)=>D.deckAt(p[0],p[1],c.hs[i]));const n=S.filter(v=>v!==null).length;
+     if(D.deckAt&&c.peak>=.9){const S=c.P.map(()=>null);
+       /* track the deck from each end: at every point take the surface continuing from the previous one (within 1.2 m), so arches, gantries and girders are never picked */
+       const track=(i0,i1,st)=>{let prev=null;for(let i=i0;i!==i1;i+=st){const C=D.deckAll(c.P[i][0],c.P[i][1]);if(!C.length)continue;let ref=prev??c.hs[i],best=null;
+           for(const h of C){const dd=Math.abs(h-ref);if(dd<(prev===null?3:1.2)&&(best===null||dd<Math.abs(best-ref)))best=h}if(best!==null){if(S[i]===null||Math.abs(best-(c.hs[i]))<Math.abs(S[i]-c.hs[i]))S[i]=best;prev=best}}};
+       track(0,c.P.length,1);track(c.P.length-1,-1,-1);const n=S.filter(v=>v!==null).length;
        if(n>=c.P.length*.6){let last=null;for(let i=0;i<S.length;i++){if(S[i]!==null)last=S[i];else if(last!==null){let j=i;while(j<S.length&&S[j]===null)j++;S[i]=j<S.length?lerp(last,S[j],1/(j-i+1)):null}}
          for(let i=0;i<S.length;i++)if(S[i]===null)S[i]=c.hs[i];c.hs=S.map(v=>v+.06);c.lod3=true}}if(c.name==='Kruunuvuorensilta'&&!c.base.rail&&(!longest||c.L>longest.L))longest=c;
      /* the deck reaches 6 m past each mapped end at the end height, so there is no gap or dip at the joint with the ground */
@@ -1052,6 +1090,7 @@ function buildWorld(D){
    const mk3=(A,m)=>{if(!A.pos.length)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(A.pos,3));geo.computeVertexNormals();const o=new THREE.Mesh(geo,m);o.castShadow=o.receiveShadow=true;scene.add(o)};
    mk3(deck,conc);mk3(rail,new THREE.MeshStandardMaterial({color:lin('#9aa1a6'),metalness:.6,roughness:.4,transparent:true,opacity:.55,side:THREE.DoubleSide}));
    if(pier.length){const pg=new THREE.CylinderGeometry(1,1,1,10);pg.translate(0,.5,0);const im=new THREE.InstancedMesh(pg,conc,pier.length),D=new THREE.Object3D();pier.forEach(([x,z,h,r],i)=>{{const y0=isWater(x,z)?SEA-3:T(x,z)-.3;D.position.set(x,y0,z);D.scale.set(.5*r,h-y0,.5*r)};D.updateMatrix();im.setMatrixAt(i,D.matrix)});im.castShadow=true;scene.add(im)}
+   /* lanes of one bridge (cycle, foot, tram) overlap: level them to a common height so there are no kerbs or ledges between them */
    if(longest&&!longest.lod3){const P=longest.P,L=longest.L;let i=0;const target=longest.tgt;while(i<longest.s.length-2&&longest.s[i+1]<target)i++;
      const a=P[i],b=P[i+1],t=(target-longest.s[i])/((longest.s[i+1]-longest.s[i])||1),px=lerp(a[0],b[0],t),pz=lerp(a[1],b[1],t),dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1,ux=dx/l,uz=dz/l,nx=-uz,nz=ux;
      const white=M({color:lin('#eef0f0'),roughness:.55});const deckY=lerp(longest.hs[i],longest.hs[i+1],t);
@@ -1103,7 +1142,7 @@ function buildWorld(D){
         if(mh>.5)for(const k of [f[0],f[1],f[2]]){geo.roof.p.push(all[k].x,mh,all[k].y);geo.roof.c.push(roofC.r*.6,roofC.g*.6,roofC.b*.6)}}}}catch(e){}}
   /* Hanasaari plant: the city's 3D model when available (plant=hand in the URL shows the hand-built model instead) */
   const PLANTM=(location.hash.match(/plant=(\w+)/)||[])[1]||'city';
-  buildPaanu();buildSite();
+  buildPaanu();buildSite();levelDecks();
   if(D.plantTiles&&D.plantTiles.length&&PLANTM!=='hand')buildHanasaari(HZB,decodeTiles(D.plantTiles));else buildHanasaari(HZB);
   if(D.tileGeo){const n=buildTiles(D.tileGeo);D.tileTris=n}
   if(D.bridgeGeo)buildTiles(D.bridgeGeo);
@@ -1491,20 +1530,23 @@ function wallAt(x,z,fx,fz,air){
   if(air){for(const[a,b]of [[0,0],[.24,0],[.14,.12],[.14,-.12]]){if(G(x+fx*a-fz*b,z+fz*a+fx*b)>Pl.y+.03)return true}return false}
   let prev=G(x,z);for(const a of [.12,.24]){const g=G(x+fx*a,z+fz*a);if(g-prev>.19)return true;prev=g}return false}
 function wallNormal(x,z,fx,fz){const e=.18,hx=G(x+e,z)-G(x-e,z),hz=G(x,z+e)-G(x,z-e),l=Math.hypot(hx,hz);
+  const d=Pl.deck;if(d&&blocked(x,z)===7){   /* bridge railing: square to the deck's own line, not to the map grid */let bx=0,bz=0,bd=1e9;for(let k=0;k<d.pts.length-1;k++){const a=d.pts[k],b=d.pts[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l2=dx*dx+dz*dz||1,t=clamp(((x-a[0])*dx+(z-a[1])*dz)/l2),px=a[0]+dx*t,pz=a[1]+dz*t,dd=(px-x)**2+(pz-z)**2;if(dd<bd){bd=dd;bx=px;bz=pz}}const l3=Math.hypot(x-bx,z-bz)||1;return[(x-bx)/l3,(z-bz)/l3]}
   if(l>.05)return[hx/l,hz/l];
   if(blocked(x+.4,z))return[1,0];if(blocked(x-.4,z))return[-1,0];if(blocked(x,z+.4))return[0,1];if(blocked(x,z-.4))return[0,-1];
-  const d=Pl.deck;if(d){let bx=0,bz=0,bd=1e9;for(let k=0;k<d.pts.length-1;k++){const a=d.pts[k],b=d.pts[k+1],dx=b[0]-a[0],dz=b[1]-a[1],l2=dx*dx+dz*dz||1,t=clamp(((x-a[0])*dx+(z-a[1])*dz)/l2),px=a[0]+dx*t,pz=a[1]+dz*t,dd=(px-x)**2+(pz-z)**2;if(dd<bd){bd=dd;bx=px;bz=pz}}const l3=Math.hypot(x-bx,z-bz)||1;return[(x-bx)/l3,(z-bz)/l3]}
   return Math.abs(fx)>Math.abs(fz)?[Math.sign(fx),0]:[0,Math.sign(fz)]}
 function blocked(x,z){
-  if(Pl.deck&&Pl.y>1.2){const L=decksAt(x,z);if(!L||!L.some(c=>Math.abs(c.h-Pl.y)<1.2))return 7;return 0}  /* railings keep you on raised bridges */
+  if(Pl.deck&&Pl.y-(isWater(x,z)?SEA:T(x,z))>1.2){const L=decksAt(x,z);if(!L||!L.some(c=>Math.abs(c.h-Pl.y)<1.2))return 7;return 0}  /* railings keep you on bridges raised above what is below */
   const L=decksAt(x,z);if(L&&L.some(c=>c.h<=Pl.y+.7&&c.h>Pl.y-1.2))return 0;
   if(inDIY(x,z))return treeHit(x,z)?5:0;if(diyWall(x,z))return 2;const s=surf(x,z);if(s===2)return 2;if(s===1)return 1;if(s===5)return 2;
   if(treeHit(x,z))return 5;return 0}
+/* direction toward the water at a shore: gradient of the smoothed water field, else the ground's downhill direction */
+function waterNormal(x,z,fx,fz){let hx=0,hz=0;if(WF){const f=(px,pz)=>{const i=clamp(Math.round((px-X0)/RS-.5),0,RW-1),j=clamp(Math.round((pz-Z0)/RS-.5),0,RH-1);return WF[j*RW+i]};hx=f(x+2,z)-f(x-2,z);hz=f(x,z+2)-f(x,z-2)}
+  if(Math.hypot(hx,hz)<.02){hx=T(x-1,z)-T(x+1,z);hz=T(x,z-1)-T(x,z+1)}const l=Math.hypot(hx,hz);return l>1e-4?[hx/l,hz/l]:[fx,fz]}
 const nearWater=(x,z)=>{for(let a=0;a<8;a++)if(isWater(x+Math.cos(a*.785)*6,z+Math.sin(a*.785)*6))return true;return false};
 function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;if(inPoly(Pl.x,Pl.z,SITE)!==inPoly(nx,nz,SITE))return 6;   /* the site fence */const b=blocked(nx,nz);if(b&&!(b!==1&&blocked(Pl.x,Pl.z)))return b;   /* already inside an obstacle's edge: let the skater move out */if(inDIY(Pl.x,Pl.z)&&!inDIY(nx,nz)&&Pl.y>DIYB+.3)return 6;
   const g=G(nx,nz);
   if(!Pl.air){if(g-Pl.y>.19||wallAt(nx,nz,fx,fz,false)&&!wallAt(Pl.x,Pl.z,fx,fz,false))return 6}else if(wallAt(nx,nz,fx,fz,true))return 6;
-  if(TER&&!Pl.air&&Math.abs(g-T(nx,nz))<.3&&(g<SEA+.3||T(nx,nz)-T(nx+fx*.6,nz+fz*.6)>.2&&nearWater(nx,nz)))return 1;
+  if(TER&&Math.abs(g-T(nx,nz))<.3&&!decksAt(nx,nz)&&(g<SEA+.3||T(nx,nz)-T(nx+fx*.6,nz+fz*.6)>.2&&nearWater(nx,nz)))return 1;   /* not on bridge decks */
   Pl.x=nx;Pl.z=nz;
   if(!Pl.air){if(g<Pl.y-.16){Pl.air=true;Pl.vy=Math.min(Pl.gvy,0)}else if(g<Pl.y-.035&&Pl.gvy>1.2){Pl.air=true;Pl.vy=Pl.gvy}else Pl.y=g}
   else if(Pl.y<=g){Pl.y=g;Pl.air=false;Pl.vy=0;Pl.gvy=0}
@@ -1554,15 +1596,20 @@ function updatePlayer(dt){
   let mvx,mvz,spd;if(Pl.air&&(Pl.avx||Pl.avz)){spd=Math.hypot(Pl.avx,Pl.avz);mvx=Pl.avx/(spd||1);mvz=Pl.avz/(spd||1)}else{spd=Math.abs(Pl.v);const sg=Pl.v<0?-1:1;mvx=fx*sg;mvz=fz*sg;if(!Pl.air){Pl.avx=fx*Pl.v;Pl.avz=fz*Pl.v}}
   const total=spd*dt,ns=Math.max(1,Math.ceil(total/.08)),sl=total/ns;let hit=0,moved=0,worst=0;
   for(let i=0;i<ns;i++){YREF=Pl.y;let h=stepMove(mvx*sl,mvz*sl,mvx,mvz);
-    if(h&&h!==1){const n=wallNormal(Pl.x+mvx*.22,Pl.z+mvz*.22,mvx,mvz),c=Math.max(0,mvx*n[0]+mvz*n[1]);worst=Math.max(worst,c);
+    if(h){let n=wallNormal(Pl.x+mvx*.22,Pl.z+mvz*.22,mvx,mvz);if(h===1)n=waterNormal(Pl.x,Pl.z,mvx,mvz);const c=Math.max(0,mvx*n[0]+mvz*n[1]);worst=Math.max(worst,c);
       let tx=mvx-c*n[0],tz=mvz-c*n[1];const tl=Math.hypot(tx,tz);
-      if(tl>.15){tx/=tl;tz/=tl;const s2=sl*tl;if(stepMove(tx*s2,tz*s2,tx,tz)===0){h=0;moved+=s2;if(Math.abs(inp.turn)<.1&&!locked&&Pl.v>0){const want=Math.atan2(-tx,-tz);let d=want-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.yaw+=d*Math.min(1,dt*3*tl)}}}
+      if(tl<=.15&&h===1){tx=-n[1];tz=n[0];if(tx*mvx+tz*mvz<0){tx=-tx;tz=-tz}}   /* head-on into water: pick the nearer way along the edge */
+      if(tl>.15||h===1){const t0=Math.hypot(tx,tz)||1;tx/=t0;tz/=t0;
+        /* the edge is jagged: if straight along it is still blocked, veer 25 then 50 degrees away from it */
+        for(const k of [0,.45,.9]){const vx=tx-n[0]*k,vz=tz-n[1]*k,vl=Math.hypot(vx,vz);const cx=vx/vl,cz=vz/vl,s2=sl*Math.max(.3,tl);if(stepMove(cx*s2,cz*s2,cx,cz)===0){tx=cx;tz=cz;moved+=s2;h=0;break}}
+        if(!h&&Math.abs(inp.turn)<.1&&!locked&&Pl.v>0){const want=Math.atan2(-tx,-tz);let d=want-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.yaw+=d*Math.min(1,dt*3*tl)}}
       if(h){hit=h;break}continue}
     if(h){hit=h;break}moved+=sl}
+  Pl.lastHit=hit;Pl.lastWorst=worst;
   const fresh=Pl.wallT<=0;if(worst>0||hit===6||hit===2||hit===5||hit===7)Pl.wallT=.25;
   if((hit===6||hit===2||hit===5)&&!blocked(Pl.x-mvx*.12,Pl.z-mvz*.12)){Pl.x-=mvx*.12;Pl.z-=mvz*.12}   /* bounce off a little so the skater is not left touching it */
-  if(hit===1){if(Pl.warn<=0){pop('Mereen? Ei kiitos!');Pl.warn=2}Pl.v*=.1;Pl.avx*=.1;Pl.avz*=.1}
-  else if(fresh&&(hit||worst>0)){const c=hit?Math.max(worst,.9):worst;if(c>.75&&Math.abs(Pl.v)>5&&Pl.hitT<=0){pop('Auts!');Pl.hitT=1}Pl.v*=1-.8*c*c;Pl.avx*=1-.8*c*c;Pl.avz*=1-.8*c*c}
+  if(hit===1){if(Pl.warn<=0){pop('Mereen? Ei kiitos!');Pl.warn=2}Pl.v=clamp(Pl.v,-1,1);Pl.avx*=.2;Pl.avz*=.2}   /* only reached head-on: glancing contact slides along the edge */
+  else if(fresh&&(hit||worst>0)){const c=hit?Math.max(worst,.9):worst;if(c>.75&&Math.abs(Pl.v)>5&&Pl.hitT<=0){pop('Auts!');Pl.hitT=1}const k=c>.6?1-.8*c*c:1-.12*c;Pl.v*=k;Pl.avx*=k;Pl.avz*=k}   /* glancing contact just scrapes along; only near head-on hits cost real speed */
   else if(hit){Pl.v=clamp(Pl.v,-1.5,1.5)}
   St.dist+=moved;Pl.hitT-=dt;Pl.warn-=dt;Pl.wallT-=dt;St.top=Math.max(St.top,Math.abs(Pl.v));
   /* physical lean into the curve: tan(lean) = v*omega/g */
@@ -1654,7 +1701,7 @@ function frame(now){
   }catch(e){report(e.message)}
 }
 if(/test/.test(location.hash))window.__MAPBG=()=>mapBg;
-if(/test/.test(location.hash))window.__T={scene,renderer,hemi,sun,bridgeTop,T,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
+if(/test/.test(location.hash))window.__T={scene,renderer,hemi,sun,bridgeTop,T,blocked,decksAt,wallAt,isWater,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
 let cityOK=false,cityMsg='';

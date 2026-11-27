@@ -1,7 +1,7 @@
 /* =====================================================================
    RENDERER, SKY, CLOUDS, WEATHER
    ===================================================================== */
-const renderer=new THREE.WebGPURenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance',forceWebGL:/[#&?]gl=webgl/.test(location.href)});
+const renderer=new THREE.WebGPURenderer({canvas:$('c'),antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance',forceWebGL:/[#&?]gl=webgl/.test(location.href)});
 await renderer.init();
 const BACKEND=renderer.backend.isWebGPUBackend?'WebGPU':'WebGL 2';
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.55;
@@ -44,7 +44,7 @@ sun.shadow.mapSize.set(mobile?1024:2048,mobile?1024:2048);
 Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:500});
 sun.shadow.bias=-.0004;sun.shadow.normalBias=.04;scene.add(sun,sun.target);
 const pmrem=new THREE.PMREMGenerator(renderer);let envRT=null;
-scene.environmentIntensity=3;   /* the old engine scaled sky light by pi internally; physical lighting does not */
+scene.environmentIntensity=2.2;   /* the old engine scaled sky light by pi internally; physical lighting does not */
 function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;if(envRT)envRT.dispose();envRT=rt}catch(e){report('sky lighting: '+e.message)}}
 
 const WX={
@@ -60,7 +60,7 @@ function applyWeather(){
   if(THREE.Sky){sky.turbidity.value=cur.turb;sky.rayleigh.value=cur.ray;sky.mieCoefficient.value=cur.mie;sky.mieDirectionalG.value=cur.mieG;sky.sunPosition.value.copy(SUNV)}
   const cu=cloudMat.uniforms;cu.uCover.value=cur.cover;cu.uDark.value=cur.dark;cu.uSun.value.copy(SUNV);cu.uSunCol.value.setRGB(...cur.sunC);cu.uCol.value.setRGB(...cur.col);cu.uShd.value.setRGB(...cur.shd);cu.uHaze.value.setRGB(...cur.haze);cu.uHazeA.value=cur.hazeA;
   scene.fog.color.setRGB(...cur.fog);scene.fog.density=cur.fogD;FOGC.value.setRGB(...cur.fog);FOGD.value=cur.fogD;
-  sun.intensity=cur.sunI*2.4;sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3;
+  sun.intensity=cur.sunI*2.4;sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;
   renderer.toneMappingExposure=cur.expo;
   for(const[m,d,w]of WETMATS){m.roughness=lerp(d,w,cur.wet);m.envMapIntensity=1+cur.wet*.8}
   if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave}

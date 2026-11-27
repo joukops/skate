@@ -1,16 +1,7 @@
-survey cells 100 photos 28291
-survey cells 200 photos 66070
-survey cells 300 photos 115739
-survey cells 400 photos 156114
-survey cells 500 photos 187891
-survey cells 600 photos 214562
-survey cells 700 photos 244371
-survey cells 800 photos 278681
-survey cells 900 photos 299848
-survey done: perspective photos 299848 cells at the 2000 limit 0
-photos with a usable pose 211966
+survey done: perspective photos 19310 cells at the 2000 limit 0
+photos with a usable pose 14433
 tile vertices 1284933
-walls outside the mesh 36277
-walls with candidate photos 703
-rejected {"dark":31,"blur":58,"sky":94,"cover":305,"slant":686} downloads 1144
-facades written 130 atlases 1
+walls outside the mesh 273
+walls with candidate photos 20
+done {"walls":20,"views":57,"used":43,"single":8,"fused":9,"none":3} downloads 42
+facades written 17 atlases 1

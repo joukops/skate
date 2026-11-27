@@ -1,0 +1,8 @@
+photos in the zone 20086
+photos with a usable pose 14942
+shoreline walls 112
+walls 25 / 112 {"noCand":18,"noReg":4,"noAgree":0,"ok":2} downloads 17
+walls 50 / 112 {"noCand":36,"noReg":10,"noAgree":0,"ok":3} downloads 35
+walls 75 / 112 {"noCand":58,"noReg":11,"noAgree":0,"ok":5} downloads 45
+walls 100 / 112 {"noCand":80,"noReg":14,"noAgree":0,"ok":5} downloads 50
+done {"noCand":90,"noReg":17,"noAgree":0,"ok":5} downloads 56 facades 5 atlases 1

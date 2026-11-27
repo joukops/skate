@@ -1,5 +1,48 @@
-fatal Error: no aligned COLMAP model
-    at file:///home/runner/work/skate/skate/tools/sfm-fuse.mjs:85:27
-    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
-    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
-    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+model 0-txt images 85 points 11433
+  GPS fit: inliers 40 / 85 mean error 3.28 m, scale 44.928
+wall fit: points 443 median residual 0.68 m; shift 1.77 -0.78 rotation -0.48 deg
+height: ground points 1200 offset -2.25
+model 1-txt images 110 points 14672
+  GPS fit: inliers 39 / 110 mean error 3.28 m, scale 16.556
+wall fit: points 704 median residual 0.70 m; shift -4.00 -5.47 rotation 5.19 deg
+height: ground points 892 offset -3.13
+model 10-txt images 15 points 701
+  GPS fit: inliers 13 / 15 mean error 4.34 m, scale 2.885
+  could not fit onto walls
+model 11-txt images 34 points 2239
+  GPS fit: inliers 19 / 34 mean error 2.86 m, scale 3.186
+wall fit: points 1039 median residual 0.22 m; shift -9.19 1.44 rotation 8.62 deg
+height: ground points 236 offset 0.80
+model 2-txt images 21 points 3828
+  GPS fit: inliers 14 / 21 mean error 4.00 m, scale 36.308
+wall fit: points 131 median residual 0.61 m; shift 5.54 21.39 rotation 6.04 deg
+height: ground points 1380 offset -2.41
+model 3-txt images 72 points 9403
+  GPS fit: inliers 51 / 72 mean error 7.01 m, scale 7.482
+wall fit: points 2777 median residual 0.31 m; shift -5.84 -1.84 rotation 1.58 deg
+height: ground points 2262 offset 0.20
+model 4-txt images 26 points 4295
+  GPS fit: inliers 22 / 26 mean error 2.17 m, scale 7.692
+wall fit: points 1637 median residual 0.59 m; shift 9.34 -4.35 rotation -4.12 deg
+height: ground points 1098 offset 0.77
+model 5-txt images 23 points 3134
+  GPS fit: inliers 13 / 23 mean error 3.88 m, scale 5.370
+wall fit: points 536 median residual 0.65 m; shift 1.70 2.43 rotation -1.32 deg
+height: ground points 402 offset 1.80
+model 6-txt images 11 points 407
+  GPS fit: inliers 9 / 11 mean error 1.58 m, scale 7.340
+wall fit: points 120 median residual 0.49 m; shift 2.10 0.26 rotation -0.37 deg
+height: ground points 52 offset 1.74
+model 7-txt images 11 points 659
+  GPS fit: inliers 6 / 11 mean error 3.78 m, scale 11.071
+  could not fit onto walls
+model 8-txt images 10 points 515
+  GPS fit: inliers 10 / 10 mean error 3.35 m, scale 1.744
+  could not fit onto walls
+model 9-txt images 19 points 754
+  GPS fit: inliers 10 / 19 mean error 2.32 m, scale 10.535
+wall fit: points 166 median residual 0.62 m; shift -0.84 -13.11 rotation 7.37 deg
+height: ground points 5 offset 0.00
+registered cameras 401
+walls in the block 143
+facades {"few":129,"disagree":3,"ok":11}

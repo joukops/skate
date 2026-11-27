@@ -1,13 +1,13 @@
 model 0-txt images 85 points 11433
-  levelled by 84.9 deg; GPS fit: inliers 40 / 85 mean error 3.22 m, scale 44.338
-wall fit: points 1037 median residual 0.67 m; shift -1.11 1.55 rotation -0.37 deg
-height: ground points 1982 offset 0.32
-  cameras kept 85
+  levelled by 84.9 deg; GPS fit: inliers 41 / 85 mean error 3.14 m, scale 43.543
+wall fit: points 1117 median residual 0.70 m; shift 0.00 1.24 rotation -0.01 deg
+height: ground points 1980 offset 0.40
+  cameras kept 84
 model 1-txt images 110 points 14672
-  levelled by 89.0 deg; GPS fit: inliers 50 / 110 mean error 2.45 m, scale 16.177
-wall fit: points 2019 median residual 0.63 m; shift 0.80 1.02 rotation -1.78 deg
-height: ground points 4704 offset 1.07
-  cameras kept 98
+  levelled by 89.0 deg; GPS fit: inliers 48 / 110 mean error 2.41 m, scale 15.984
+wall fit: points 2276 median residual 0.57 m; shift 0.98 1.03 rotation -1.98 deg
+height: ground points 4763 offset 0.94
+  cameras kept 99
 model 10-txt images 15 points 701
   levelled by 86.8 deg; GPS fit: inliers 12 / 15 mean error 3.21 m, scale 3.675
 wall fit: points 172 median residual 0.71 m; shift 10.73 11.27 rotation -7.23 deg
@@ -19,9 +19,9 @@ wall fit: points 1579 median residual 0.17 m; shift -11.16 0.07 rotation 12.58 d
 height: ground points 81 offset -0.66
   wall fit too far from GPS: dropped
 model 2-txt images 21 points 3828
-  levelled by 87.7 deg; GPS fit: inliers 10 / 21 mean error 1.92 m, scale 26.693
-wall fit: points 535 median residual 0.46 m; shift 147.15 11.04 rotation 8.94 deg
-height: ground points 1438 offset -1.50
+  levelled by 87.7 deg; GPS fit: inliers 10 / 21 mean error 1.78 m, scale 25.950
+wall fit: points 434 median residual 0.60 m; shift 37.84 -3.49 rotation -7.87 deg
+height: ground points 513 offset 2.31
   wall fit too far from GPS: dropped
 model 3-txt images 72 points 9403
   levelled by 87.8 deg; GPS fit: inliers 36 / 72 mean error 1.97 m, scale 8.342
@@ -60,4 +60,6 @@ height: ground points 31 offset 1.17
   wall fit too far from GPS: dropped
 registered cameras 266
 walls in the block 147
-facades {"few":114,"disagree":2,"ok":19,"sky":12}
+facades {"few":114,"disagree":1,"ok":22,"sky":10}
+ground height cells 971
+ground tiles 9 pixels 251766 area m2 629

@@ -1740,7 +1740,7 @@ let cityOK=false,cityMsg='';
     try{D.city=await loadCity(.52,.58);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
     D.tiles=await loadTiles(.58,.61);D.bridges=await loadTiles(.61,.615,'bridges','LOD3 bridges');
     if(D.tiles){D.plantTiles=D.tiles.filter(x=>x.t.plant);D.tiles=D.tiles.filter(x=>!x.t.plant)}
-    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{if(/[#&]facades2\b/.test(location.hash))loadFacades('facades');if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
+    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{if(!/nofacades/.test(location.hash))loadFacades('facades');if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
     if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}
   catch(e){status(e.message,0);report(e.message)}

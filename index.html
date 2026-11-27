@@ -447,6 +447,9 @@ function veg(x,z){if(!VEG)return 0;const i=Math.floor(RX(x)),j=Math.floor(RZ(z))
 let WMASK=null;function isWater(x,z){if(!WMASK)return false;const i=Math.floor(RX(x)),j=Math.floor(RZ(z));if(i<0||j<0||i>=RW||j>=RH)return false;return WMASK[j*RW+i]===1}
 const SEA=-3;let BRGEO=null;
 /* Korkeasaari zoo entrance building "Paanu" (OSM 1571344481): footprint in local metres; the first 15 points are the curved front facing the plaza */
+/* Hanasaari construction site (the former coal field inside the waterfront cycle loop): fenced, levelled earth with a few low piles */
+const SITE=[[-525,572],[-582,515],[-602,418],[-548,352],[-512,276],[-484,240],[-450,282],[-405,309],[-350,352],[-334,368]],SITE_BASE=-.9,
+  SITE_PILES=[[-545,465,3.4,15],[-470,425,2.6,12],[-505,515,2.2,10],[-425,350,3,11]];
 const PAANU_ID=1571344481,PAANU=[[329,901],[337,902],[344,901],[355,902],[358,903],[361,903],[375,905],[379,905],[383,905],[400,898],[404,896],[413,896],[422,896],[427,896],[444,896],[438,899],[437,900],[438,902],[438,903],[439,905],[390,922],[356,923],[350,919],[347,916],[343,914],[331,904]],PAANU_FRONT=15;   /* game height 0 = typical waterfront street level, ~3 m above mean sea level */
 /* terrain: the city's elevation model on a 4 m grid (data/terrain.bin). T() interpolates on exactly the
    triangles the ground mesh is drawn with, so the skates sit on the ground you see. */
@@ -678,7 +681,12 @@ function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
   for(let k=0;k<N;k++)if(SW[k]>0){const i=k%nx,j=(k-i)/nx;if(isWater(x0+i*cs,z0+j*cs))continue;H[k]+=(SH[k]/SW[k]-H[k])*MX[k]}
   for(const[ax,az,ah,ar]of ANC){for(let j=Math.max(0,Math.floor((az-ar-z0)/cs));j<=Math.min(nz-1,Math.ceil((az+ar-z0)/cs));j++)for(let i=Math.max(0,Math.floor((ax-ar-x0)/cs));i<=Math.min(nx-1,Math.ceil((ax+ar-x0)/cs));i++){
       const x=x0+i*cs,z=z0+j*cs;if(isWater(x,z)&&Math.hypot(x-ax,z-az)>10)continue;const[aw,ah2]=ancW(x,z);if(aw<=0)continue;const k=j*nx+i;H[k]+=(ah2-H[k])*aw}}   /* abutments: solid right at the bridge end even on the water mask */
-  flattenKorkeasaari(ways)}
+  flattenKorkeasaari(ways);
+  /* the construction site: the old 10-15 m coal heaps are gone; levelled earth and a few piles up to 3.5 m */
+  {const ed=(x,z)=>{let d=1e9;for(let i=0,j=SITE.length-1;i<SITE.length;j=i++){const a=SITE[j],b=SITE[i],vx=b[0]-a[0],vz=b[1]-a[1],t=clamp(((x-a[0])*vx+(z-a[1])*vz)/(vx*vx+vz*vz),0,1);d=Math.min(d,Math.hypot(x-a[0]-vx*t,z-a[1]-vz*t))}return d};
+   for(let j=0;j<nz;j++){const z=z0+j*cs;if(z<220||z>600)continue;for(let i=0;i<nx;i++){const x=x0+i*cs;if(x<-620||x>-320)continue;const k=j*nx+i;if(isWater(x,z))continue;
+     const inside=inPoly(x,z,SITE),d=ed(x,z);if(!inside&&d>14)continue;let h=SITE_BASE;for(const[px,pz,ph,pr]of SITE_PILES){const q=Math.hypot(x-px,z-pz)/pr;if(q<1)h+=ph*(1-q*q)*(1-q*q)}
+     const w=inside?1:1-d/14;H[k]+=(Math.min(H[k],h)+(inside?h-Math.min(H[k],h):0)-H[k])*w}}}}
 /* deck top of the city's bridge models near a point (median of upward faces), or null */
 function bridgeTop(x,z,r){if(!BRGEO)return null;const hs=[];for(const{F,I}of BRGEO)for(let t=0;t<I.length;t+=3){const a=I[t]*3,b=I[t+1]*3,c=I[t+2]*3,cx=(F[a]+F[b]+F[c])/3,cz=(F[a+2]+F[b+2]+F[c+2])/3;if(Math.hypot(cx-x,cz-z)>r)continue;
   const ux=F[b]-F[a],uy=F[b+1]-F[a+1],uz=F[b+2]-F[a+2],vx=F[c]-F[a],vy=F[c+1]-F[a+1],vz=F[c+2]-F[a+2],ny=uz*vx-ux*vz,nl=Math.hypot(uy*vz-uz*vy,ny,ux*vy-uy*vx);if(nl>1e-9&&Math.abs(ny)/nl>.85)hs.push((F[a+1]+F[b+1]+F[c+1])/3)}
@@ -730,6 +738,29 @@ function buildPaanu(){if(!TER)return;const F=PAANU.slice(0,PAANU_FRONT),y0=T(385
   /* wooden entrance boxes on the front */
   for(const[s,w]of [[LT*.47,6.5],[LT*.78,5]]){let i=0;while(i<F.length-2&&L[i+1]<s)i++;const u=(s-L[i])/(L[i+1]-L[i]||1),x=lerp(F[i][0],F[i+1][0],u),z=lerp(F[i][1],F[i+1][1],u),n=nrm(i);
     const b=new THREE.Mesh(new THREE.BoxGeometry(w,GL+.6,1.6),wood);b.position.set(x+n[0]*.7,y0+(GL+.6)/2,z+n[1]*.7);b.rotation.y=Math.atan2(n[0],n[1]);b.castShadow=b.receiveShadow=true;scene.add(b)}}
+function fenceCanvas(){const c=document.createElement('canvas');c.width=128;c.height=128;const g=c.getContext('2d');g.clearRect(0,0,128,128);g.strokeStyle='#c9ced2';g.lineWidth=1.4;
+  for(let x=0;x<=128;x+=8){g.beginPath();g.moveTo(x,0);g.lineTo(x,128);g.stroke()}for(let y=0;y<=128;y+=16){g.beginPath();g.moveTo(0,y);g.lineTo(128,y);g.stroke()}
+  g.lineWidth=4;g.strokeRect(2,2,124,124);return c}
+/* site fence (temporary mesh panels on concrete feet), earth texture, and a few machines */
+function buildSite(){if(!TER)return;
+  const ft=tex(fenceCanvas(),1,1);const fm=M({map:ft,transparent:false,alphaTest:.4,roughness:.5,metalness:.6,side:THREE.DoubleSide}),footM=M({color:lin('#8c8a86'),roughness:.9}),postM=M({color:lin('#a9adb1'),roughness:.4,metalness:.7});
+  const P=[],U=[];const feet=[];
+  for(let i=0;i<SITE.length;i++){const a=SITE[i],b=SITE[(i+1)%SITE.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.ceil(L/3.5);
+    for(let k=0;k<n;k++){const u0=k/n,u1=(k+1)/n,x0=lerp(a[0],b[0],u0),z0=lerp(a[1],b[1],u0),x1=lerp(a[0],b[0],u1),z1=lerp(a[1],b[1],u1),g0=T(x0,z0)+.12,g1=T(x1,z1)+.12;
+      P.push(x0,g0,z0,x1,g1,z1,x1,g1+2,z1,x0,g0,z0,x1,g1+2,z1,x0,g0+2,z0);U.push(0,0,1,0,1,1,0,0,1,1,0,1);feet.push([x0,z0,Math.atan2(b[0]-a[0],b[1]-a[1])])}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.computeVertexNormals();const fen=new THREE.Mesh(g,fm);fen.castShadow=true;scene.add(fen);
+  const fg=new THREE.BoxGeometry(.2,.12,.7),pg=new THREE.CylinderGeometry(.025,.025,2.1,6);const fI=new THREE.InstancedMesh(fg,footM,feet.length),pI=new THREE.InstancedMesh(pg,postM,feet.length),m4=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler();
+  feet.forEach(([x,z,r],i)=>{q.setFromEuler(e.set(0,r,0));const y=T(x,z);m4.compose(new THREE.Vector3(x,y+.06,z),q,new THREE.Vector3(1,1,1));fI.setMatrixAt(i,m4);m4.compose(new THREE.Vector3(x,y+1.12,z),q,new THREE.Vector3(1,1,1));pI.setMatrixAt(i,m4)});scene.add(fI,pI);
+  /* machines */
+  const Y=M({color:lin('#e8b014'),roughness:.55,metalness:.2}),K=M({color:lin('#26282a'),roughness:.8}),GL=M({color:lin('#3c4e58'),roughness:.15,metalness:.5}),ST=M({color:lin('#5d6166'),roughness:.6,metalness:.6});
+  const box=(G,w,h,d,m,x,y,z,ry=0,rz=0,rx=0)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.rotation.set(rx,ry,rz);o.castShadow=o.receiveShadow=true;G.add(o);return o};
+  const place=(G,x,z,r)=>{G.position.set(x,T(x,z),z);G.rotation.y=r;scene.add(G)};
+  {const G=new THREE.Group();box(G,.6,.8,4.2,K,-1.1,.4,0);box(G,.6,.8,4.2,K,1.1,.4,0);box(G,2.6,.9,3,Y,0,1.35,-.2);box(G,1,1.3,1.1,Y,-.75,2.45,.6);box(G,.95,1.15,1.05,GL,-.76,2.47,.6);box(G,2.4,.8,1.2,Y,0,1.6,-1.6);   /* excavator */
+   const boom=box(G,.45,.5,4.2,Y,.4,3,1.8,0,0,-.55);const stick=box(G,.35,.4,2.8,Y,.4,2.9,4.6,0,0,.7);box(G,1.1,.8,.8,ST,.4,1.6,5.4,0,0,.3);place(G,-480,420,.9)}
+  {const G=new THREE.Group();for(const z of [-1.9,.6,1.9])for(const x of [-1.15,1.15]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.45,14).rotateZ(Math.PI/2),K);w.position.set(x,.55,z);w.castShadow=true;G.add(w)}   /* dump truck */
+   box(G,2.3,.4,6,ST,0,.95,0);box(G,2.3,1.5,1.6,Y,0,1.85,-2.3);box(G,2.2,.8,1.5,GL,0,2.25,-2.33);box(G,2.5,1.3,4,Y,0,1.85,.9,0,0,-.04);place(G,-540,400,-.6)}
+  {const G=new THREE.Group();for(const z of [-1.2,1.2])for(const x of [-1,1]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.7,.7,.55,14).rotateZ(Math.PI/2),K);w.position.set(x,.7,z);w.castShadow=true;G.add(w)}   /* wheel loader */
+   box(G,1.6,1,3.6,Y,0,1.3,.2);box(G,1.3,1.3,1.2,Y,0,2.4,.6);box(G,1.2,1.15,1.1,GL,0,2.45,.6);box(G,.3,.3,2,Y,0,1.4,-2.3,0,0,-.3);box(G,2.4,.9,.9,ST,0,.8,-3.3);place(G,-430,470,2.2)}}
 function buildWorld(D){
   if(D.bridges&&!D.bridgeGeo)D.bridgeGeo=decodeTiles(D.bridges);BRGEO=D.bridgeGeo||null;
   const tags=e=>e.tags||{};
@@ -862,6 +893,7 @@ function buildWorld(D){
    for(const e of ways){const t=tags(e);if(!(t.highway&&t.area==='yes'))continue;const P=wayPts(e);if(P.length<4)continue;const sf=t.surface||'';
      order.push({P,c:sf==='asphalt'?'#4a4c4f':/paving|sett|stone|concrete/.test(sf)?'#a39e95':'#5c5e61',z:4})}
    for(const o of order)if(o.z>=4&&tp&&inP(o.P,tp.x,tp.z))o.c='#4e4d4b'}
+  order.push({P:SITE.concat([SITE[0]]),c:'#7b6a55',z:3.5});   /* bare earth on the site */
   order.sort((a,b)=>a.z-b.z);for(const o of order){gg.fillStyle=o.c;gpath(o.P,true);gg.fill()}
   /* soft contact shadow around every building (ambient occlusion on the ground) */
   {const sc=.5,oc=document.createElement('canvas');oc.width=oc.height=GT*sc;const og=oc.getContext('2d');og.fillStyle='#000';og.beginPath();
@@ -1071,7 +1103,7 @@ function buildWorld(D){
         if(mh>.5)for(const k of [f[0],f[1],f[2]]){geo.roof.p.push(all[k].x,mh,all[k].y);geo.roof.c.push(roofC.r*.6,roofC.g*.6,roofC.b*.6)}}}}catch(e){}}
   /* Hanasaari plant: the city's 3D model when available (plant=hand in the URL shows the hand-built model instead) */
   const PLANTM=(location.hash.match(/plant=(\w+)/)||[])[1]||'city';
-  buildPaanu();
+  buildPaanu();buildSite();
   if(D.plantTiles&&D.plantTiles.length&&PLANTM!=='hand')buildHanasaari(HZB,decodeTiles(D.plantTiles));else buildHanasaari(HZB);
   if(D.tileGeo){const n=buildTiles(D.tileGeo);D.tileTris=n}
   if(D.bridgeGeo)buildTiles(D.bridgeGeo);
@@ -1469,7 +1501,7 @@ function blocked(x,z){
   if(inDIY(x,z))return treeHit(x,z)?5:0;if(diyWall(x,z))return 2;const s=surf(x,z);if(s===2)return 2;if(s===1)return 1;if(s===5)return 2;
   if(treeHit(x,z))return 5;return 0}
 const nearWater=(x,z)=>{for(let a=0;a<8;a++)if(isWater(x+Math.cos(a*.785)*6,z+Math.sin(a*.785)*6))return true;return false};
-function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;const b=blocked(nx,nz);if(b&&!(b!==1&&blocked(Pl.x,Pl.z)))return b;   /* already inside an obstacle's edge: let the skater move out */if(inDIY(Pl.x,Pl.z)&&!inDIY(nx,nz)&&Pl.y>DIYB+.3)return 6;
+function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;if(inPoly(Pl.x,Pl.z,SITE)!==inPoly(nx,nz,SITE))return 6;   /* the site fence */const b=blocked(nx,nz);if(b&&!(b!==1&&blocked(Pl.x,Pl.z)))return b;   /* already inside an obstacle's edge: let the skater move out */if(inDIY(Pl.x,Pl.z)&&!inDIY(nx,nz)&&Pl.y>DIYB+.3)return 6;
   const g=G(nx,nz);
   if(!Pl.air){if(g-Pl.y>.19||wallAt(nx,nz,fx,fz,false)&&!wallAt(Pl.x,Pl.z,fx,fz,false))return 6}else if(wallAt(nx,nz,fx,fz,true))return 6;
   if(TER&&!Pl.air&&Math.abs(g-T(nx,nz))<.3&&(g<SEA+.3||T(nx,nz)-T(nx+fx*.6,nz+fz*.6)>.2&&nearWater(nx,nz)))return 1;

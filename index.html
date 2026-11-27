@@ -80,6 +80,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="meshNote" style="display:none;position:fixed;left:50%;bottom:10px;transform:translateX(-50%);font:600 12px system-ui;color:#fff;background:rgba(0,0,0,.45);padding:4px 10px;border-radius:10px;z-index:30;pointer-events:none"></div>
 <div id="hud">
   <div class="hp panel" id="hl"><small>Speed</small><b id="spd">0 km/h</b><span id="dist">0 m</span></div>
   <div class="hp panel" id="hr"><small>Spots visited</small><b id="spots">0</b><span id="time">0:00</span></div>
@@ -164,7 +165,7 @@ const status=(t,p)=>{$('status').textContent=t;if(p!=null)$('bar').firstChild.st
 /* =====================================================================
    GEOGRAPHY — local metres, origin Kalasatama (60.1850 N, 24.9760 E), x east, z south
    ===================================================================== */
-const BB={s:60.1680,w:24.9370,n:60.1985,e:25.0170};   /* Kumpula and Toukola left out for now */
+const BB={s:60.1610,w:24.9370,n:60.1985,e:25.0450};   /* Kumpula and Toukola left out for now */
 const LAT0=60.1850,LON0=24.9760,KX=111320*Math.cos(LAT0*Math.PI/180),KZ=110540;
 const PJ=(lat,lon)=>[(lon-LON0)*KX,-(lat-LAT0)*KZ];
 const [X0,Z0]=PJ(BB.n,BB.w),[X1,Z1]=PJ(BB.s,BB.e);
@@ -242,7 +243,7 @@ function applyWeather(){
   if(THREE.Sky){sky.turbidity.value=cur.turb;sky.rayleigh.value=cur.ray;sky.mieCoefficient.value=cur.mie;sky.mieDirectionalG.value=cur.mieG;sky.sunPosition.value.copy(SUNV)}
   const cu=cloudMat.uniforms;cu.uCover.value=cur.cover;cu.uDark.value=cur.dark;cu.uSun.value.copy(SUNV);cu.uSunCol.value.setRGB(...cur.sunC);cu.uCol.value.setRGB(...cur.col);cu.uShd.value.setRGB(...cur.shd);cu.uHaze.value.setRGB(...cur.haze);cu.uHazeA.value=cur.hazeA;
   scene.fog.color.setRGB(...cur.fog);scene.fog.density=cur.fogD;FOGC.value.setRGB(...cur.fog);FOGD.value=cur.fogD;
-  sun.intensity=cur.sunI*2.4;sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;
+  sun.intensity=cur.sunI*2.4;if(window.MESHMATS&&window.MESHMATS.length){const MESHMATS=window.MESHMATS;const k=.78+.22*Math.min(1,cur.sunI/3);for(const m of MESHMATS)m.color.setRGB(k*lerp(1,cur.sunC[0],.25),k*lerp(1,cur.sunC[1],.25),k*lerp(1,cur.sunC[2],.25))}   /* photo mesh follows the weather a little */sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;
   renderer.toneMappingExposure=cur.expo;
   for(const[m,d,w]of WETMATS){m.roughness=lerp(d,w,cur.wet);m.envMapIntensity=1+cur.wet*.8}
   if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave}
@@ -393,7 +394,7 @@ function parseCity(j,out){const V=j.vertices||[],T=j.transform,sc=T?T.scale:[1,1
 /* textured LOD2 buildings from the city's 3D map, converted by tools/tiles.mjs */
 async function loadTiles(p0,p1,dir='tiles',label='textured buildings'){try{const r=await fetch('data/'+dir+'/index.json',{cache:'no-cache'});if(!r.ok)return null;const ix=await r.json();if(!ix.tiles||!ix.tiles.length)return null;
   const out=[];let k=0;for(const t of ix.tiles){k++;status('Loading '+label+' '+k+' / '+ix.tiles.length,p0+(p1-p0)*k/ix.tiles.length);try{const b=await (await fetch('data/'+dir+'/'+t.file)).arrayBuffer();out.push({t,b,dir})}catch(e){}}
-  return out.length?out:null}catch(e){return null}}
+  if(ix.zones)out.zones=ix.zones;return out.length?out:null}catch(e){return null}}
 function decodeTiles(list){const out=[];
   for(const{b,dir}of list){const dv=new DataView(b),hl=dv.getUint32(0,true),head=JSON.parse(new TextDecoder().decode(new Uint8Array(b,4,hl).filter(c=>c!==0))),base=4+hl;
     for(const p of head.prims){const P=new Int16Array(b,base+p.pos,p.n*3),F=new Float32Array(p.n*3);for(let i=0;i<p.n;i++){F[i*3]=P[i*3]/10+head.ox;F[i*3+1]=P[i*3+1]/10;F[i*3+2]=P[i*3+2]/10+head.oz}
@@ -408,13 +409,18 @@ function rasterTiles(geo,g){const toR=(x,z)=>[(x-X0)/RS,(z-Z0)/RS];let n=0;g.beg
       let[ax,az]=toR(F[a],F[a+2]),[bx,bz]=toR(F[b],F[b+2]),[cx,cz]=toR(F[c],F[c+2]);const ar=(bx-ax)*(cz-az)-(cx-ax)*(bz-az);if(Math.abs(ar)<.02)continue;
       if(ar<0){const tx=bx,tz=bz;bx=cx;bz=cz;cx=tx;cz=tz}g.moveTo(ax,az);g.lineTo(bx,bz);g.lineTo(cx,cz);g.closePath();if(++n%20000===0){g.fill();g.beginPath()}}}
   g.fill()}
-function buildTiles(geo){const TL=new THREE.TextureLoader();let tris=0;
+const MESHMATS=window.MESHMATS=[],LOD2M=[];let PLANTG=[];function MESHMAT(tx){const m=new THREE.MeshBasicMaterial({map:tx,side:THREE.DoubleSide});MESHMATS.push(m);return m}
+function buildTiles(geo,opt={}){const TL=new THREE.TextureLoader();let tris=0;
   const FD=tex(facadeDetail(),1,1,false);
   const ao=m=>mulColor(m,mix(.6,1,smoothstep(0,4,positionWorld.y.sub(attribute('aB','float')))).mul(mix(.86,1.1,texture(FD,vec2(positionWorld.x.add(positionWorld.z),positionWorld.y).mul(.45)).r)));
-  for(const{F,I,UF,p,dir}of geo){const g=new THREE.BufferGeometry();{const B=new Float32Array(F.length/3);for(let i=0;i<B.length;i++)B[i]=T(F[i*3],F[i*3+2]);g.setAttribute('aB',new THREE.BufferAttribute(B,1))}g.setAttribute('position',new THREE.BufferAttribute(F,3));g.setIndex(new THREE.BufferAttribute(I,1));
+  for(const{F,I:I0,UF,p,dir}of geo){let I=I0;
+    if(opt.hideMeshZones&&MESHZ.length){const keep=[];for(let t=0;t<I0.length;t+=3){const cx=(F[I0[t]*3]+F[I0[t+1]*3]+F[I0[t+2]*3])/3,cz=(F[I0[t]*3+2]+F[I0[t+1]*3+2]+F[I0[t+2]*3+2])/3;if(!inMeshZone(cx,cz))keep.push(I0[t],I0[t+1],I0[t+2])}if(!keep.length)continue;I=I0 instanceof Uint32Array?new Uint32Array(keep):new Uint16Array(keep)}
+    if(opt.unlit){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(F,3));g.setIndex(new THREE.BufferAttribute(I,1));if(!UF)continue;g.setAttribute('uv',new THREE.BufferAttribute(UF,2));
+      const tx=TL.load('data/'+dir+'/'+p.tex);tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;const m=new THREE.Mesh(g,MESHMAT(tx));m.receiveShadow=false;m.castShadow=true;scene.add(m);tris+=I.length/3;continue}   /* photo mesh: the lighting is in the photos */
+    const g=new THREE.BufferGeometry();{const B=new Float32Array(F.length/3);for(let i=0;i<B.length;i++)B[i]=T(F[i*3],F[i*3+2]);g.setAttribute('aB',new THREE.BufferAttribute(B,1))}g.setAttribute('position',new THREE.BufferAttribute(F,3));g.setIndex(new THREE.BufferAttribute(I,1));
     let mat;if(UF){g.setAttribute('uv',new THREE.BufferAttribute(UF,2));const tx=TL.load('data/'+dir+'/'+p.tex);tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;mat=wet(M({map:tx,roughness:.88,side:THREE.DoubleSide}),.35)}
     else mat=wet(M({color:new THREE.Color(`rgb(${p.color.join(',')})`).convertSRGBToLinear(),roughness:.85,side:THREE.DoubleSide}),.35);
-    g.computeVertexNormals();const m=new THREE.Mesh(g,ao(mat));m.castShadow=m.receiveShadow=true;scene.add(m);tris+=I.length/3}
+    g.computeVertexNormals();const m=new THREE.Mesh(g,ao(mat));m.castShadow=m.receiveShadow=true;scene.add(m);tris+=I.length/3;if(opt.hideMeshZones)LOD2M.push({m,F,I:I0})}
   return tris}
 /* compact model built by the repo's GitHub Action (tools/city.mjs) and served with the game */
 function decodeCity(ab){const dv=new DataView(ab);if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='HKB1')throw new Error('bad city file');
@@ -446,6 +452,8 @@ function surf(x,z){if(!SURF)return 4;const i=Math.floor(RX(x)),j=Math.floor(RZ(z
 function veg(x,z){if(!VEG)return 0;const i=Math.floor(RX(x)),j=Math.floor(RZ(z));if(i<0||j<0||i>=RW||j>=RH)return 0;return VEG[j*RW+i]}
 let WMASK=null;function isWater(x,z){if(!WMASK)return false;const i=Math.floor(RX(x)),j=Math.floor(RZ(z));if(i<0||j<0||i>=RW||j>=RH)return false;return WMASK[j*RW+i]===1}
 const SEA=-3;let BRGEO=null;
+/* zones covered by the photogrammetry mesh (from data/mesh/index.json): LOD2 buildings, the plant model and our trees are left out there */
+let MESHZ=[];const inMeshZone=(x,z)=>MESHZ.some(([a,b,c,d])=>x>=a&&x<=c&&z>=b&&z<=d);
 /* Korkeasaari zoo entrance building "Paanu" (OSM 1571344481): footprint in local metres; the first 15 points are the curved front facing the plaza */
 /* Hanasaari construction site (the former coal field inside the waterfront cycle loop): fenced, levelled earth with a few low piles */
 /* built quays (Merihaka, Hakaniemi, Kalasatama, Sompasaari, Hanasaari): flat to the edge, at least 2.6 m above the sea */
@@ -622,7 +630,7 @@ function hanaMetalCanvas(){const S=256,c=mk(S,S),g=c.getContext('2d');g.fillStyl
 function chimneyCanvas(){const W=256,H=1024,c=mk(W,H),g=c.getContext('2d');g.fillStyle='#c9c3b8';g.fillRect(0,0,W,H);speckle(g,W,H,9000,.08,.07);
   for(let y=0;y<H;y+=H/60){g.fillStyle=`rgba(80,70,60,${rnd(.08,.2)})`;g.fillRect(0,y,W,1.5)}
   for(let i=0;i<30;i++){const x=rnd(0,W);g.fillStyle='rgba(70,62,55,.08)';g.fillRect(x,rnd(0,H*.2),rnd(3,10),rnd(100,600))}return c}
-function buildHanasaari(list,city){if(!list.length)return;const hg=new THREE.Group();hg.position.y=T(-275,123);scene.add(hg);const metalFP=[];
+function buildHanasaari(list,city){if(!list.length)return;const hg=new THREE.Group();PLANTG.push(hg);hg.position.y=T(-275,123);scene.add(hg);const metalFP=[];
   const LV=3.7,brick=wet(M({map:tex(hanaBrickCanvas()),vertexColors:true,roughness:.85,side:THREE.DoubleSide}),.5),
     metal=wet(M({map:tex(hanaMetalCanvas()),vertexColors:true,roughness:.55,metalness:.35,side:THREE.DoubleSide}),.15),
     roof=wet(M({color:lin('#3b3936'),roughness:.9,side:THREE.DoubleSide}),.35);
@@ -788,6 +796,18 @@ function levelDecks(){
   for(let r=0;r<3;r++)for(const d of DECKS){if(d.rail)continue;const n=d.pts.length;for(let k=0;k<n;k++){const p=d.pts[k],q=d.pts[Math.min(n-1,k+1)],o=d.pts[Math.max(0,k-1)];let tx=q[0]-o[0],tz=q[1]-o[1];const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
      let m=d.hs[k];for(const f of [0,-.45,.45]){const L=decksAt(p[0]-tz*d.w*f,p[1]+tx*d.w*f);if(L)for(const c of L)if(c.d!==d&&Math.abs(c.h-d.hs[k])<.5)m=Math.max(m,c.h)}d.hs[k]=m}}   /* also at the lane's edges, where neighbouring lanes overlap */
 }
+/* the waterfront photo mesh streams in after the game has started; as each part arrives it replaces the LOD2 buildings,
+   the plant model and our trees in its zone */
+async function streamMesh(){if(/nomesh/.test(location.hash))return;let ix;try{const r=await fetch('data/mesh/index.json',{cache:'no-cache'});if(!r.ok)return;ix=await r.json()}catch(e){return}
+  if(!ix.tiles||!ix.tiles.length||!ix.zones)return;const all=ix.zones;let n=0;const note=$('meshNote');
+  const apply=()=>{for(const o of LOD2M){const keep=[];const F=o.F,I=o.I;for(let t=0;t<I.length;t+=3){const cx=(F[I[t]*3]+F[I[t+1]*3]+F[I[t+2]*3])/3,cz=(F[I[t]*3+2]+F[I[t+1]*3+2]+F[I[t+2]*3+2])/3;if(!inMeshZone(cx,cz))keep.push(I[t],I[t+1],I[t+2])}
+      o.m.geometry.setIndex(new THREE.BufferAttribute(I instanceof Uint32Array?new Uint32Array(keep):new Uint16Array(keep),1));o.m.visible=keep.length>0}
+    if(inMeshZone(-275,123))for(const g of PLANTG)g.visible=false;
+    for(let i=RD.length-1;i>=0;i--)if(inMeshZone(RD[i][0],RD[i][1]))RD.splice(i,1);treeC=[1e9,1e9];placeTrees(Pl.x,Pl.z)};
+  for(const t of ix.tiles){try{const b=await (await fetch('data/mesh/'+t.file)).arrayBuffer();const geo=decodeTiles([{t,b,dir:'mesh'}]);buildTiles(geo,{unlit:true});
+    }catch(e){}
+    n++;if(note){note.textContent='Loading the photo mesh of the waterfront '+n+' / '+ix.tiles.length;note.style.display='block'}}
+  MESHZ=all;apply();if(note)note.style.display='none'}
 function buildWorld(D){
   if(D.bridges&&!D.bridgeGeo)D.bridgeGeo=decodeTiles(D.bridges);BRGEO=D.bridgeGeo||null;
   const tags=e=>e.tags||{};
@@ -1144,7 +1164,7 @@ function buildWorld(D){
   const PLANTM=(location.hash.match(/plant=(\w+)/)||[])[1]||'city';
   buildPaanu();buildSite();levelDecks();
   if(D.plantTiles&&D.plantTiles.length&&PLANTM!=='hand')buildHanasaari(HZB,decodeTiles(D.plantTiles));else buildHanasaari(HZB);
-  if(D.tileGeo){const n=buildTiles(D.tileGeo);D.tileTris=n}
+  if(D.tileGeo){const n=buildTiles(D.tileGeo,{hideMeshZones:true});D.tileTris=n}
   if(D.bridgeGeo)buildTiles(D.bridgeGeo);
   const FT={res:facadeTile('res'),glass:facadeTile('glass'),ind:facadeTile('ind'),brick:facadeTile('brick')};
   for(const k of ['res','glass','ind','brick']){const A=geo[k];if(!A.p.length)continue;const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));gm.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));gm.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));gm.computeVertexNormals();
@@ -1710,9 +1730,9 @@ let cityOK=false,cityMsg='';
     status('Loading terrain…',.01);TER=await loadTerrain();TK=BUILDQ==='fast'?2:1;
     const D={};D.ways=await overpass('streets',QUERIES.ways,.02,.25);D.buildings=await overpass('buildings',QUERIES.buildings,.25,.45);D.land=await overpass('coast and parks',QUERIES.land,.45,.52);
     try{D.city=await loadCity(.52,.58);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
-    D.tiles=await loadTiles(.58,.61);D.bridges=await loadTiles(.61,.62,'bridges','LOD3 bridges');
+    D.tiles=await loadTiles(.58,.61);D.bridges=await loadTiles(.61,.615,'bridges','LOD3 bridges');
     if(D.tiles){D.plantTiles=D.tiles.filter(x=>x.t.plant);D.tiles=D.tiles.filter(x=>!x.t.plant)}
-    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();
+    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);
     if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}
   catch(e){status(e.message,0);report(e.message)}

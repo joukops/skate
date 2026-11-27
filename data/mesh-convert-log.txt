@@ -1,0 +1,4 @@
+zones 111
+mesh tiles in zones 183 at geometric error <= 3
+mesh ground sits 3.20 m above the game terrain value; using it as the offset
+mesh done: files 135 triangles kept 1331513 dropped 1722437 size MB 62.3

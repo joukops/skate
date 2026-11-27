@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import earcut from 'earcut';
 import {execSync} from 'node:child_process';
-const BB={s:60.1680,w:24.9370,n:60.2085,e:25.0170};
+const BB={s: 60.1610, w: 24.9370, n: 60.1985, e: 25.0450};
 const LAT0=60.1850,LON0=24.9760,KX=111320*Math.cos(LAT0*Math.PI/180),KZ=110540;
 const PJ=(lat,lon)=>[(lon-LON0)*KX,-(lat-LAT0)*KZ];
 const WFS='https://kartta.hel.fi/3d/citydb-wfs/wfs';

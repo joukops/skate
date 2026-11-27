@@ -1,7 +1,7 @@
 // Fetch the game's OpenStreetMap data with the Overpass API and store it gzipped in data/,
 // so the game loads it from GitHub Pages instead of a busy public server.
 import fs from 'node:fs';import zlib from 'node:zlib';
-const BB={s:60.1680,w:24.9370,n:60.2085,e:25.0170};
+const BB={s: 60.1610, w: 24.9370, n: 60.1985, e: 25.0450};
 const BBS=`${BB.s},${BB.w},${BB.n},${BB.e}`;
 const QUERIES={
   ways:`[out:json][timeout:180];(way["highway"](${BBS});way["railway"~"^(rail|subway|tram|light_rail)$"](${BBS});way["man_made"~"^(bridge|pier)$"](${BBS}););out geom qt;`,

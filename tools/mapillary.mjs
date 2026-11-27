@@ -15,7 +15,7 @@ const TOKEN = process.env.MAPILLARY_TOKEN;
 const LAT0 = 60.1850, LON0 = 24.9760, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KZ = 110540;
 const PJ = (lat, lon) => [(lon - LON0) * KX, -(lat - LAT0) * KZ];
 const BB = {s: 60.1610, w: 24.9370, n: 60.1985, e: 25.0450};
-const MAXIMG = +(process.env.MAXIMG || 1500), PXM = 10, ATLAS = 2048;
+const MAXIMG = +(process.env.MAXIMG || 3500), PXM = 10, ATLAS = 2048;
 const log = []; const L = (...a) => { const m = a.join(' '); console.log(m); log.push(m) };
 const OUT = 'data/mapillary';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -52,9 +52,10 @@ function camera(m) {
   const [lon, lat] = m.computed_geometry.coordinates, [cx, cz] = PJ(lat, lon);
   const a = (m.computed_compass_angle ?? 0) * Math.PI / 180;
   const Rc = [[Math.cos(a), -Math.sin(a), 0], [0, 0, -1], [Math.sin(a), Math.cos(a), 0]];   /* world ENU -> camera (x right, y down, z forward), level */
-  let R = Rc;
-  if (m.computed_rotation) { const Rr = rotFromAxisAngle(m.computed_rotation); const f = Rr[2], yaw = Math.atan2(f[0], f[1]);
-    let d = yaw - a; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) < .5 && Math.abs(f[2]) < .6) R = Rr }   /* trust the solved pose when it agrees with the compass */
+  if (!m.computed_rotation) return null; const R = rotFromAxisAngle(m.computed_rotation), fv = R[2], yaw = Math.atan2(fv[0], fv[1]);
+  let d = yaw - a; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) > .35 || Math.abs(fv[2]) > .45) return null;   /* solved pose must agree with the compass and look roughly level */
+  if (R[1][2] > -.85) return null;   /* image 'down' must point down: rejects rotated and upside-down photos */
+  if ((m.captured_at || 0) < Date.UTC(2018, 0, 1)) return null;
   const cp = m.camera_parameters || [], f = cp[0] > .2 && cp[0] < 3 ? cp[0] : .85, k1 = cp[1] || 0, k2 = cp[2] || 0;
   return {id: m.id, x: cx, z: cz, y: T(cx, cz) + 2.1, R, f, k1, k2, W: m.width || 2048, H: m.height || 1536, t: m.captured_at || 0,
     fw: [R[2][0], -R[2][1]]};   /* forward in game x/z (z is south) */
@@ -100,47 +101,58 @@ function walls() {
 function choose(W, cams, blocked) {
   const CG = new Map(), ck = (i, j) => i * 100003 + j; for (const c of cams) { const k = ck(Math.floor(c.x / 40), Math.floor(c.z / 40)); if (!CG.has(k)) CG.set(k, []); CG.get(k).push(c) }
   let tmax = 1; for (const c of cams) if (c.t > tmax) tmax = c.t; const picks = [];
-  for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2; let best = null, bs = 0;
+  for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2; const cand = [];
     for (let i = Math.floor(mx / 40) - 1; i <= Math.floor(mx / 40) + 1; i++) for (let j = Math.floor(mz / 40) - 1; j <= Math.floor(mz / 40) + 1; j++) for (const c of CG.get(ck(i, j)) || []) {
       const vx = c.x - mx, vz = c.z - mz, dist = Math.hypot(vx, vz), side = vx * w.n[0] + vz * w.n[1]; if (side < 4 || dist > 45) continue;
-      const face = -(c.fw[0] * w.n[0] + c.fw[1] * w.n[1]); if (face < .35) continue;   /* looking at the wall */
+      const face = -(c.fw[0] * w.n[0] + c.fw[1] * w.n[1]); if (face < .55) continue;   /* looking at the wall */
       let inside = 0; const pts = []; for (const s of [0, .5, 1]) for (const h of [0, .5, 1]) { const X = w.a[0] + (w.b[0] - w.a[0]) * s, Z = w.a[1] + (w.b[1] - w.a[1]) * s, Y = w.y0 + (w.y1 - w.y0) * h; const q = project(c, X, Y, Z); if (q && q[0] > 0 && q[0] < 1 && q[1] > 0 && q[1] < 1) inside++ }
-      if (inside < 6) continue;
+      if (inside < 7) continue;
       const head = (vx * w.n[0] + vz * w.n[1]) / dist;   /* camera square on to the wall */
       const sc = inside / 9 * head * face * Math.exp(-Math.abs(dist - 16) / 25) * (.6 + .4 * (c.t / tmax));
-      if (sc > bs) { if (blocked([c.x, c.z], [w.a[0] + (w.b[0] - w.a[0]) * .5 + w.n[0] * .3, w.a[1] + (w.b[1] - w.a[1]) * .5 + w.n[1] * .3])) continue; bs = sc; best = c } }
-    if (best) picks.push({w, c: best, s: bs}) }
+      if (head < .5) continue; cand.push([sc, c]) }
+    cand.sort((p, q) => q[0] - p[0]); const C = []; for (const [sc, c] of cand) { if (C.length >= 3) break; if (blocked([c.x, c.z], [w.a[0] + (w.b[0] - w.a[0]) * .5 + w.n[0] * .3, w.a[1] + (w.b[1] - w.a[1]) * .5 + w.n[1] * .3])) continue; C.push(c) }
+    if (C.length) picks.push({w, C, s: cand[0][0]}) }
   /* cap the number of photos: keep the walls whose photos serve the most wall area */
-  const use = new Map(); for (const p of picks) use.set(p.c.id, (use.get(p.c.id) || 0) + p.w.l * (p.w.y1 - p.w.y0) * p.s);
-  const keep = new Set([...use.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAXIMG).map(e => e[0]));
-  const out = picks.filter(p => keep.has(p.c.id)); L('walls with a photo', out.length, 'photos to download', keep.size); return out;
+  picks.sort((p, q) => q.w.l * (q.w.y1 - q.w.y0) * q.s - p.w.l * (p.w.y1 - p.w.y0) * p.s);
+  L('walls with candidate photos', picks.length); return picks;
 }
 
 // ---------- 4. project + pack ----------
 async function render(picks) {
   fs.rmSync(OUT, {recursive: true, force: true}); fs.mkdirSync(OUT, {recursive: true});
-  const byImg = new Map(); for (const p of picks) { if (!byImg.has(p.c.id)) byImg.set(p.c.id, []); byImg.get(p.c.id).push(p) }
   let atlas = null, ax = 0, ay = 0, rowH = 0, ai = -1; const ATL = [], FAC = [];
-  const newAtlas = () => { if (atlas) ATL.push(atlas); ai++; atlas = {i: ai, d: new Uint8Array(ATLAS * ATLAS * 4).fill(128)}; ax = ay = rowH = 0 };
-  const flush = () => { if (!atlas) return; const j = jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 78); fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, j.data); atlas = null };
+  const newAtlas = () => { ai++; atlas = {i: ai, d: new Uint8Array(ATLAS * ATLAS * 4).fill(128)}; ax = ay = rowH = 0 };
+  const flush = () => { if (!atlas) return; const j = jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 80); fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, j.data); atlas = null };
+  const cache = new Map(), bad = new Set(); let downloads = 0, rej = {dark: 0, blur: 0, sky: 0, cover: 0};
+  const getImg = async id => { if (cache.has(id)) { const v = cache.get(id); cache.delete(id); cache.set(id, v); return v } if (bad.has(id) || downloads >= MAXIMG) return null;
+    try { downloads++; const j = await api(`https://graph.mapillary.com/${id}?fields=thumb_2048_url`); const r = await fetch(j.thumb_2048_url); const im = jpeg.decode(Buffer.from(await r.arrayBuffer()), {useTArray: true, maxMemoryUsageInMB: 1024});
+      cache.set(id, im); if (cache.size > 30) cache.delete(cache.keys().next().value); return im } catch (e) { bad.add(id); return null } };
   newAtlas(); let n = 0;
-  for (const [id, list] of byImg) {
-    let img; try { const j = await api(`https://graph.mapillary.com/${id}?fields=thumb_2048_url`); const r = await fetch(j.thumb_2048_url); img = jpeg.decode(Buffer.from(await r.arrayBuffer()), {useTArray: true, maxMemoryUsageInMB: 1024}) } catch (e) { L('photo failed', id, e.message); continue }
-    for (const {w, c} of list) { c.W = img.width; c.H = img.height;
-      const tw = clamp(Math.round(w.l * PXM), 16, 640), th = clamp(Math.round((w.y1 - w.y0) * PXM), 16, 512);
-      if (ax + tw > ATLAS) { ax = 0; ay += rowH; rowH = 0 } if (ay + th > ATLAS) { flush(); newAtlas() }
+  for (const {w, C} of picks) { if (downloads >= MAXIMG && !C.some(c => cache.has(c.id))) continue;
+    const tw = clamp(Math.round(w.l * PXM), 16, 640), th = clamp(Math.round((w.y1 - w.y0) * PXM), 16, 512);
+    let got = null;
+    for (const c of C) { const img = await getImg(c.id); if (!img) continue; c.W = img.width; c.H = img.height;
       let ok = 0; const pix = new Uint8Array(tw * th * 4);
-      for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const s = (u + .5) / tw, h = 1 - (v + .5) / th; const X = w.a[0] + (w.b[0] - w.a[0]) * s, Z = w.a[1] + (w.b[1] - w.a[1]) * s, Y = w.y0 + (w.y1 - w.y0) * h;
+      for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const s2 = (u + .5) / tw, h = 1 - (v + .5) / th; const X = w.a[0] + (w.b[0] - w.a[0]) * s2, Z = w.a[1] + (w.b[1] - w.a[1]) * s2, Y = w.y0 + (w.y1 - w.y0) * h;
         const q = project(c, X, Y, Z), o = (v * tw + u) * 4; if (!q || q[0] < 0 || q[0] > 1 || q[1] < 0 || q[1] > 1) continue;
         const fx = q[0] * (img.width - 1), fy = q[1] * (img.height - 1), x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(img.width - 1, x0 + 1), y1 = Math.min(img.height - 1, y0 + 1), du = fx - x0, dv = fy - y0;
         for (let k = 0; k < 3; k++) { const P = (xx, yy) => img.data[(yy * img.width + xx) * 4 + k]; pix[o + k] = (P(x0, y0) * (1 - du) + P(x1, y0) * du) * (1 - dv) + (P(x0, y1) * (1 - du) + P(x1, y1) * du) * dv } pix[o + 3] = 255; ok++ }
-      if (ok < tw * th * .6) continue;
-      /* holes (outside the photo): the wall's average colour */
-      let r = 0, g = 0, b = 0; for (let i = 0; i < tw * th; i++) if (pix[i * 4 + 3]) { r += pix[i * 4]; g += pix[i * 4 + 1]; b += pix[i * 4 + 2] } r /= ok; g /= ok; b /= ok;
-      for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = (v * tw + u) * 4, A = ((ay + v) * ATLAS + ax + u) * 4; if (pix[o + 3]) { atlas.d[A] = pix[o]; atlas.d[A + 1] = pix[o + 1]; atlas.d[A + 2] = pix[o + 2] } else { atlas.d[A] = r; atlas.d[A + 1] = g; atlas.d[A + 2] = b } }
-      FAC.push({a: w.a.map(v => +v.toFixed(2)), b: w.b.map(v => +v.toFixed(2)), n: w.n.map(v => +v.toFixed(3)), y0: +w.y0.toFixed(2), y1: +w.y1.toFixed(2), t: atlas.i, uv: [ax / ATLAS, ay / ATLAS, (ax + tw) / ATLAS, (ay + th) / ATLAS], img: id});
-      ax += tw + 2; rowH = Math.max(rowH, th + 2) }
-    if (++n % 100 === 0) L('photos processed', n, 'facades', FAC.length) }
+      if (ok < tw * th * .75) { rej.cover++; continue }
+      /* quality: daylight brightness, real detail (not motion blur), and no sky where the wall should be */
+      let lum = 0, grad = 0, gn = 0, sky = 0; const Y = i => .3 * pix[i] + .59 * pix[i + 1] + .11 * pix[i + 2];
+      for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = (v * tw + u) * 4; if (!pix[o + 3]) continue; const l = Y(o); lum += l;
+        if (u + 1 < tw && pix[o + 7]) { grad += Math.abs(Y(o + 4) - l); gn++ } if (pix[o + 2] > pix[o] + 18 && pix[o + 2] > pix[o + 1] + 4 && l > 120) sky++ }
+      lum /= ok; grad /= Math.max(1, gn);
+      if (lum < 55 || lum > 225) { rej.dark++; continue } if (grad < 4.5) { rej.blur++; continue } if (sky > ok * .15) { rej.sky++; continue }
+      got = {pix, ok, c}; break }
+    if (!got) continue; const {pix, ok} = got;
+    if (ax + tw > ATLAS) { ax = 0; ay += rowH; rowH = 0 } if (ay + th > ATLAS) { flush(); newAtlas() }
+    let r = 0, g = 0, b = 0; for (let i = 0; i < tw * th; i++) if (pix[i * 4 + 3]) { r += pix[i * 4]; g += pix[i * 4 + 1]; b += pix[i * 4 + 2] } r /= ok; g /= ok; b /= ok;
+    for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = (v * tw + u) * 4, A = ((ay + v) * ATLAS + ax + u) * 4; if (pix[o + 3]) { atlas.d[A] = pix[o]; atlas.d[A + 1] = pix[o + 1]; atlas.d[A + 2] = pix[o + 2] } else { atlas.d[A] = r; atlas.d[A + 1] = g; atlas.d[A + 2] = b } }
+    FAC.push({a: w.a.map(v => +v.toFixed(2)), b: w.b.map(v => +v.toFixed(2)), n: w.n.map(v => +v.toFixed(3)), y0: +w.y0.toFixed(2), y1: +w.y1.toFixed(2), t: atlas.i, uv: [ax / ATLAS, ay / ATLAS, (ax + tw) / ATLAS, (ay + th) / ATLAS], img: got.c.id});
+    ax += tw + 2; rowH = Math.max(rowH, th + 2);
+    if (++n % 200 === 0) L('facades', n, 'downloads', downloads) }
+  L('rejected', JSON.stringify(rej), 'downloads', downloads);
   flush();
   fs.writeFileSync(`${OUT}/facades.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0', atlases: ai + 1, size: ATLAS, facades: FAC}));
   L('facades written', FAC.length, 'atlases', ai + 1);
@@ -150,7 +162,7 @@ async function render(picks) {
 try {
   if (process.env.DRY) { const {W} = walls(); L('dry run, walls', W.length); throw new Error('dry run') }
   if (!TOKEN) throw new Error('MAPILLARY_TOKEN is not set');
-  const raw = await survey(); const cams = raw.map(camera);
+  const raw = await survey(); const cams = raw.map(camera).filter(Boolean); L('photos with a usable pose', cams.length);
   const {W, blocked} = walls(); const picks = choose(W, cams, blocked); await render(picks);
 } catch (e) { L('fatal', e.stack || e.message) }
 fs.mkdirSync('data', {recursive: true}); fs.writeFileSync('data/mapillary-log.txt', log.join('\n') + '\n');

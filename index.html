@@ -810,12 +810,12 @@ async function streamMesh(){if(!/[#&]mesh\b/.test(location.hash))return;   /* ae
     n++;if(note){note.textContent='Loading the photo mesh of the waterfront '+n+' / '+ix.tiles.length;note.style.display='block'}}
   MESHZ=all;apply();if(note)note.style.display='none'}
 /* street-level facade photos from Mapillary, projected onto building walls by tools/mapillary.mjs; drawn as thin panels just outside the walls */
-async function loadFacades(){if(!/[#&]facades\b/.test(location.hash))return;   /* experimental, opt-in */let ix;try{const r=await fetch('data/mapillary/facades.json',{cache:'no-cache'});if(!r.ok)return;ix=await r.json()}catch(e){return}
+async function loadFacades(dir){let ix;try{const r=await fetch('data/'+dir+'/facades.json',{cache:'no-cache'});if(!r.ok)return;ix=await r.json()}catch(e){return}
   if(!ix.facades||!ix.facades.length)return;const TL=new THREE.TextureLoader(),G=[];for(let i=0;i<ix.atlases;i++)G.push({p:[],u:[]});
   for(const f of ix.facades){const g=G[f.t],o=.08,ax=f.a[0]+f.n[0]*o,az=f.a[1]+f.n[1]*o,bx=f.b[0]+f.n[0]*o,bz=f.b[1]+f.n[1]*o,[u0,v0,u1,v1]=f.uv;
     g.p.push(ax,f.y0,az,bx,f.y0,bz,bx,f.y1,bz,ax,f.y0,az,bx,f.y1,bz,ax,f.y1,az);g.u.push(u0,v1,u1,v1,u1,v0,u0,v1,u1,v0,u0,v0)}
   G.forEach((g,i)=>{if(!g.p.length)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(g.p,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(g.u,2));
-    const tx=TL.load('data/mapillary/a'+i+'.jpg');tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;const m=new THREE.Mesh(geo,MESHMAT(tx));scene.add(m)})}
+    const tx=TL.load('data/'+dir+'/a'+i+'.jpg');tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;const m=new THREE.Mesh(geo,MESHMAT(tx));scene.add(m)})}
 function buildWorld(D){
   if(D.bridges&&!D.bridgeGeo)D.bridgeGeo=decodeTiles(D.bridges);BRGEO=D.bridgeGeo||null;
   const tags=e=>e.tags||{};
@@ -1740,7 +1740,7 @@ let cityOK=false,cityMsg='';
     try{D.city=await loadCity(.52,.58);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
     D.tiles=await loadTiles(.58,.61);D.bridges=await loadTiles(.61,.615,'bridges','LOD3 bridges');
     if(D.tiles){D.plantTiles=D.tiles.filter(x=>x.t.plant);D.tiles=D.tiles.filter(x=>!x.t.plant)}
-    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(loadFacades,2500);
+    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{if(/[#&]facades2\b/.test(location.hash))loadFacades('facades');if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
     if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}
   catch(e){status(e.message,0);report(e.message)}

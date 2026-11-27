@@ -1,0 +1,16 @@
+survey cells 100 photos 32967
+survey cells 200 photos 69815
+survey cells 300 photos 117573
+survey cells 400 photos 156940
+survey cells 500 photos 185783
+survey cells 600 photos 212354
+survey cells 700 photos 245482
+survey cells 800 photos 279357
+survey cells 900 photos 300838
+survey done: perspective photos 300838 cells at the 2000 limit 0
+tile vertices 1284933
+walls outside the mesh 31695
+fatal RangeError: Maximum call stack size exceeded
+    at choose (file:///home/runner/work/skate/skate/tools/mapillary.mjs:102:21)
+    at file:///home/runner/work/skate/skate/tools/mapillary.mjs:154:47
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

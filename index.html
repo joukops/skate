@@ -244,7 +244,7 @@ function applyWeather(){
   if(THREE.Sky){sky.turbidity.value=cur.turb;sky.rayleigh.value=cur.ray;sky.mieCoefficient.value=cur.mie;sky.mieDirectionalG.value=cur.mieG;sky.sunPosition.value.copy(SUNV)}
   const cu=cloudMat.uniforms;cu.uCover.value=cur.cover;cu.uDark.value=cur.dark;cu.uSun.value.copy(SUNV);cu.uSunCol.value.setRGB(...cur.sunC);cu.uCol.value.setRGB(...cur.col);cu.uShd.value.setRGB(...cur.shd);cu.uHaze.value.setRGB(...cur.haze);cu.uHazeA.value=cur.hazeA;
   scene.fog.color.setRGB(...cur.fog);scene.fog.density=cur.fogD;FOGC.value.setRGB(...cur.fog);FOGD.value=cur.fogD;
-  sun.intensity=cur.sunI*2.4;if(window.MESHMATS&&window.MESHMATS.length){const MESHMATS=window.MESHMATS;const k=.78+.22*Math.min(1,cur.sunI/3);for(const m of MESHMATS)m.color.setRGB(k*lerp(1,cur.sunC[0],.25),k*lerp(1,cur.sunC[1],.25),k*lerp(1,cur.sunC[2],.25))}   /* photo mesh follows the weather a little */sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;
+  sun.intensity=cur.sunI*2.4;if(window.MESHMATS&&window.MESHMATS.length){const MESHMATS=window.MESHMATS;const k=1+.15*Math.min(1,cur.sunI/3);for(const m of MESHMATS)m.color.setRGB(k*lerp(1,cur.sunC[0],.15),k*lerp(1,cur.sunC[1],.15),k*lerp(1,cur.sunC[2],.15))}   /* photo mesh follows the weather a little */sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;
   renderer.toneMappingExposure=cur.expo;
   for(const[m,d,w]of WETMATS){m.roughness=lerp(d,w,cur.wet);m.envMapIntensity=1+cur.wet*.8}
   if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave}

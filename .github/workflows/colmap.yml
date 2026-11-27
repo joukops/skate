@@ -1,0 +1,64 @@
+name: Build COLMAP facades
+# Street photos from Mapillary (CC BY-SA 4.0) -> COLMAP structure-from-motion -> fitted onto the building walls -> fused facade textures.
+on:
+  push:
+    paths: [tools/sfm-prep.mjs, tools/sfm-fuse.mjs, .github/workflows/colmap.yml]
+  workflow_dispatch:
+concurrency:
+  group: map-data
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install COLMAP
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq colmap xvfb > /dev/null
+          colmap -h | head -3
+      - run: npm install --no-save jpeg-js@0.4.4
+      - name: Download photos
+        run: node tools/sfm-prep.mjs
+        env:
+          MAPILLARY_TOKEN: ${{ secrets.MAPILLARY_TOKEN }}
+      - name: Features
+        run: |
+          colmap database_creator --database_path work/db.db
+          xvfb-run -a colmap feature_extractor --database_path work/db.db --image_path work/images \
+            --ImageReader.camera_model SIMPLE_RADIAL --ImageReader.single_camera_per_image 1 \
+            --SiftExtraction.use_gpu 0 --SiftExtraction.max_num_features 4096 2>&1 | tail -3
+      - name: Matching
+        run: |
+          xvfb-run -a colmap matches_importer --database_path work/db.db --match_list_path work/pairs.txt --match_type pairs \
+            --SiftMatching.use_gpu 0 2>&1 | tail -3
+      - name: Reconstruction
+        run: |
+          mkdir -p work/sparse
+          colmap mapper --database_path work/db.db --image_path work/images --output_path work/sparse 2>&1 | grep -E "Registering image|Elapsed" | tail -5
+          ls work/sparse
+      - name: Align to GPS
+        run: |
+          for d in work/sparse/[0-9]*; do
+            [ -d "$d" ] || continue
+            colmap model_aligner --input_path $d --output_path $d-al --ref_images_path work/ref.txt --ref_is_gps 0 \
+              --alignment_type custom --robust_alignment 1 --robust_alignment_max_error 6 2>&1 | tail -4 || true
+            [ -f $d-al/images.bin ] && colmap model_converter --input_path $d-al --output_path $d-al --output_type TXT
+          done
+          ls -la work/sparse
+      - name: Fit and fuse
+        run: node --max-old-space-size=6000 tools/sfm-fuse.mjs
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet && exit 0
+          git commit -m "Update COLMAP facades"
+          for i in 1 2 3; do git pull --rebase -X theirs && git push && exit 0; sleep 10; done; exit 1

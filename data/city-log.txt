@@ -16,10 +16,10 @@ viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2024
 viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2024
 viewer layer http://www.openstreetmap.org/
 viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
+viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
 viewer layer https://www.hel.fi/fi/paatoksenteko-ja-hallinto/tietoa-helsingista/kartat-ja-paikkatieto
-viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
-viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
-viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
 viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
 viewer layer https://kartta.hel.fi/ws/geoserver/avoindata/wms
 viewer layer https://kartta.hel.fi/3d/mesh/Helsinki_2015

@@ -45,7 +45,7 @@ Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:
 sun.shadow.bias=-.0004;sun.shadow.normalBias=.04;scene.add(sun,sun.target);
 const pmrem=new THREE.PMREMGenerator(renderer);let envRT=null;
 scene.environmentIntensity=2.2;   /* the old engine scaled sky light by pi internally; physical lighting does not */
-function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;if(envRT)envRT.dispose();envRT=rt}catch(e){report('sky lighting: '+e.message)}}
+function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;if(envRT){const old=envRT;setTimeout(()=>old.dispose(),4000)}envRT=rt}   /* free the old sky light only after the materials have moved over */catch(e){report('sky lighting: '+e.message)}}
 
 const WX={
   sunny:{el:46,az:210,turb:3.5,ray:1.1,mie:.004,mieG:.8,cover:.28,dark:0,fogD:.00028,sunI:3.3,hemiI:.25,expo:.5,rain:0,wet:0,wave:1.6,fog:[1.1,1.25,1.5],sunC:[1,.95,.88],col:[.97,.97,.98],shd:[.72,.76,.83],haze:[.8,.86,.94],hazeA:0,water:[.11,.29,.35],envZ:[.22,.42,.8],envH:[.7,.8,.95],envG:[.22,.25,.17]},
@@ -60,7 +60,7 @@ function applyWeather(){
   if(THREE.Sky){sky.turbidity.value=cur.turb;sky.rayleigh.value=cur.ray;sky.mieCoefficient.value=cur.mie;sky.mieDirectionalG.value=cur.mieG;sky.sunPosition.value.copy(SUNV)}
   const cu=cloudMat.uniforms;cu.uCover.value=cur.cover;cu.uDark.value=cur.dark;cu.uSun.value.copy(SUNV);cu.uSunCol.value.setRGB(...cur.sunC);cu.uCol.value.setRGB(...cur.col);cu.uShd.value.setRGB(...cur.shd);cu.uHaze.value.setRGB(...cur.haze);cu.uHazeA.value=cur.hazeA;
   scene.fog.color.setRGB(...cur.fog);scene.fog.density=cur.fogD;FOGC.value.setRGB(...cur.fog);FOGD.value=cur.fogD;
-  sun.intensity=cur.sunI*2.4;if(window.MESHMATS&&window.MESHMATS.length){const MESHMATS=window.MESHMATS;const k=1+.15*Math.min(1,cur.sunI/3);for(const m of MESHMATS)m.color.setRGB(k*lerp(1,cur.sunC[0],.15),k*lerp(1,cur.sunC[1],.15),k*lerp(1,cur.sunC[2],.15))}   /* photo mesh follows the weather a little */sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=(scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;
+  sun.intensity=cur.sunI*2.4;if(window.MESHMATS&&window.MESHMATS.length){const MESHMATS=window.MESHMATS;const k=1+.15*Math.min(1,cur.sunI/3);for(const m of MESHMATS)m.color.setRGB(k*lerp(1,cur.sunC[0],.15),k*lerp(1,cur.sunC[1],.15),k*lerp(1,cur.sunC[2],.15))}   /* photo mesh follows the weather a little */sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=Math.max(.35,scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;   /* a floor, so shade is never pitch black */
   renderer.toneMappingExposure=cur.expo;
   for(const[m,d,w]of WETMATS){m.roughness=lerp(d,w,cur.wet);m.envMapIntensity=1+cur.wet*.8}
   if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave}
@@ -70,5 +70,5 @@ function setWeather(w){if(!WX[w])return;weather=w;envDirty=true;envT=0;try{local
   document.querySelectorAll('[data-w]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.w===w))}
 function stepWeather(dt){const t=WX[weather],k=Math.min(1,dt*.7);let diff=0;
   for(const key in t){const a=cur[key],b=t[key];if(Array.isArray(b)){for(let i=0;i<b.length;i++){diff+=Math.abs(a[i]-b[i]);a[i]=lerp(a[i],b[i],k)}}else{diff+=Math.abs(a-b)/(Math.abs(b)+.01);cur[key]=lerp(a,b,k)}}
-  applyWeather();envT+=dt;if(envDirty&&(diff<.05||envT>1.2)){updateEnv();envT=0;if(diff<.05)envDirty=false}}
+  applyWeather();envT+=dt;if(envDirty&&(diff<.05||envT>1.2&&BACKEND!=='WebGPU')){updateEnv();envT=0;if(diff<.05)envDirty=false}}   /* on WebGPU a new sky-light texture recompiles every material: rebuild it once the weather has settled */
 

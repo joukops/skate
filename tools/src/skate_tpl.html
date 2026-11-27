@@ -178,6 +178,7 @@ const SPOTS=[
   {id:'merihaka',n:'Merihaanlaituri',s:'Cycle path by Merihaka',ll:[60.1783538,24.9619812],r:35},
   {id:'hakaniemi',n:'Hakaniemenranta',s:'Smooth asphalt by the water',ll:[60.1797,24.9545],r:40,start:true},
   {id:'korkeasaari',n:'Korkeasaari plaza',s:'Light, smooth stone',ll:[60.1770241,24.9823539],r:35,start:true},
+  {id:'facades',n:'Photo facades',s:'Kalasatama block with real street-photo facades',ll:[60.18274,24.98001],r:30},
   {id:'kruunuvuori',n:'Kruunuvuorenranta',s:'The end of the crown bridge',ll:[60.17240,25.01280],r:35,start:true}
 ].map(s=>{const[x,z]=PJ(...s.ll);return Object.assign(s,{x,z})});
 const BRIDGES={Kruunuvuorensilta:{peak:22,s:'1,191 m — Finland\'s longest and tallest bridge'},Finkensilta:{peak:9,s:'Kalasatama – Korkeasaari'},Merihaansilta:{peak:7,s:'Hakaniemi – Nihti, 422 m'},'Isoisänsilta':{peak:5,s:'Kalasatama – Mustikkamaa'},Kulosaarensilta:{peak:7,s:'Kalasatama – Kulosaari'}};

@@ -177,7 +177,8 @@ const SPOTS=[
   {id:'sompa',n:'Sompasaarenlaituri',s:'Smooth cycle path on Sompasaari',ll:[60.1805681,24.9733105],r:35},
   {id:'merihaka',n:'Merihaanlaituri',s:'Cycle path by Merihaka',ll:[60.1783538,24.9619812],r:35},
   {id:'hakaniemi',n:'Hakaniemenranta',s:'Smooth asphalt by the water',ll:[60.1797,24.9545],r:40,start:true},
-  {id:'korkeasaari',n:'Korkeasaari plaza',s:'Light, smooth stone',ll:[60.1770241,24.9823539],r:35,start:true}
+  {id:'korkeasaari',n:'Korkeasaari plaza',s:'Light, smooth stone',ll:[60.1770241,24.9823539],r:35,start:true},
+  {id:'kruunuvuori',n:'Kruunuvuorenranta',s:'The end of the crown bridge',ll:[60.17240,25.01280],r:35,start:true}
 ].map(s=>{const[x,z]=PJ(...s.ll);return Object.assign(s,{x,z})});
 const BRIDGES={Kruunuvuorensilta:{peak:22,s:'1,191 m — Finland\'s longest and tallest bridge'},Finkensilta:{peak:9,s:'Kalasatama – Korkeasaari'},Merihaansilta:{peak:7,s:'Hakaniemi – Nihti, 422 m'},'Isoisänsilta':{peak:5,s:'Kalasatama – Mustikkamaa'},Kulosaarensilta:{peak:7,s:'Kalasatama – Kulosaari'}};
 
@@ -684,7 +685,7 @@ function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
   const N=nx*nz,SW=new Float32Array(N),SH=new Float32Array(N),MX=new Float32Array(N),gentle=/footway|cycleway|path|pedestrian|track|bridleway|living_street|service/;
   /* where the city's bridge models land, the ground and the approaching paths meet the deck */
   const ANC=[];for(const e of ways){const t=e.tags||{};if(!(t.bridge&&t.bridge!=='no')||!t.highway)continue;const G0=(e.geometry||[]).filter(Boolean);if(G0.length<2)continue;
-    for(const g of [G0[0],G0[G0.length-1]]){const[x,z]=PJ(g.lat,g.lon);const h=bridgeTop(x,z,6);if(h!==null&&h-T(x,z)<8&&!ANC.some(a=>Math.hypot(a[0]-x,a[1]-z)<3))ANC.push([x,z,h,clamp(Math.max(Math.abs(h-T(x,z)),...[0,1,2,3,4,5,6,7].map(q=>{const px=x+Math.cos(q*.785)*25,pz=z+Math.sin(q*.785)*25;return isWater(px,pz)?0:h-T(px,pz)}))/.05,10,60)])}}   /* ramp radius: about 5% on average, under 8% at the steepest */
+    for(const g of [G0[0],G0[G0.length-1]]){const[x,z]=PJ(g.lat,g.lon);const h=bridgeTop(x,z,6);if(h!==null&&h-T(x,z)<10&&!ANC.some(a=>Math.hypot(a[0]-x,a[1]-z)<3))ANC.push([x,z,h,clamp(Math.max(Math.abs(h-T(x,z)),...[0,1,2,3,4,5,6,7].map(q=>{const px=x+Math.cos(q*.785)*25,pz=z+Math.sin(q*.785)*25;return isWater(px,pz)?0:h-T(px,pz)}))/.05,10,60)])}}   /* ramp radius: about 5% on average, under 8% at the steepest */
   for(const a of ANC)for(const b of ANC)if(a!==b&&Math.hypot(a[0]-b[0],a[1]-b[1])<12){const m=Math.max(a[2],b[2]);a[2]=b[2]=m;a[3]=b[3]=Math.max(a[3],b[3])}   /* a bridge end is level across its width */
   const ancW=(x,z)=>{let bw=0,bh=0;for(const a of ANC){const d=Math.hypot(a[0]-x,a[1]-z);if(d>=a[3])continue;let w=1-Math.max(0,d-3)/(a[3]-3);w=w*w*(3-2*w);if(w>bw){bw=w;bh=a[2]}}return[bw,bh]};
   const ancAt=(x,z)=>{for(const a of ANC)if(Math.hypot(a[0]-x,a[1]-z)<4)return a[2];return null};

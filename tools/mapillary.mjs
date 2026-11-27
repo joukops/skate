@@ -99,7 +99,7 @@ function walls() {
 // ---------- 3. choose ----------
 function choose(W, cams, blocked) {
   const CG = new Map(), ck = (i, j) => i * 100003 + j; for (const c of cams) { const k = ck(Math.floor(c.x / 40), Math.floor(c.z / 40)); if (!CG.has(k)) CG.set(k, []); CG.get(k).push(c) }
-  const tmax = Math.max(...cams.map(c => c.t)), picks = [];
+  let tmax = 1; for (const c of cams) if (c.t > tmax) tmax = c.t; const picks = [];
   for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2; let best = null, bs = 0;
     for (let i = Math.floor(mx / 40) - 1; i <= Math.floor(mx / 40) + 1; i++) for (let j = Math.floor(mz / 40) - 1; j <= Math.floor(mz / 40) + 1; j++) for (const c of CG.get(ck(i, j)) || []) {
       const vx = c.x - mx, vz = c.z - mz, dist = Math.hypot(vx, vz), side = vx * w.n[0] + vz * w.n[1]; if (side < 4 || dist > 45) continue;

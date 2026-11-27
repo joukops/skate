@@ -74,7 +74,7 @@ function readTiles() { const tops = new Map(); const key = (i, j) => i * 100003 
     for (const p of head.prims) { const P = new Int16Array(ab, base + p.pos, p.n * 3);
       for (let i = 0; i < p.n; i++) { const x = P[i * 3] / 10 + head.ox, y = P[i * 3 + 1] / 10, z = P[i * 3 + 2] / 10 + head.oz, k = key(Math.floor(x / 2), Math.floor(z / 2)); const o = tops.get(k); if (o === undefined || y > o) tops.set(k, y); n++ } } }
   L('tile vertices', n);
-  return {top: (x, z, r) => { let m = null; for (let i = Math.floor((x - r) / 2); i <= Math.floor((x + r) / 2); i++) for (let j = Math.floor((z - r) / 2); j <= Math.floor((z + r) / 2); j++) { const v = tops.get(key(i, j)); if (v !== undefined && (m === null || v > m)) m = v } return m }} }
+  return {top: (x, z, r) => { const v0 = []; for (let i = Math.floor((x - r) / 2); i <= Math.floor((x + r) / 2); i++) for (let j = Math.floor((z - r) / 2); j <= Math.floor((z + r) / 2); j++) { const v = tops.get(key(i, j)); if (v !== undefined) v0.push(v) } if (!v0.length) return null; v0.sort((a, b) => a - b); return v0[Math.floor(v0.length * .3)] }} }
 function walls() {
   const d = JSON.parse(zlib.gunzipSync(fs.readFileSync('data/osm-buildings.json.gz'))); const rings = [];
   for (const e of d.elements) { if (e.type === 'way' && e.geometry) rings.push(e.geometry.filter(Boolean).map(g => PJ(g.lat, g.lon)));
@@ -85,9 +85,9 @@ function walls() {
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; if (inZone(mx, mz)) continue;
       const nx = -dz / l * sg, nz = dx / l * sg;   /* outward */
       const y0 = Math.min(T(a[0] + nx, a[1] + nz), T(b[0] + nx, b[1] + nz)); let y1 = 0, c = 0;
-      for (const s of [.2, .5, .8]) { const t = tiles.top(a[0] + dx * s - nx * 1.5, a[1] + dz * s - nz * 1.5, 1.5); if (t !== null) { y1 += t; c++ } }
+      for (const s of [.2, .5, .8]) { const t = tiles.top(a[0] + dx * s - nx * .8, a[1] + dz * s - nz * .8, 1); if (t !== null) { y1 += t; c++ } }
       if (!c) continue; y1 /= c; if (y1 - y0 < 2.5 || y1 - y0 > 80) continue;
-      W.push({a, b, n: [nx, nz], l, y0, y1}) } }
+      const k = Math.ceil(l / 15); for (let q = 0; q < k; q++) { const A = [a[0] + dx * q / k, a[1] + dz * q / k], B = [a[0] + dx * (q + 1) / k, a[1] + dz * (q + 1) / k]; W.push({a: A, b: B, n: [nx, nz], l: l / k, y0, y1}) } } }
   L('walls outside the mesh', W.length);
   /* segment grid for occlusion checks */
   const G = new Map(), gk = (i, j) => i * 100003 + j;
@@ -103,10 +103,10 @@ function choose(W, cams, blocked) {
   let tmax = 1; for (const c of cams) if (c.t > tmax) tmax = c.t; const picks = [];
   for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2; const cand = [];
     for (let i = Math.floor(mx / 40) - 1; i <= Math.floor(mx / 40) + 1; i++) for (let j = Math.floor(mz / 40) - 1; j <= Math.floor(mz / 40) + 1; j++) for (const c of CG.get(ck(i, j)) || []) {
-      const vx = c.x - mx, vz = c.z - mz, dist = Math.hypot(vx, vz), side = vx * w.n[0] + vz * w.n[1]; if (side < 4 || dist > 45) continue;
+      const vx = c.x - mx, vz = c.z - mz, dist = Math.hypot(vx, vz), side = vx * w.n[0] + vz * w.n[1]; if (side < 8 || dist > 45) continue;
       const face = -(c.fw[0] * w.n[0] + c.fw[1] * w.n[1]); if (face < .55) continue;   /* looking at the wall */
       let inside = 0; const pts = []; for (const s of [0, .5, 1]) for (const h of [0, .5, 1]) { const X = w.a[0] + (w.b[0] - w.a[0]) * s, Z = w.a[1] + (w.b[1] - w.a[1]) * s, Y = w.y0 + (w.y1 - w.y0) * h; const q = project(c, X, Y, Z); if (q && q[0] > 0 && q[0] < 1 && q[1] > 0 && q[1] < 1) inside++ }
-      if (inside < 7) continue;
+      if (inside < 6) continue;
       const head = (vx * w.n[0] + vz * w.n[1]) / dist;   /* camera square on to the wall */
       const sc = inside / 9 * head * face * Math.exp(-Math.abs(dist - 16) / 25) * (.6 + .4 * (c.t / tmax));
       if (head < .5) continue; cand.push([sc, c]) }
@@ -137,12 +137,17 @@ async function render(picks) {
         const q = project(c, X, Y, Z), o = (v * tw + u) * 4; if (!q || q[0] < 0 || q[0] > 1 || q[1] < 0 || q[1] > 1) continue;
         const fx = q[0] * (img.width - 1), fy = q[1] * (img.height - 1), x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(img.width - 1, x0 + 1), y1 = Math.min(img.height - 1, y0 + 1), du = fx - x0, dv = fy - y0;
         for (let k = 0; k < 3; k++) { const P = (xx, yy) => img.data[(yy * img.width + xx) * 4 + k]; pix[o + k] = (P(x0, y0) * (1 - du) + P(x1, y0) * du) * (1 - dv) + (P(x0, y1) * (1 - du) + P(x1, y1) * du) * dv } pix[o + 3] = 255; ok++ }
-      if (ok < tw * th * .75) { rej.cover++; continue }
+      if (ok < tw * th * .7) { rej.cover++; continue }
       /* quality: daylight brightness, real detail (not motion blur), and no sky where the wall should be */
       let lum = 0, grad = 0, gn = 0, sky = 0; const Y = i => .3 * pix[i] + .59 * pix[i + 1] + .11 * pix[i + 2];
       for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = (v * tw + u) * 4; if (!pix[o + 3]) continue; const l = Y(o); lum += l;
         if (u + 1 < tw && pix[o + 7]) { grad += Math.abs(Y(o + 4) - l); gn++ } if (pix[o + 2] > pix[o] + 18 && pix[o + 2] > pix[o + 1] + 4 && l > 120) sky++ }
       lum /= ok; grad /= Math.max(1, gn);
+      /* a correctly straightened facade has mostly horizontal and vertical edges; a misplaced view has slanted ones */
+      let ax2 = 0, all = 0; for (let v = 1; v < th - 1; v++) for (let u = 1; u < tw - 1; u++) { const o = (v * tw + u) * 4; if (!pix[o + 3]) continue;
+        const gx = Y(o + 4) - Y(o - 4), gy = Y(o + tw * 4) - Y(o - tw * 4), m = Math.hypot(gx, gy); if (m < 40) continue; all += m;
+        const an = Math.abs(Math.atan2(gy, gx)) % (Math.PI / 2); if (an < .2 || an > Math.PI / 2 - .2) ax2 += m }
+      if (all > 0 && ax2 / all < .5) { rej.slant = (rej.slant || 0) + 1; continue }
       if (lum < 55 || lum > 225) { rej.dark++; continue } if (grad < 4.5) { rej.blur++; continue } if (sky > ok * .15) { rej.sky++; continue }
       got = {pix, ok, c}; break }
     if (!got) continue; const {pix, ok} = got;

@@ -25,7 +25,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#c9d6e2;color:#fff;fon
 #hl{left:max(12px,env(safe-area-inset-left))}#hr{right:max(12px,env(safe-area-inset-right));text-align:right;background:rgba(0,146,70,.92)}
 #where{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(14px,env(safe-area-inset-top)) + 56px);font:700 15px 'Inter Tight';background:rgba(11,20,64,.55);padding:3px 12px;border-radius:12px;white-space:nowrap}
 .tb{position:absolute;top:max(14px,env(safe-area-inset-top));pointer-events:auto;width:48px;height:48px;min-height:0;padding:0;border-radius:50%;border:0;background:rgba(255,255,255,.9);color:var(--ink);font:800 16px 'Inter Tight';display:grid;place-items:center}
-#pauseBtn{left:calc(50% - 84px)}#wxBtn{left:calc(50% - 24px)}#resetBtn{left:calc(50% + 36px)}
+#pauseBtn{left:calc(50% - 84px)}#wxBtn{left:calc(50% - 24px)}#resetBtn{left:calc(50% + 36px)}#backBtn{left:calc(50% + 96px)}
 .tb svg{width:26px;height:26px;fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 #map{position:absolute;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));width:180px;height:180px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none;touch-action:none}
 #mapZoom{position:absolute;left:calc(max(12px,env(safe-area-inset-left)) + 142px);bottom:calc(max(12px,env(safe-area-inset-bottom)) + 142px);width:44px;height:44px;min-height:0;padding:0;border-radius:50%;border:2px solid #fff;background:var(--blue);display:grid;place-items:center;pointer-events:auto;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:4}
@@ -87,6 +87,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <button class="tb" id="pauseBtn" aria-label="Pause">II</button>
   <button class="tb" id="wxBtn" aria-label="Change weather"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z"/></svg></button>
   <button class="tb" id="resetBtn" aria-label="Reset position"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg></button>
+  <button class="tb" id="backBtn" aria-label="Rewind a few seconds"><svg viewBox="0 0 24 24"><path d="M11 6 4 12l7 6z"/><path d="M20 6l-7 6 7 6z"/></svg></button>
   <div id="where"></div>
   <div id="tele" role="group" aria-label="Teleport to a spot"></div>
   <div id="mapHelp">Double-tap a place to teleport · tap ✕ to close</div><button id="mapClose" aria-label="Close map">✕</button><button id="mapZoom" aria-label="Enlarge map"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M10.5 7.5v6M7.5 10.5h6"/></svg></button>
@@ -122,7 +123,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
     <button data-q="ultra">Ultra</button><button data-q="high">Realistic</button><button data-q="fast">Fast</button></div>
   <p class="small" id="gpuInfo" style="margin-top:-4px"></p>
   <div class="row"><button class="pri" id="goBtn" disabled>Start skating</button><button id="reloadBtn">Re-download map</button></div>
-  <p class="small">Buildings: <a href="https://hel.fi/3d">Helsinki 3D city model</a>, City of Helsinki, CC BY 4.0. Facade photos © Mapillary contributors, CC BY-SA 4.0. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL (downloaded via the Overpass API and stored on this device). Bridge heights from published clearances; building heights from OSM height and floor tags. Keyboard: arrows/WASD, space jump, R reset, P pause.</p>
+  <p class="small">Buildings: <a href="https://hel.fi/3d">Helsinki 3D city model</a>, City of Helsinki, CC BY 4.0. Facade photos © Mapillary contributors, CC BY-SA 4.0. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL (downloaded via the Overpass API and stored on this device). Bridge heights from published clearances; building heights from OSM height and floor tags. Keyboard: arrows/WASD, space jump, B rewind, R reset, P pause.</p>
 </div></div>
 
 <div id="pause" class="ov center"><div class="panel">
@@ -144,6 +145,8 @@ const THREE=Object.assign({},T3,{MeshStandardMaterial:T3.MeshStandardNodeMateria
 const {Fn,If,Discard,positionWorld,positionLocal,attribute,texture,uniform,vec2,vec3,vec4,float,mix,smoothstep,materialColor}=TSL;
 /* multiply the base colour by a shading factor; cut fragments away where a condition holds */
 function mulColor(m,f){const b=m.colorNode||materialColor;m.colorNode=vec4(b.rgb.mul(f),b.a);m.needsUpdate=true;return m}
+/* draw a surface slightly toward the camera along the view ray: same place on screen, but it wins the depth test against the ground under it (polygon offset does nothing with a logarithmic depth buffer) */
+function depthPush(m,k){m.positionNode=Fn(()=>{const d=TSL.cameraPosition.sub(positionLocal),l=TSL.length(d);return positionLocal.add(d.div(l.max(.01)).mul(l.mul(k).min(2.5)))})();m.needsUpdate=true;return m}
 function addDiscard(m,cond){const b=m.colorNode||materialColor;m.colorNode=Fn(()=>{If(cond(),()=>{Discard()});return b})();m.needsUpdate=true;return m}
 {
 const $=id=>document.getElementById(id);
@@ -179,6 +182,7 @@ const SPOTS=[
   {id:'hakaniemi',n:'Hakaniemenranta',s:'Smooth asphalt by the water',ll:[60.1797,24.9545],r:40,start:true},
   {id:'korkeasaari',n:'Korkeasaari plaza',s:'Light, smooth stone',ll:[60.1770241,24.9823539],r:35,start:true},
   {id:'facades',n:'Photo facades',s:'Kalasatama block with real street-photo facades',ll:[60.18274,24.98001],r:30},
+  {id:'kulosaari',n:'Kulosaari',s:'Across Kulosaarensilta, or from Mustikkamaa',ll:[60.18690,25.00310],r:40},
   {id:'kruunuvuori',n:'Kruunuvuorenranta',s:'The end of the crown bridge',ll:[60.17240,25.01280],r:35,start:true}
 ].map(s=>{const[x,z]=PJ(...s.ll);return Object.assign(s,{x,z})});
 const BRIDGES={Kruunuvuorensilta:{peak:22,s:'1,191 m — Finland\'s longest and tallest bridge'},Finkensilta:{peak:9,s:'Kalasatama – Korkeasaari'},Merihaansilta:{peak:7,s:'Hakaniemi – Nihti, 422 m'},'Isoisänsilta':{peak:5,s:'Kalasatama – Mustikkamaa'},Kulosaarensilta:{peak:7,s:'Kalasatama – Kulosaari'}};
@@ -335,7 +339,7 @@ let MESHZ=[];const inMeshZone=(x,z)=>MESHZ.some(([a,b,c,d])=>x>=a&&x<=c&&z>=b&&z
 /* Hanasaari construction site (the former coal field inside the waterfront cycle loop): fenced, levelled earth with a few low piles */
 /* built quays (Merihaka, Hakaniemi, Kalasatama, Sompasaari, Hanasaari): flat to the edge, at least 2.6 m above the sea */
 const BOLL=[];
-const inQuayZone=(x,z)=>x>-1150&&x<260&&z>150&&z<800;
+const QZ=[[-930,260,150,800],[180,560,-820,275],[-320,20,780,1050]],inQuayZone=(x,z)=>QZ.some(b=>x>b[0]&&x<b[1]&&z>b[2]&&z<b[3]);   /* Hanasaari, Sompasaari, Merihaka; Kalasatama east and Verkkosaari; the south pier */
 const SITE=[[-525,572],[-582,515],[-602,418],[-548,352],[-512,276],[-484,240],[-450,282],[-405,309],[-350,352],[-334,368]],SITE_BASE=-.9,
   SITE_PILES=[[-545,465,3.4,15],[-470,425,2.6,12],[-505,515,2.2,10],[-425,350,3,11]];
 const PAANU_ID=1571344481,PAANU=[[329,901],[337,902],[344,901],[355,902],[358,903],[361,903],[375,905],[379,905],[383,905],[400,898],[404,896],[413,896],[422,896],[427,896],[444,896],[438,899],[437,900],[438,902],[438,903],[439,905],[390,922],[356,923],[350,919],[347,916],[343,914],[331,904]],PAANU_FRONT=15;   /* game height 0 = typical waterfront street level, ~3 m above mean sea level */
@@ -441,7 +445,7 @@ function inRing(x,z,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){co
 const num=v=>{const f=parseFloat(String(v||'').replace(',','.'));return isFinite(f)?f:NaN};
 
 /* the ground plane is cut away wherever the map says water, so the sea shows 3 m below street level */
-let WTEX=null,WF=null;
+let WTEX=null,WF=null,QF=null;
 function seaHole(m){addDiscard(m,()=>texture(WTEX,positionWorld.xz.sub(vec2(X0,Z0)).div(vec2(RW*RS,RH*RS))).r.greaterThan(.5))}
 function graniteCanvas(){const W=256,H=256,c=mk(W,H),g=c.getContext('2d');g.fillStyle='#55524d';g.fillRect(0,0,W,H);
   for(let row=0;row<8;row++){let x=-rnd(0,40);while(x<W){const w=rnd(50,90),y=row*32;const k=rnd(-14,14);g.fillStyle=`rgb(${128+k},${124+k},${118+k})`;g.fillRect(x+2,y+2,w-4,28);speckle(g,0,0,0,0,0);x+=w}}
@@ -579,7 +583,7 @@ function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
   for(const[ax,az,ah,ar]of ANC){for(let j=Math.max(0,Math.floor((az-ar-z0)/cs));j<=Math.min(nz-1,Math.ceil((az+ar-z0)/cs));j++)for(let i=Math.max(0,Math.floor((ax-ar-x0)/cs));i<=Math.min(nx-1,Math.ceil((ax+ar-x0)/cs));i++){
       const x=x0+i*cs,z=z0+j*cs;if(isWater(x,z)&&Math.hypot(x-ax,z-az)>10)continue;const[aw,ah2]=ancW(x,z);if(aw<=0)continue;const k=j*nx+i;H[k]+=(ah2-H[k])*aw}}   /* abutments: solid right at the bridge end even on the water mask */
   flattenKorkeasaari(ways);
-  {const R0=15,R1=25,step=Math.ceil(R1/cs);for(let j=0;j<nz;j++){const z=z0+j*cs;if(z<150-R1||z>800+R1)continue;for(let i=0;i<nx;i++){const x=x0+i*cs;if(!inQuayZone(x,z))continue;const k=j*nx+i;if(isWater(x,z))continue;
+  {const R0=15,R1=25,step=Math.ceil(R1/cs);for(let j=0;j<nz;j++){const z=z0+j*cs;for(let i=0;i<nx;i++){const x=x0+i*cs;if(!inQuayZone(x,z))continue;const k=j*nx+i;if(isWater(x,z))continue;
      let d=1e9;for(let b=-step;b<=step;b++)for(let a=-step;a<=step;a++){if(a*a+b*b>step*step)continue;if(isWater(x+a*cs,z+b*cs))d=Math.min(d,Math.hypot(a,b)*cs)}if(d>R1)continue;
      const w=d<=R0?1:1-(d-R0)/(R1-R0),q=Math.max(H[k],SEA+2.6);H[k]+=(q-H[k])*w*w*(3-2*w)}}
    /* water points along those quays carry the quay level, so the ground is cut off flat at the edge */
@@ -757,6 +761,13 @@ function buildWorld(D){
    for(let j=0;j<RH;j++){const z=Z0+(j+.5)*RS;if(z<820||z>1000)continue;for(let i=0;i<RW;i++){const x=X0+(i+.5)*RS;if(x<280||x>1000)continue;const p=j*RW+i;if(!WMASK[p])continue;
      let land=x>=285&&x<=420&&z>=830&&z<=925;if(!land&&line)for(let q=0;q<line.length-1&&!land;q++){const a=line[q],b=line[q+1],vx=b[0]-a[0],vz=b[1]-a[1],t=clamp(((x-a[0])*vx+(z-a[1])*vz)/(vx*vx+vz*vz||1),0,1);if(Math.hypot(x-a[0]-vx*t,z-a[1]-vz*t)<10)land=true}
      if(land)WMASK[p]=0}}}
+  /* built quays: the water edge comes straight from the coastline lines (a signed distance), not from the 2 m grid, so quay edges run dead straight */
+  {const segs=[],BIN=new Map(),bs=16,bk=(i,j)=>i*100003+j;for(const e of coast){const P=wayPts(e);for(let k=0;k<P.length-1;k++){const a=P[k],b=P[k+1];if(Math.hypot(b[0]-a[0],b[1]-a[1])<.05)continue;if(!inQuayZone(a[0],a[1])&&!inQuayZone(b[0],b[1])&&!inQuayZone((a[0]+b[0])/2,(a[1]+b[1])/2))continue;
+      const s2=[a,b];segs.push(s2);for(let i=Math.floor((Math.min(a[0],b[0])-10)/bs);i<=Math.floor((Math.max(a[0],b[0])+10)/bs);i++)for(let j=Math.floor((Math.min(a[1],b[1])-10)/bs);j<=Math.floor((Math.max(a[1],b[1])+10)/bs);j++){const q=bk(i,j);if(!BIN.has(q))BIN.set(q,[]);BIN.get(q).push(s2)}}}
+   QF=new Float32Array(RW*RH).fill(-1);
+   for(let j=0;j<RH;j++){const z=Z0+(j+.5)*RS;for(let i=0;i<RW;i++){const x=X0+(i+.5)*RS;if(!inQuayZone(x,z))continue;const L=BIN.get(bk(Math.floor(x/bs),Math.floor(z/bs)));if(!L)continue;
+     let best=1e9,sd=0;for(const[a,b]of L){const vx=b[0]-a[0],vz=b[1]-a[1],l2=vx*vx+vz*vz,t=clamp(((x-a[0])*vx+(z-a[1])*vz)/l2,0,1),d=Math.hypot(x-a[0]-vx*t,z-a[1]-vz*t);if(d<best-1e-6){best=d;const side=(-vz*(x-a[0])+vx*(z-a[1]));sd=side>=0?d:-d}}   /* water on the right of a coastline */
+     if(best>8)continue;const p=j*RW+i;if(WMASK[p]&&sd<-4)continue;QF[p]=clamp(.5+sd/(2*RS),0,1);WMASK[p]=sd>0?1:0}}}   /* (inner water areas mapped as polygons stay water) */
   if(TER)conditionTerrain(ways,HW,isTunnel);
   /* buildings into the block layer */
   status('Raising buildings…',.72);
@@ -805,6 +816,7 @@ function buildWorld(D){
   {const N=RW*RH,d=new Uint8Array(N),A=new Float32Array(N),B=new Float32Array(N),K=[1,4,6,4,1];for(let p=0;p<N;p++)A[p]=WMASK[p]?1:0;
    for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){let v=0;for(let q=-2;q<=2;q++)v+=K[q+2]*A[j*RW+clamp(i+q,0,RW-1)];B[j*RW+i]=v/16}
    for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){let v=0;for(let q=-2;q<=2;q++)v+=K[q+2]*B[clamp(j+q,0,RH-1)*RW+i];A[j*RW+i]=v/16}
+   if(QF)for(let p=0;p<N;p++)if(QF[p]>=0)A[p]=QF[p];   /* straight quay edges, sub-cell exact */
    WF=A;for(let p=0;p<N;p++)d[p]=Math.round(A[p]*255);WTEX=new THREE.DataTexture(d,RW,RH,THREE.LuminanceFormat,THREE.UnsignedByteType);WTEX.magFilter=WTEX.minFilter=THREE.LinearFilter;WTEX.flipY=false;WTEX.needsUpdate=true}
   /* ---------- ground: texture painted from land use ---------- */
   status('Painting the ground…',.76);
@@ -865,14 +877,16 @@ function buildWorld(D){
   status('Paving streets and paths…',.8);
   const COLOR={road:'#46484b',side:'#6f7072',cycle:'#6a6c6f',stone:'#a7a39b',gravel:'#a39780',steps:'#9b968e'};
   const ribbons={};const rib=k=>ribbons[k]||(ribbons[k]={pos:[],uv:[]});
-  function ribbon(P,w,yAt,key,lift,ground){const R=rib(key);let idx=P.map((_,i)=>i);if(ground){P=dens(P,3.5);idx=null}
+  function ribbon(P,w,yAt,key,lift,ground){const R=rib(key);let idx=P.map((_,i)=>i);if(ground){P=dens(P,1.6);idx=null}
     const Q=[],I=[];for(let i=0;i<P.length;i++){if(Q.length&&Math.hypot(P[i][0]-Q[Q.length-1][0],P[i][1]-Q[Q.length-1][1])<.02)continue;Q.push(P[i]);I.push(idx?idx[i]:i)}if(Q.length<2)return;
     const O=Q.map((p,i)=>{const a=Q[Math.max(0,i-1)],b=Q[Math.min(Q.length-1,i+1)];let n1x=0,n1z=0,n2x=0,n2z=0;
       if(i>0){const dx=p[0]-a[0],dz=p[1]-a[1],l=Math.hypot(dx,dz);n1x=-dz/l;n1z=dx/l}if(i<Q.length-1){const dx=b[0]-p[0],dz=b[1]-p[1],l=Math.hypot(dx,dz);n2x=-dz/l;n2z=dx/l}
       if(i===0){n1x=n2x;n1z=n2z}if(i===Q.length-1){n2x=n1x;n2z=n1z}let mx=n1x+n2x,mz=n1z+n2z;const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const k=w/2/Math.max(.4,mx*n1x+mz*n1z);return[mx*k,mz*k]});
-    const V=Q.map((p,i)=>{const L=[p[0]-O[i][0],p[1]-O[i][1]],Rr=[p[0]+O[i][0],p[1]+O[i][1]];const yl=ground?T(L[0],L[1])+lift:yAt(I[i])+lift,yr=ground?T(Rr[0],Rr[1])+lift:yAt(I[i])+lift;return[[L[0],yl,L[1]],[Rr[0],yr,Rr[1]]]});
+    /* on the ground the ribbon is cut into ~1.6 m pieces across and along and lifted a little more over crests, so the ground triangles never poke through it */
+    const nC=ground?Math.max(1,Math.ceil(w/1.6)):1,gy=(x,z)=>{const h=T(x,z),e=.8,k=Math.max(0,h-(T(x+e,z)+T(x-e,z))/2,h-(T(x,z+e)+T(x,z-e))/2);return h+lift+Math.min(.3,k*1.2)};
+    const V=Q.map((p,i)=>{const L=[p[0]-O[i][0],p[1]-O[i][1]],Rr=[p[0]+O[i][0],p[1]+O[i][1]],row=[];for(let c=0;c<=nC;c++){const x=L[0]+(Rr[0]-L[0])*c/nC,z=L[1]+(Rr[1]-L[1])*c/nC;row.push([x,ground?gy(x,z):yAt(I[i])+lift,z])}return row});
     const uv=v=>[v[0]/5,v[2]/5];
-    for(let i=0;i<Q.length-1;i++){const a=V[i][0],b=V[i+1][0],c=V[i+1][1],d=V[i][1];R.pos.push(...a,...b,...c,...a,...c,...d);R.uv.push(...uv(a),...uv(b),...uv(c),...uv(a),...uv(c),...uv(d))}}
+    for(let i=0;i<Q.length-1;i++)for(let c=0;c<nC;c++){const a=V[i][c],b=V[i+1][c],cc=V[i+1][c+1],d=V[i][c+1];R.pos.push(...a,...b,...cc,...a,...cc,...d);R.uv.push(...uv(a),...uv(b),...uv(cc),...uv(a),...uv(cc),...uv(d))}}
   const surfKey=t=>{const s=t.surface||'';if(/paving|sett|cobble|stone|concrete:plates|tiles/.test(s))return'stone';if(/gravel|dirt|ground|compacted|earth|sand|grass|wood|unpaved/.test(s))return'gravel';
     if(t.highway==='steps')return'steps';if(t.highway==='pedestrian')return s==='asphalt'?'side':'stone';if(t.highway==='track'||t.highway==='path'&&!s)return'gravel';
     if(t.highway==='footway'||t.highway==='path')return'side';if(t.highway==='cycleway')return'cycle';return'road'};
@@ -889,7 +903,7 @@ function buildWorld(D){
   for(const e of ways){const t=tags(e);if(isTunnel(t))continue;const P=wayPts(e);if(P.length<2)continue;
     const isBr=t.bridge&&t.bridge!=='no'||t.man_made==='bridge'&&false;
     if(t.highway&&HW[t.highway]&&t.area!=='yes'){(isBr?bridgeWays:groundWays).push({P:!isBr&&isPathT(t.highway)?fillet(P,e,5):P,t,w:isBr?Math.max(5,t.width&&num(t.width)>0?num(t.width):0,HW[t.highway]||0):wayW(t,HW,3),rail:false})}
-    else if(t.railway){(isBr?bridgeWays:groundWays).push({P,t,w:t.railway==='tram'?2.6:4,rail:true})}}
+    else if(t.railway){(isBr?bridgeWays:groundWays).push({P,t,w:t.railway==='tram'||t.railway==='light_rail'?2.6:4,rail:true})}}
   const key=p=>Math.round(p[0]*20)+','+Math.round(p[1]*20);
   const chains=[];{const used=new Set();const byEnd=new Map();bridgeWays.forEach((b,i)=>{for(const k of [key(b.P[0]),key(b.P[b.P.length-1])]){if(!byEnd.has(k))byEnd.set(k,[]);byEnd.get(k).push(i)}});
     const compat=(a,b)=>a.rail===b.rail&&(num(a.t.layer)||1)===(num(b.t.layer)||1)&&(a.rail||Math.abs(a.w-b.w)<6);
@@ -937,12 +951,21 @@ function buildWorld(D){
        track(0,c.P.length,1);track(c.P.length-1,-1,-1);const n=S.filter(v=>v!==null).length;
        if(n>=c.P.length*.6){let last=null;for(let i=0;i<S.length;i++){if(S[i]!==null)last=S[i];else if(last!==null){let j=i;while(j<S.length&&S[j]===null)j++;S[i]=j<S.length?lerp(last,S[j],1/(j-i+1)):null}}
          for(let i=0;i<S.length;i++)if(S[i]===null)S[i]=c.hs[i];c.hs=S.map(v=>v+.06);c.lod3=true}}if(c.name==='Kruunuvuorensilta'&&!c.base.rail&&(!longest||c.L>longest.L))longest=c;
+     /* the mapped nodes can be 30 m apart: fill in a point every 2 m on the real deck surface, so the deck follows the bridge's camber instead of cutting chords under it */
+     if(c.lod3&&D.deckAll){const P2=[],H2=[],S2=[];for(let i=0;i<c.P.length-1;i++){const a=c.P[i],b=c.P[i+1],l=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(l/2));
+         for(let k=0;k<n;k++){const t=k/n,x=lerp(a[0],b[0],t),z=lerp(a[1],b[1],t);let h=lerp(c.hs[i],c.hs[i+1],t);if(k){let best=null;for(const q of D.deckAll(x,z)){const v=q+.06;if(v>h-.6&&v<h+1&&(best===null||v>best))best=v}if(best!==null)h=best}   /* the top of the deck slab, not its underside or the railing */
+           P2.push([x,z]);H2.push(h);S2.push(lerp(c.s[i],c.s[i+1],t))}}
+       P2.push(c.P[c.P.length-1]);H2.push(c.hs[c.hs.length-1]);S2.push(c.s[c.s.length-1]);c.P=P2;c.hs=H2;c.s=S2}
+     /* a deck never sags below where it starts and ends: the ends sit on the ground they land on, and the tracked surface can't wander down to the water-level structure in between */
+     {const n=c.hs.length,eh=i=>{const p=c.P[i];return isWater(p[0],p[1])?c.hs[i]:Math.max(c.hs[i],T(p[0],p[1])+.06)};const h0=eh(0),h1=eh(n-1);
+      const lo=Math.min(h0,h1)-.2;for(let i=0;i<n;i++)c.hs[i]=Math.max(c.hs[i],lo);
+      for(const[e,h]of [[0,h0],[n-1,h1]]){const dl=h-c.hs[e];if(Math.abs(dl)<.02)continue;let s=0;for(let k=e,st=e?-1:1;k>=0&&k<n;k+=st){if(k!==e)s+=Math.hypot(c.P[k][0]-c.P[k-st][0],c.P[k][1]-c.P[k-st][1]);if(s>25)break;c.hs[k]+=dl*(1-s/25)}}}
      /* the deck reaches 6 m past each mapped end at the end height, so there is no gap or dip at the joint with the ground */
      {const ext=(p,q)=>{const dx=p[0]-q[0],dz=p[1]-q[1],l=Math.hypot(dx,dz)||1;return[p[0]+dx/l*6,p[1]+dz/l*6]};const n=c.P.length;
       if(n>=2){c.P=[ext(c.P[0],c.P[1]),...c.P,ext(c.P[n-1],c.P[n-2])];c.hs=[c.hs[0],...c.hs,c.hs[n-1]];if(c.s)c.s=[c.s[0]-6,...c.s,c.s[n-1]+6]}}
      addDeck(c.P,c.hs,c.base.w,c.name,c.base.rail)}
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
-  for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.07)}
+  for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.12)}
   /* ground ribbons */
   for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,k==='road'?.06:k==='side'||k==='cycle'?.1:.08,true)}
   /* lane markings: dashed centre line on two-way streets, edge lines on main roads */
@@ -968,16 +991,17 @@ function buildWorld(D){
   const addArea=(P,y)=>{if(P.length<4)return;const pts=P.slice(0,-1).map(p=>new THREE.Vector2(p[0],p[1]));if(THREE.ShapeUtils.isClockWise(pts))pts.reverse();const tri=THREE.ShapeUtils.triangulateShape(pts,[]);for(const f of tri)for(const k of [f[0],f[2],f[1]])areaGeo.pos.push(pts[k].x,y,pts[k].y)};
   for(const e of ways){const t=tags(e);if(t.highway&&t.area==='yes'&&!isTunnel(t))addArea(wayPts(e),.12)}
   for(const e of D.land.elements){const t=tags(e);if(e.type==='way'&&(t.place==='square'||t['area:highway']==='footway'||t['area:highway']==='pedestrian'))addArea(wayPts(e),.11)}
-  const RMAT={};for(const k in COLOR){RMAT[k]=wet(M({color:lin(COLOR[k]),map:tex(asphaltTile(k),1,1),roughness:k==='stone'?.7:.85,polygonOffset:true,polygonOffsetFactor:k==='road'?-2:-4,polygonOffsetUnits:k==='road'?-2:-4,side:THREE.DoubleSide}),k==='gravel'?.6:.12)}
+  const RMAT={};for(const k in COLOR){RMAT[k]=wet(M({color:lin(COLOR[k]),map:tex(asphaltTile(k),1,1),roughness:k==='stone'?.7:.85,polygonOffset:true,polygonOffsetFactor:k==='road'?-2:-4,polygonOffsetUnits:k==='road'?-2:-4,side:THREE.DoubleSide}),k==='gravel'?.6:.12);depthPush(RMAT[k],k==='road'?.002:.003)}
   for(const k in ribbons){const R=ribbons[k];if(!R.pos.length)continue;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(R.pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(R.uv,2));geo.computeVertexNormals();const m=new THREE.Mesh(geo,RMAT[k]);m.receiveShadow=true;scene.add(m)}
   if(areaGeo.pos.length&&!TER){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(areaGeo.pos,3));const uv=[];for(let i=0;i<areaGeo.pos.length;i+=3)uv.push(areaGeo.pos[i]/4,areaGeo.pos[i+2]/4);geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();const m=new THREE.Mesh(geo,RMAT.stone);m.receiveShadow=true;scene.add(m)}
   /* tracks: rails on ballast or in the street */
-  {const rails=[],ball={pos:[],uv:[]};for(const b of groundWays.concat(bridgeWays.filter(x=>x.rail))){if(!b.rail)continue;const P=dens(b.P,4);const tram=b.t.railway==='tram';
+  {const rails=[],ball={pos:[],uv:[]};for(const b of groundWays.concat(bridgeWays.filter(x=>x.rail))){if(!b.rail)continue;const P=dens(b.P,4);const tram=b.t.railway==='tram'||b.t.railway==='light_rail';   /* the Kruunusillat line is mapped as light rail but built as tram track */
      const deckH=x=>{const L=decksAt(x[0],x[1]);if(!L)return T(x[0],x[1]);let h=0;for(const c of L)if(c.d.rail)h=Math.max(h,c.h);return h};
      for(let i=0;i<P.length-1;i++){const a=P[i],c2=P[i+1],dx=c2[0]-a[0],dz=c2[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const nx=-dz/l,nz=dx/l,ha=deckH(a)+(tram?.13:.32),hb=deckH(c2)+(tram?.13:.32);
-       for(const o of [-.72,.72])rails.push(a[0]+nx*o,ha,a[1]+nz*o,c2[0]+nx*o,hb,c2[1]+nz*o);
+       for(const o of [-.72,.72]){const q=(s2,y)=>[a[0]+nx*(o+s2)+(c2[0]-a[0])*y,0,a[1]+nz*(o+s2)+(c2[1]-a[1])*y];const A=q(-.04,0),B=q(.04,0),C=q(.04,1),E=q(-.04,1);A[1]=B[1]=ha;C[1]=E[1]=hb;
+         const lo=v=>[v[0],v[1]-.12,v[2]];rails.push(...A,...C,...B,...A,...E,...C,...lo(A),...E,...A,...lo(A),...lo(E),...E,...B,...C,...lo(C),...B,...lo(C),...lo(B))}
        if(!tram){const w=1.8,y0=ha-.25,y1=hb-.25;ball.pos.push(a[0]-nx*w,y0,a[1]-nz*w,c2[0]-nx*w,y1,c2[1]-nz*w,c2[0]+nx*w,y1,c2[1]+nz*w,a[0]-nx*w,y0,a[1]-nz*w,c2[0]+nx*w,y1,c2[1]+nz*w,a[0]+nx*w,y0,a[1]+nz*w)}}}
-   if(rails.length){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(rails,3));scene.add(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x6d6a66})))}
+   if(rails.length){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(rails,3));geo.computeVertexNormals();const m=new THREE.Mesh(geo,M({color:lin('#8a8783'),roughness:.35,metalness:.8,side:THREE.DoubleSide}));m.receiveShadow=true;scene.add(m)}   /* steel rails with a head and web, visible from afar */
    if(ball.pos.length){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(ball.pos,3));geo.computeVertexNormals();const m=new THREE.Mesh(geo,M({color:lin('#7d766c'),roughness:1,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,side:THREE.DoubleSide}));m.receiveShadow=true;scene.add(m)}}
 
   /* ---------- bridge decks: slab, railings, piers; Kruunuvuorensilta pylon and stays ---------- */
@@ -1223,17 +1247,18 @@ joy.addEventListener('pointerdown',e=>{e.preventDefault();try{joy.setPointerCapt
 joy.addEventListener('pointermove',e=>{if(e.pointerId===jp)moveJoy(e)});
 const jEnd=e=>{if(e.pointerId!==jp)return;jp=null;inp.jx=inp.jy=0;knob.style.transform=''};
 joy.addEventListener('pointerup',jEnd);joy.addEventListener('pointercancel',jEnd);
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(state==='play'&&/^(arrow|w$|a$|s$|d$| $)/.test(k)){e.preventDefault();const ae=document.activeElement;if(ae&&ae.tagName==='BUTTON')ae.blur()}inp.keys[k]=true;if(k===' '){inp.jump=true;e.preventDefault()}if(k==='p'||k==='escape'&&!locked)togglePause();if(k.startsWith('arrow'))e.preventDefault();if(k==='r'&&state==='play')resetPos()});
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(state==='play'&&/^(arrow|w$|a$|s$|d$| $)/.test(k)){e.preventDefault();const ae=document.activeElement;if(ae&&ae.tagName==='BUTTON')ae.blur()}inp.keys[k]=true;if(k===' '){inp.jump=true;e.preventDefault()}if(k==='p'||k==='escape'&&!locked)togglePause();if(k.startsWith('arrow'))e.preventDefault();if(k==='r'&&state==='play')resetPos();if(k==='b'&&state==='play')rewind()});
 addEventListener('keyup',e=>{inp.keys[e.key.toLowerCase()]=false});addEventListener('blur',()=>{for(const k in inp.keys)inp.keys[k]=false});
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#hud button,#tele button');if(t)t.blur()},true);
 
+const HIST=[];let histT=0;
 const Pl={x:0,z:0,y:0,yaw:0,v:0,vy:0,air:false,airTurn:0,turnRate:0,wallT:0,visY:null,ph:0,lean:0,hitT:0,warn:0,grade:0,gvy:0,camYaw:0,camPitch:.18,lookT:9,camD:4.6,w:0,mode:'coast',avx:0,avz:0,brakeT:0};
 function openAt(x,z){if(surf(x,z)!==4||treeHit(x,z)||decksAt(x,z))return false;for(let k=0;k<12;k++){const a=k/12*6.283;for(const r of [2.5,5,7]){const s2=surf(x+Math.cos(a)*r,z+Math.sin(a)*r);if(s2===2||s2===1)return false}}return true}
 function nearestOpen(x,z){if(openAt(x,z))return[x,z];for(let r=2;r<300;r+=2)for(let a=0;a<6.28;a+=.2){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(openAt(xx,zz))return[xx,zz]}for(let r=2;r<260;r+=2)for(let a=0;a<6.28;a+=.25){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(surf(xx,zz)===4)return[xx,zz]}return[x,z]}
 let lastStart='diy';
 function spawn(id){const s=SPOTS.find(q=>q.id===id)||SPOTS[0];let[x,z]=s.id==='diy'?toWorld(pxU(330),pxV(470)):nearestOpen(s.x,s.z);
   const tgt=SPOTS.find(q=>q.id==='diy');const yaw=s.id==='diy'?Math.atan2(-DCA,DSA):-Math.PI/2;
-  Object.assign(Pl,{x,z,yaw,v:0,vy:0,air:false,gvy:0,visY:null,camYaw:yaw,w:0,lean:0});YREF=9;Pl.y=G(x,z,isWater(x,z)?30:1);YREF=Pl.y;camera.position.set(0,0,0);placeTrees(x,z);placeTufts(x,z)}
+  Object.assign(Pl,{x,z,yaw,v:0,vy:0,air:false,gvy:0,visY:null,camYaw:yaw,w:0,lean:0});HIST.length=0;YREF=9;Pl.y=G(x,z,isWater(x,z)?30:1);YREF=Pl.y;camera.position.set(0,0,0);placeTrees(x,z);placeTufts(x,z)}
 const St={t:0,dist:0,top:0};
 let state='loading',tAll=0;
 const seen=new Set();
@@ -1255,7 +1280,7 @@ function placeTufts(px,pz){tuftC=[px,pz];const sp2=Math.sqrt(Math.PI*TUFTR*TUFTR
   tufts.count=k;tufts.instanceMatrix.needsUpdate=true;if(tufts.instanceColor)tufts.instanceColor.needsUpdate=true}
 
 const mapC=$('map'),mctx=mapC.getContext('2d');let mapBig=false;
-function teleport(x,z,yaw){const[ox,oz]=inDIY(x,z)?[x,z]:nearestOpen(x,z);Object.assign(Pl,{x:ox,z:oz,v:0,vy:0,air:false,gvy:0,visY:null,w:0,lean:0});if(yaw!==undefined){Pl.yaw=yaw;Pl.camYaw=yaw}YREF=9;Pl.y=G(ox,oz,30);YREF=Pl.y;placeTrees(ox,oz);placeTufts(ox,oz)}
+function teleport(x,z,yaw){HIST.length=0;const[ox,oz]=inDIY(x,z)?[x,z]:nearestOpen(x,z);Object.assign(Pl,{x:ox,z:oz,v:0,vy:0,air:false,gvy:0,visY:null,w:0,lean:0});if(yaw!==undefined){Pl.yaw=yaw;Pl.camYaw=yaw}YREF=9;Pl.y=G(ox,oz,30);YREF=Pl.y;placeTrees(ox,oz);placeTufts(ox,oz)}
 function setMapBig(on){mapBig=on;mapC.classList.toggle('big',on);mapC.width=mapC.height=on?760:360;$('mapHelp').textContent='Double-tap a place or spot to teleport there';$('mapHelp').style.display=$('mapClose').style.display=on?'block':'none';$('mapZoom').style.display=on?'none':'grid';joy.style.visibility=on?'hidden':'visible';$('mouseHint').style.visibility=on?'hidden':'visible';if(on&&locked)document.exitPointerLock();drawMap()}
 $('mapClose').onclick=()=>setMapBig(false);
 let mapTap=0;
@@ -1288,14 +1313,18 @@ $('wxBtn').onclick=()=>{const w=WXO[(WXO.indexOf(weather)+1)%4];setWeather(w);po
 {const seg=$('startSeg');for(const s of SPOTS.filter(q=>q.start)){const b=document.createElement('button');b.textContent=s.n.replace(' plaza','');b.dataset.s=s.id;b.setAttribute('aria-pressed',s.id===lastStart);b.onclick=()=>{lastStart=s.id;seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(state==='menu')spawn(lastStart)};seg.append(b)}}
 
 function show(id,on){$(id).style.display=on?(id==='pause'?'grid':'block'):'none'}
-function resetPos(){spawn(lastStart);inp.fwd=0;inp.turn=0;pop('Reset')}
+function resetPos(){spawn(lastStart);inp.fwd=0;inp.turn=0;HIST.length=0;pop('Reset')}
+/* rewind: the last 12 s of the ride, sampled 5 times a second; one tap goes back about 7 s */
+function recordHist(dt){if((histT+=dt)<.2)return;histT=0;if(Pl.air)return;HIST.push([Pl.x,Pl.z,Pl.y,Pl.yaw,Pl.camYaw]);if(HIST.length>60)HIST.shift()}
+function rewind(){if(!HIST.length){pop('Nothing to rewind');return}const k=Math.max(0,HIST.length-35),h=HIST[k];HIST.length=k;
+  Object.assign(Pl,{x:h[0],z:h[1],y:h[2],yaw:h[3],camYaw:h[4],v:0,vy:0,air:false,gvy:0,visY:null,w:0,lean:0,hitT:0,wallT:0});YREF=h[2];inp.fwd=0;inp.turn=0;placeTrees(h[0],h[1]);placeTufts(h[0],h[1]);pop('Rewind')}
 function start(){try{const r=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(r&&r.catch)r.catch(()=>{})}catch(e){}
   spawn(lastStart);show('menu',false);show('hud',true);state='play';buildTele();showCtrls();$('joyHint').style.display='block';$('joyHint').style.opacity=1}
 $('goBtn').onclick=start;
 $('reloadBtn').onclick=async()=>{await cacheClear();location.reload()};
 function togglePause(){if(state==='play'){state='pause';$('pT').textContent=fmtT(St.t);$('pD').textContent=fmtD(St.dist);$('pB').textContent=seen.size+' / '+SPOTS.length;$('pV').textContent=Math.round(St.top*3.6)+' km/h';show('pause',true)}
   else if(state==='pause'){state='play';show('pause',false);if(!mobile){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}}
-$('pauseBtn').onclick=togglePause;$('resetBtn').onclick=()=>{if(state==='play')resetPos()};$('resBtn').onclick=togglePause;
+$('pauseBtn').onclick=togglePause;$('resetBtn').onclick=()=>{if(state==='play')resetPos()};$('backBtn').onclick=()=>{if(state==='play')rewind()};$('resBtn').onclick=togglePause;
 $('menuBtn').onclick=()=>{show('pause',false);show('hud',false);joy.style.display='none';$('joyHint').style.display='none';$('mouseHint').style.display='none';state='menu';show('menu',true)};
 
 /* physics */
@@ -1331,7 +1360,7 @@ function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;if(inPoly(Pl.x,Pl.z,S
    - heel brake 3.5 m/s^2; backwards C-cuts at lower power, max ~5.5 m/s
    - inline skates roll only along their heading: turning curvature is limited by grip/lean
      (lateral accel <= g*tan(50°)) and by geometry (radius >= 3 m, pivoting allowed at walking pace); lean = atan(v*omega/g) */
-const SK={m:83,P:2200,F:300,vmax:15.3,brake:3.2,cda:.45,rho:1.2,maxLean:.6,rmin:2.2,pivot:1.4,vback:2.5};   /* rider + powered board: 2.2 kW belt drive, 55 km/h, regenerative brake, slow reverse */
+const SK={m:83,P:3800,F:320,vmax:20.8,brake:3.2,cda:.45,rho:1.2,maxLean:.6,rmin:2.2,pivot:1.4,vback:2.5};   /* rider + powered board: 3.8 kW belt drive, 75 km/h, regenerative brake, slow reverse */
 function updatePlayer(dt){
   YREF=Pl.y;
   const k=inp.keys,up=k.arrowup||k.w,dn=k.arrowdown||k.s,lf=k.arrowleft||k.a,rt=k.arrowright||k.d;let fwd=inp.jy,turn=inp.jx,hdgWant=null;
@@ -1454,7 +1483,7 @@ function updateCamera(dt,orbit){
   const k=1-Math.exp(-dt*3);
   const fov=60+Math.abs(Pl.v)*.8;if(Math.abs(camera.fov-fov)>.05){camera.fov+=(fov-camera.fov)*k;camera.updateProjectionMatrix()}
   sun.position.set(Pl.x+SUNV.x*300,Pl.y+SUNV.y*300,Pl.z+SUNV.z*300);sun.target.position.set(Pl.x,Pl.y,Pl.z);sun.target.updateMatrixWorld();
-  clouds.position.copy(camera.position);if(!THREE.Sky)sky.position.copy(camera.position)}
+  clouds.position.copy(camera.position);sky.position.copy(camera.position)}
 function whereName(){const[lat,lon]=[LAT0-Pl.z/KZ,LON0+Pl.x/KX];if(Pl.deck&&Pl.deck.name)return Pl.deck.name;
   const A=[['Vallila',60.1985,60.1900,24.940,24.965],['Hermanni',60.1985,60.1880,24.965,24.985],['Kallio',60.1900,60.1800,24.937,24.957],['Suvilahti',60.1895,60.1830,24.965,24.980],['Sörnäinen',60.1900,60.1820,24.957,24.965],['Kalasatama',60.1925,60.1795,24.976,24.992],['Hakaniemi',60.1800,60.1760,24.937,24.955],['Merihaka',60.1800,60.1750,24.955,24.966],['Hanasaari',60.1840,60.1780,24.964,24.976],['Sompasaari',60.1810,60.1750,24.976,24.990],['Korkeasaari',60.1795,60.1715,24.978,24.995],['Mustikkamaa',60.1880,60.1795,24.990,25.010],['Kruunuvuorenselkä',60.1790,60.1680,24.995,25.017]];
   for(const a of A)if(lat<=a[1]&&lat>=a[2]&&lon>=a[3]&&lon<=a[4])return a[0];return'Helsinki'}
@@ -1464,7 +1493,7 @@ function frame(now){
   const dt=clamp((now-last)/1000,0,.05);last=Math.max(last,now);tAll+=dt;
   try{
     stepWeather(dt);cloudMat.uniforms.uTime.value=tAll;
-    if(state==='play')updatePlayer(dt);
+    if(state==='play'){updatePlayer(dt);recordHist(dt)}
     if(!isFinite(Pl.x+Pl.z+Pl.y+Pl.v+Pl.yaw))spawn(lastStart);
     animateSkater(state==='pause'?0:dt);updateCamera(dt,state!=='play'&&state!=='pause');updateRain(dt);
     if(LAMPMAT)LAMPMAT.emissiveIntensity=lerp(LAMPMAT.emissiveIntensity,weather==='golden'?1.6:weather==='rain'?1.3:weather==='cloudy'?.4:0,Math.min(1,dt*2));

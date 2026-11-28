@@ -9,7 +9,7 @@ const jpeg = require('jpeg-js');
 
 const LAT0 = 60.1850, LON0 = 24.9760, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KZ = 110540;
 const PJ = (lat, lon) => [(lon - LON0) * KX, -(lat - LAT0) * KZ];
-const OUT = 'data/facades', PXM = 10, ATLAS = 2048;
+const OUT = 'data/facades', PXM = 20, ATLAS = 4096;
 const log = []; const L = (...a) => { const m = a.join(' '); console.log(m); log.push(m) };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const meta = JSON.parse(fs.readFileSync('work/meta.json')); const [CX, CZ] = meta.center, RAD = meta.radius;
@@ -172,6 +172,23 @@ function ground(G, img, GH) {
     const f = `g${tx}_${tz}.png`; fs.writeFileSync(`${GO}/${f}`, png(TS, TS, rgba)); tiles.push({f, x0, z0, size: TM}); px += n }
   fs.writeFileSync(`${GO}/index.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP reconstruction', tiles}));
   L('ground tiles', tiles.length, 'pixels', px, 'area m2', (px / GPX / GPX).toFixed(0)) }
+/* a camera rolled by a degree or two makes window rows lean: find the dominant tilt of the near-horizontal and near-vertical
+   edges in one view's projection (they lean by the same angle under a roll) and rotate the view back */
+function tiltOf(S, M, tw, th, u0 = 1, u1 = tw - 1, hOnly = false) {
+  const NB = 201, H = new Float64Array(NB), lim = 25 / 57.3; const g = (u, v) => S[(v * tw + u) * 3 + 1];
+  for (let v = 1; v < th - 1; v++) for (let u = Math.max(1, u0); u < Math.min(tw - 1, u1); u++) { const o = v * tw + u; if (!M[o] || !M[o - 1] || !M[o + 1] || !M[o - tw] || !M[o + tw]) continue;
+    const gx = (g(u + 1, v) - g(u - 1, v)) / 2, gy = (g(u, v + 1) - g(u, v - 1)) / 2, m2 = gx * gx + gy * gy; if (m2 < 100) continue; let a;
+    if (Math.abs(gy) > 1.8 * Math.abs(gx)) a = Math.atan(-gx / gy); else if (!hOnly && Math.abs(gx) > 1.8 * Math.abs(gy)) a = Math.atan(gy / gx); else continue;
+    if (Math.abs(a) >= lim) continue; const b = (a + lim) / (2 * lim) * (NB - 1); const i = Math.floor(b), f = b - i; H[i] += m2 * (1 - f); if (i + 1 < NB) H[i + 1] += m2 * f }
+  const Hs = H.map((_, i) => { let t = 0; for (let k = -2; k <= 2; k++) t += (H[i + k] || 0) * (3 - Math.abs(k)); return t }); let bi = 100; for (let i = 0; i < NB; i++) if (Hs[i] > Hs[bi]) bi = i;
+  let tot = 0; for (const x of H) tot += x; if (tot <= 0) return null; if (Hs[bi] < 1.3 * Hs[100]) return 0;   /* no clear tilt */
+  return (bi / (NB - 1) * 2 - 1) * lim }
+function deskew(S, M, Wt, tw, th) {
+  const r = tiltOf(S, M, tw, th); if (!r || Math.abs(r) < .4 / 57.3 || Math.abs(r) > 8 / 57.3) return 0;
+  const S2 = new Uint8Array(S), M2 = new Uint8Array(M.length), W2 = new Float32Array(Wt.length), c = Math.cos(r), sn = Math.sin(r), cu = tw / 2, cv = th / 2;
+  for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const du = u - cu, dv = v - cv, su = Math.round(cu + c * du - sn * dv), sv = Math.round(cv + sn * du + c * dv), o = v * tw + u;
+    if (su < 0 || sv < 0 || su >= tw || sv >= th) continue; const q = sv * tw + su; if (!M[q]) continue; M2[o] = 1; W2[o] = Wt[q]; for (let k = 0; k < 3; k++) S2[o * 3 + k] = S[q * 3 + k] }
+  S.set(S2); M.set(M2); Wt.set(W2); return r }
 let blockedPt = () => false;
 
 // ---------- main ----------
@@ -193,7 +210,7 @@ try {
   const flush = () => { if (!atlas) return; fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 82).data); atlas = null };
   newAtlas();
   for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2;
-    const tw = clamp(Math.round(w.l * PXM), 8, 400), th = clamp(Math.round((w.y1 - w.y0) * PXM), 8, 600);
+    const tw = clamp(Math.round(w.l * PXM), 8, 1200), th = clamp(Math.round((w.y1 - w.y0) * PXM), 8, 1400);
     const views = [];
     for (const g of G) { const [cx, , cz] = g.centre, vx = cx - mx, vz = cz - mz, dist = Math.hypot(vx, vz); if (dist > 70 || dist < 3) continue; if ((vx * w.n[0] + vz * w.n[1]) / dist < .25) continue;
       if (blocked([cx, cz], [mx + w.n[0] * .3, mz + w.n[1] * .3])) continue; const im = img(g.id); if (!im) continue;
@@ -202,7 +219,7 @@ try {
         const ex = cx - X, ez = cz - Z, eh = Math.hypot(ex, ez), cosA = (ex * w.n[0] + ez * w.n[1]) / eh; if (cosA < .5 || eh > 45) continue;   /* only reasonably square-on, not too far */
         const q = proj(g, X, Y, Z); if (!q) continue; const o = v * tw + u; Wt[o] = cosA * cosA / Math.max(6, Math.hypot(eh, Y - g.centre[1])); const x0 = q[0] | 0, y0 = q[1] | 0, x1 = Math.min(im.width - 1, x0 + 1), y1 = Math.min(im.height - 1, y0 + 1), du = q[0] - x0, dv = q[1] - y0;
         for (let k = 0; k < 3; k++) { const P = (xx, yy) => im.data[(yy * im.width + xx) * 4 + k]; S[o * 3 + k] = (P(x0, y0) * (1 - du) + P(x1, y0) * du) * (1 - dv) + (P(x0, y1) * (1 - du) + P(x1, y1) * du) * dv } M[o] = 1; n++ }
-      if (n > tw * th * .1) views.push({S, M, Wt, n, dist}) }
+      if (n > tw * th * .1) { const r = deskew(S, M, Wt, tw, th); stat.roll = (stat.roll || []); if (Math.abs(r) > 1e-4) stat.roll.push(+(r * 57.3).toFixed(1)); views.push({S, M, Wt, n, dist}) } }
     if (views.length < 2) { stat.few++; continue }
     /* per-pixel median, then drop views that disagree with it and redo */
     const med = (V) => { const O = new Uint8Array(tw * th * 3), H = new Uint8Array(tw * th); for (let o = 0; o < tw * th; o++) { const vs = V.filter(v => v.M[o]); if (!vs.length) continue; H[o] = vs.length; for (let k = 0; k < 3; k++) { const a = vs.map(v => v.S[o * 3 + k]).sort((p, q) => p - q); O[o * 3 + k] = a[a.length >> 1] } } return {O, H} };
@@ -212,13 +229,15 @@ try {
     if (agreeing.length < 2) { stat.disagree++; continue }
     ({O, H} = med(agreeing));
     { const O2 = new Uint8Array(O.length); for (let o = 0; o < tw * th; o++) { if (!H[o]) continue; let sw = 0; const acc = [0, 0, 0];
-        for (const v of agreeing) { if (!v.M[o]) continue; let dd = 0; for (let k = 0; k < 3; k++) dd += Math.abs(v.S[o * 3 + k] - O[o * 3 + k]); if (H[o] > 2 && dd > 90) continue; const ww = v.Wt[o] * v.Wt[o]; sw += ww; for (let k = 0; k < 3; k++) acc[k] += ww * v.S[o * 3 + k] }
+        for (const v of agreeing) { if (!v.M[o]) continue; let dd = 0; for (let k = 0; k < 3; k++) dd += Math.abs(v.S[o * 3 + k] - O[o * 3 + k]); if (H[o] > 2 && dd > 90) continue; const ww = (v.Wt[o] * v.Wt[o]) ** 2; sw += ww; for (let k = 0; k < 3; k++) acc[k] += ww * v.S[o * 3 + k] }
         for (let k = 0; k < 3; k++) O2[o * 3 + k] = sw > 0 ? acc[k] / sw : O[o * 3 + k] } O = O2 }   /* sharpest, most square-on view wins where photos agree */
     let topRow = -1; for (let v = 0; v < th; v++) { let n = 0; for (let u = 0; u < tw; u++) n += H[v * tw + u] ? 1 : 0; if (n > tw * .8) { topRow = v; break } }
     if (topRow < 0 || th - topRow < Math.min(th, 30)) { stat.few++; continue }
     const band = Math.min(th - topRow, 32); for (let v = topRow - 1; v >= 0; v--) { const src = topRow + ((topRow - 1 - v) % band); for (let u = 0; u < tw; u++) { const o = v * tw + u, s = src * tw + u; for (let k = 0; k < 3; k++) O[o * 3 + k] = O[s * 3 + k]; H[o] = H[s] } }
     { let sky = 0, seen = 0; for (let o = 0; o < tw * th; o++) { if (!H[o]) continue; seen++; const r = O[o * 3], g = O[o * 3 + 1], b = O[o * 3 + 2]; if (b > r + 15 && b > g && .3 * r + .59 * g + .11 * b > 120) sky++ }
-      if (sky > seen * .12) { stat.sky = (stat.sky || 0) + 1; continue } }   /* sky on the wall: misplaced */
+      if (sky > seen * .12) { stat.sky = (stat.sky || 0) + 1; continue } }
+    { const MM = H.map(v => v ? 1 : 0), a = tiltOf(O, MM, tw, th, 1, tw >> 1, true), b = tiltOf(O, MM, tw, th, tw >> 1, tw - 1, true), lim = 1.5 / 57.3;
+      if (a !== null && b !== null && (Math.abs(a) > lim || Math.abs(b) > lim || Math.abs(a - b) > lim)) { stat.lean = (stat.lean || 0) + 1; continue } }   /* rows still lean or converge: the wall was misplaced */   /* sky on the wall: misplaced */
     let mr = 0, mg = 0, mb = 0, mn = 0; for (let o = 0; o < tw * th; o++) if (H[o]) { mr += O[o * 3]; mg += O[o * 3 + 1]; mb += O[o * 3 + 2]; mn++ } mr /= mn; mg /= mn; mb /= mn;
     if (ax + tw > ATLAS) { ax = 0; ay += rowH; rowH = 0 } if (ay + th > ATLAS) { flush(); newAtlas() }
     for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const o = v * tw + u, A = ((ay + v) * ATLAS + ax + u) * 4; if (H[o]) { atlas.d[A] = O[o * 3]; atlas.d[A + 1] = O[o * 3 + 1]; atlas.d[A + 2] = O[o * 3 + 2] } else { atlas.d[A] = mr; atlas.d[A + 1] = mg; atlas.d[A + 2] = mb } }
@@ -226,8 +245,8 @@ try {
     ax += tw + 2; rowH = Math.max(rowH, th + 2); stat.ok++ }
   flush();
   fs.writeFileSync(`${OUT}/facades.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP reconstruction', center: [CX, CZ], radius: RAD, atlases: ai + 1, size: ATLAS, facades: FAC}));
-  L('facades', JSON.stringify(stat));
+  { const R = stat.roll || []; delete stat.roll; L('facades', JSON.stringify(stat), 'views rotated', R.length, 'median roll deg', R.length ? R.map(Math.abs).sort((a, b) => a - b)[R.length >> 1] : 0) }
   { const inside = (x, z) => rings.some(R => { if (Math.abs(R[0][0] - x) > 150 || Math.abs(R[0][1] - z) > 150) return false; let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) if ((R[i][1] > z) !== (R[j][1] > z) && x < (R[j][0] - R[i][0]) * (z - R[i][1]) / (R[j][1] - R[i][1]) + R[i][0]) c = !c; return c }); blockedPt = inside }
-  ground(G, img, groundHeight(GP));
+  if (process.env.GROUND) ground(G, img, groundHeight(GP));   // experimental, off by default
 } catch (e) { L('fatal', e.stack || e.message) }
 fs.writeFileSync('data/sfm-log.txt', log.join('\n') + '\n');

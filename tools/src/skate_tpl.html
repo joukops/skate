@@ -150,7 +150,7 @@ const {Fn,If,Discard,positionWorld,positionLocal,attribute,texture,uniform,vec2,
 /* multiply the base colour by a shading factor; cut fragments away where a condition holds */
 function mulColor(m,f){const b=m.colorNode||materialColor;m.colorNode=vec4(b.rgb.mul(f),b.a);m.needsUpdate=true;return m}
 /* draw a surface slightly toward the camera along the view ray: same place on screen, but it wins the depth test against the ground under it (polygon offset does nothing with a logarithmic depth buffer) */
-function depthPush(m,k,c=0){m.positionNode=Fn(()=>{const d=TSL.cameraPosition.sub(positionLocal),l=TSL.length(d);return positionLocal.add(d.div(l.max(.01)).mul(l.mul(k).add(c).min(l.mul(.3)).min(2.5)))})();m.needsUpdate=true;return m}
+function depthPush(m,k,c=0){m.positionNode=Fn(()=>{const d=TSL.cameraPosition.sub(positionLocal),l=TSL.length(d);return positionLocal.add(d.div(l.max(.01)).mul(l.mul(k).add(TSL.float(c).mul(l.div(30).min(1))).min(l.mul(.3)).min(2.5)))})();m.needsUpdate=true;return m}
 function addDiscard(m,cond){const b=m.colorNode||materialColor;m.colorNode=Fn(()=>{If(cond(),()=>{Discard()});return b})();m.needsUpdate=true;return m}
 {
 const $=id=>document.getElementById(id);
@@ -476,7 +476,7 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
   /* shore edge along the line where the ground is cut (marching squares on the smoothed water field): a vertical wall down into the sea with a coping on top;
      granite on built shores, rock on natural ones; none on beaches, which slope in */
   const RL={p:[]},RP=[];let racc=0;   /* (no railing where a bridge lands) */
-  const inSompa=(x,z)=>x>-320&&x<230&&z>200&&z<1050&&z>.24*(x+90)+178;
+  const inSompa=(x,z)=>x>-230&&x<230&&z>200&&z<1050&&z>.24*(x+90)+178;
   if(TER&&WF){const F=(i,j)=>WF[j*RW+i],W=(x,y)=>[X0+(x+.5)*RS,Z0+(y+.5)*RS];let du=0,bacc=0;
     const seg=(p,q)=>{const mx=(p[0]+q[0])/2,mz=(p[1]+q[1])/2,dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.05)return;let nx=-dz/l,nz=dx/l;
       const gi=(mx-X0)/RS-.5,gj=(mz-Z0)/RS-.5,f1=wf(gi+nx/RS,gj+nz/RS),f0=wf(gi-nx/RS,gj-nz/RS);if(f0>f1){nx=-nx;nz=-nz}   /* n toward the water */
@@ -1175,7 +1175,7 @@ function buildWorld(D){
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
   for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.2)}
   /* ground ribbons */
-  for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,LAYER[k]*.03+.06,true)}
+  for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,LAYER[k]*.008+.04,true)}
   /* lane markings: dashed centre line on two-way streets, edge lines on main roads */
   {const MK={pos:[]},LAMPS=[];const main=/^(primary|secondary|tertiary|trunk)$/,lit=/^(primary|secondary|tertiary|trunk|residential|unclassified|living_street|pedestrian|cycleway)$/;
    const strip=(P,off,w,dash,gap,y)=>{let carry=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const ux=dx/l,uz=dz/l,nx=-uz,nz=ux;

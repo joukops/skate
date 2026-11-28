@@ -1,22 +1,22 @@
 model 0-txt images 85 points 11433
-  levelled by 84.9 deg; GPS fit: inliers 39 / 85 mean error 2.93 m, scale 44.084
-wall fit: points 1032 median residual 0.68 m; shift -0.82 1.14 rotation 0.12 deg
-height: ground points 2056 offset 0.21
-  cameras kept 84
+  levelled by 84.9 deg; GPS fit: inliers 40 / 85 mean error 2.89 m, scale 43.123
+wall fit: points 1067 median residual 0.64 m; shift 0.22 0.95 rotation 0.33 deg
+height: ground points 2002 offset 0.37
+  cameras kept 85
 model 1-txt images 110 points 14672
-  levelled by 89.0 deg; GPS fit: inliers 49 / 110 mean error 2.33 m, scale 16.206
-wall fit: points 1913 median residual 0.62 m; shift 0.80 0.14 rotation -1.08 deg
-height: ground points 4695 offset 1.12
-  cameras kept 99
+  levelled by 89.0 deg; GPS fit: inliers 49 / 110 mean error 2.53 m, scale 16.059
+wall fit: points 2198 median residual 0.63 m; shift 0.81 1.19 rotation -1.94 deg
+height: ground points 4697 offset 1.04
+  cameras kept 98
 model 10-txt images 15 points 701
   levelled by 86.8 deg; GPS fit: inliers 12 / 15 mean error 3.21 m, scale 3.675
 wall fit: points 172 median residual 0.71 m; shift 10.73 11.27 rotation -7.23 deg
 height: ground points 200 offset 0.10
   wall fit too far from GPS: dropped
 model 11-txt images 34 points 2239
-  levelled by 86.0 deg; GPS fit: inliers 20 / 34 mean error 3.08 m, scale 3.147
-wall fit: points 1698 median residual 0.28 m; shift -9.01 0.44 rotation 8.21 deg
-height: ground points 93 offset -0.58
+  levelled by 86.0 deg; GPS fit: inliers 20 / 34 mean error 3.09 m, scale 3.204
+wall fit: points 1579 median residual 0.17 m; shift -11.16 0.07 rotation 12.58 deg
+height: ground points 81 offset -0.66
   wall fit too far from GPS: dropped
 model 2-txt images 21 points 3828
   levelled by 87.7 deg; GPS fit: inliers 10 / 21 mean error 1.92 m, scale 26.693
@@ -60,4 +60,4 @@ height: ground points 31 offset 1.17
   wall fit too far from GPS: dropped
 registered cameras 266
 walls in the block 147
-facades {"few":115,"disagree":1,"ok":14,"sky":12,"lean":5} views rotated 12 median roll deg 5.2
+facades {"few":114,"disagree":1,"ok":15,"sky":12,"lean":5} views rotated 10 median roll deg 4.7

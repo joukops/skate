@@ -122,3 +122,33 @@ const board=new THREE.Group();rollI.add(board);const DECKY=.128;
 /* throttle remote in the back hand */
 add(new THREE.BoxGeometry(.035,.09,.03),M({color:lin('#151618'),roughness:.4}),elR,0,-.3,-.02);
 pelvis.rotation.y=-Math.PI/2;   /* stands sideways on the board, facing the right-hand side (regular stance: left foot at the nose) */
+/* ---- Wolt courier: a sit-down e-scooter with the blue Wolt box on the rear rack, rider seated ---- */
+const wolt=new THREE.Group();wolt.visible=false;sk.add(wolt);const WOLT={on:false,steer:new THREE.Group(),wheels:[]};
+{const W=(c,r=.5,m=0)=>M({color:lin(c),roughness:r,metalness:m}),body=W('#e9ecef',.35,.1),dark=W('#1d1f22',.6),blue=W('#00c2e8',.45),tyre=W('#151515',.8),chrome=W('#b9bec4',.25,.9),jacket=W('#00a7d6',.6),pants=W('#23262b',.8),skinM=W('#c99476',.6),helm=W('#f2f4f6',.3);
+ /* scooter (local: -z forward) */
+ const wheel=(z)=>{const g=new THREE.Group();g.position.set(0,.2,z);wolt.add(g);const t=new THREE.Mesh(new THREE.TorusGeometry(.17,.055,10,24),tyre);t.rotation.y=Math.PI/2;g.add(t);const h=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.08,16).rotateZ(Math.PI/2),chrome);g.add(h);WOLT.wheels.push(g);return g};
+ wheel(.62);const fw=wheel(0);wolt.remove(fw);
+ WOLT.steer.position.set(0,0,-.62);wolt.add(WOLT.steer);fw.position.set(0,.2,0);WOLT.steer.add(fw);
+ add(new THREE.BoxGeometry(.34,.12,.9),dark,wolt,0,.3,.05);                        /* floorboard */
+ {const s=new THREE.Shape();s.moveTo(-.45,0);s.lineTo(.45,0);s.quadraticCurveTo(.6,.05,.55,.45);s.lineTo(.1,.55);s.lineTo(-.25,.38);s.closePath();const g=new THREE.ExtrudeGeometry(s,{depth:.34,bevelEnabled:true,bevelSize:.03,bevelThickness:.03});g.translate(0,0,-.17);g.rotateY(-Math.PI/2);add(g,body,wolt,0,.33,.15)}   /* rear body */
+ add(new THREE.BoxGeometry(.3,.09,.62),dark,wolt,0,.86,.3);                         /* seat */
+ {const s=add(new THREE.BoxGeometry(.3,.75,.14),body,WOLT.steer,0,.62,.08);s.rotation.x=-.25}   /* leg shield + steering column */
+ add(new THREE.CylinderGeometry(.03,.03,.5,8),chrome,WOLT.steer,0,.75,-.05).rotation.x=-.25;
+ add(new THREE.BoxGeometry(.66,.04,.04),dark,WOLT.steer,0,1.02,-.12);               /* handlebar */
+ add(new THREE.CylinderGeometry(.06,.06,.05,14).rotateX(Math.PI/2),M({color:lin('#fff6d8'),emissive:lin('#fff2c0'),emissiveIntensity:1}),WOLT.steer,0,.95,-.2);   /* headlight */
+ add(new THREE.CylinderGeometry(.03,.025,.06,8).rotateX(Math.PI/2),M({color:lin('#ff2a1a'),emissive:lin('#ff1a0a'),emissiveIntensity:.8}),wolt,0,.7,.68);
+ /* Wolt box on the rack */
+ add(new THREE.BoxGeometry(.36,.04,.3),chrome,wolt,0,.9,.6);
+ const box=add(new THREE.BoxGeometry(.46,.46,.46),blue,wolt,0,1.15,.66);
+ {const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d');g.fillStyle='#ffffff';g.font="800 92px 'Inter Tight', sans-serif";g.textAlign='center';g.textBaseline='middle';g.fillText('Wolt',128,66);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const lm=new THREE.MeshBasicMaterial({map:t,transparent:true});
+  for(const[x,z,ry]of [[.232,.66,Math.PI/2],[-.232,.66,-Math.PI/2],[0,.892,0]]){const p=new THREE.Mesh(new THREE.PlaneGeometry(.42,.21),lm);p.position.set(x,1.15,z);p.rotation.y=ry;wolt.add(p)}}
+ /* seated rider */
+ const rd=new THREE.Group();wolt.add(rd);WOLT.rider=rd;
+ add(new THREE.BoxGeometry(.34,.14,.3),pants,rd,0,.98,.28);                         /* hips */
+ for(const sx of [-1,1]){const th=add(new THREE.CapsuleGeometry(.065,.32,4,8),pants,rd,sx*.1,1,.06);th.rotation.x=Math.PI/2-.15;const sh=add(new THREE.CapsuleGeometry(.055,.34,4,8),pants,rd,sx*.11,.6,-.08);sh.rotation.x=.25;add(new THREE.BoxGeometry(.1,.08,.26),dark,rd,sx*.11,.4,-.12)}
+ const tor=add(new THREE.CapsuleGeometry(.17,.38,6,12),jacket,rd,0,1.36,.2);tor.rotation.x=-.18;tor.scale.set(1.15,1,.8);
+ for(const sx of [-1,1]){const ua=add(new THREE.CapsuleGeometry(.05,.26,4,8),jacket,rd,sx*.22,1.42,.02);ua.rotation.x=1;ua.rotation.z=sx*.25;const fa=add(new THREE.CapsuleGeometry(.045,.24,4,8),jacket,rd,sx*.28,1.18,-.12);fa.rotation.x=1.3;add(new THREE.SphereGeometry(.05,8,6),dark,rd,sx*.31,1.05,-.15)}
+ add(new THREE.SphereGeometry(.1,16,12),skinM,rd,0,1.73,.1);
+ const hm=add(new THREE.SphereGeometry(.135,20,14,0,Math.PI*2,0,Math.PI*.62),helm,rd,0,1.75,.11);hm.scale.set(.95,1,1.08);
+ add(new THREE.BoxGeometry(.2,.06,.02),M({color:lin('#1b2b38'),roughness:.1,metalness:.5}),rd,0,1.72,-.02)}   /* visor */
+function setWolt(on){WOLT.on=on;wolt.visible=on;board.visible=!on;rollI.visible=!on||false;pelvis.visible=!on;for(const t of TRK)t.visible=!on;try{localStorage.setItem('skh-wolt',on?1:0)}catch(e){}}

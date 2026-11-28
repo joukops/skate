@@ -66,7 +66,7 @@ function alignGPS(model, ref) {
   /* 3. move the model into the GPS frame: X' = S Q X + t with S = scale*yaw */
   const Ry = [[F.c, -F.s2, 0], [F.s2, F.c, 0], [0, 0, 1]], M = [0, 1, 2].map(r => [0, 1, 2].map(c => Ry[r][0] * Q[0][c] + Ry[r][1] * Q[1][c] + Ry[r][2] * Q[2][c])), T0 = [F.tx, F.ty, F.tz];
   const fwd = p => { const v = mul(M, p); return [F.sc * v[0] + T0[0], F.sc * v[1] + T0[1], F.sc * v[2] + T0[2]] };
-  model.pts = model.pts.map(fwd);
+  model.pts = model.pts.map(fwd); model.fwd = fwd;
   model.imgs = model.imgs.map(im => { const MT = [[M[0][0], M[1][0], M[2][0]], [M[0][1], M[1][1], M[2][1]], [M[0][2], M[1][2], M[2][2]]];
     const R2 = [0, 1, 2].map(r => [0, 1, 2].map(c => im.R[r][0] * MT[0][c] + im.R[r][1] * MT[1][c] + im.R[r][2] * MT[2][c])), t2 = [0, 1, 2].map(k => F.sc * im.t[k] - (R2[k][0] * T0[0] + R2[k][1] * T0[1] + R2[k][2] * T0[2]));
     return {...im, R: R2, t: t2} });
@@ -201,6 +201,28 @@ function deskew(S, M, Wt, tw, th) {
   for (let v = 0; v < th; v++) for (let u = 0; u < tw; u++) { const du = u - cu, dv = v - cv, su = Math.round(cu + c * du - sn * dv), sv = Math.round(cv + sn * du + c * dv), o = v * tw + u;
     if (su < 0 || sv < 0 || su >= tw || sv >= th) continue; const q = sv * tw + su; if (!M[q]) continue; M2[o] = 1; W2[o] = Wt[q]; for (let k = 0; k < 3; k++) S2[o * 3 + k] = S[q * 3 + k] }
   S.set(S2); M.set(M2); Wt.set(W2); return r }
+/* all fitted COLMAP models in one frame (game x, -z, y up), as a COLMAP text model, for dense reconstruction of the whole block at once */
+function exportMerged(ACC) {
+  const OD = 'work/merged'; fs.mkdirSync(OD, {recursive: true}); const C = [], I = [], P = []; let oc = 0, oi = 0, op = 0;
+  const quat = R => { const t = R[0][0] + R[1][1] + R[2][2]; let w, x, y, z; if (t > 0) { const S = Math.sqrt(t + 1) * 2; w = S / 4; x = (R[2][1] - R[1][2]) / S; y = (R[0][2] - R[2][0]) / S; z = (R[1][0] - R[0][1]) / S }
+    else if (R[0][0] > R[1][1] && R[0][0] > R[2][2]) { const S = Math.sqrt(1 + R[0][0] - R[1][1] - R[2][2]) * 2; w = (R[2][1] - R[1][2]) / S; x = S / 4; y = (R[0][1] + R[1][0]) / S; z = (R[0][2] + R[2][0]) / S }
+    else if (R[1][1] > R[2][2]) { const S = Math.sqrt(1 + R[1][1] - R[0][0] - R[2][2]) * 2; w = (R[0][2] - R[2][0]) / S; x = (R[0][1] + R[1][0]) / S; y = S / 4; z = (R[1][2] + R[2][1]) / S }
+    else { const S = Math.sqrt(1 + R[2][2] - R[0][0] - R[1][1]) * 2; w = (R[1][0] - R[0][1]) / S; x = (R[0][2] + R[2][0]) / S; y = (R[1][2] + R[2][1]) / S; z = S / 4 } return [w, x, y, z] };
+  for (const {dn, m, fit} of ACC) { const dir = 'work/sparse/' + dn, c = Math.cos(fit.th), s = Math.sin(fit.th);
+    const A = [[c, -s, 0], [s, c, 0], [0, 0, 1]], b = [c * (-fit.dx - CX) + s * (-fit.dz - CZ) + CX, s * (-fit.dx - CX) - c * (-fit.dz - CZ) - CZ, -fit.dy];
+    const lines = f => fs.readFileSync(`${dir}/${f}`, 'utf8').split('\n').filter(l => l && l[0] !== '#');
+    let mc = 0, mi = 0, mp = 0;
+    for (const l of lines('cameras.txt')) { const p = l.split(' '); mc = Math.max(mc, +p[0]); p[0] = String(+p[0] + oc); C.push(p.join(' ')) }
+    const IL = lines('images.txt').length ? fs.readFileSync(`${dir}/images.txt`, 'utf8').split('\n').filter(l => l[0] !== '#') : [];
+    for (let k = 0, n = 0; k + 1 < IL.length; k += 2, n++) { const p = IL[k].trim().split(/\s+/); if (p.length < 10) { k--; continue } const im = m.imgs[n]; mi = Math.max(mi, +p[0]);
+      const R2 = [0, 1, 2].map(r => [0, 1, 2].map(cc => im.R[r][0] * A[0][cc] + im.R[r][1] * A[1][cc] + im.R[r][2] * A[2][cc])), t2 = [0, 1, 2].map(r => im.R[r][0] * b[0] + im.R[r][1] * b[1] + im.R[r][2] * b[2] + im.t[r]);
+      I.push([+p[0] + oi, ...quat(R2).map(v => v.toFixed(9)), ...t2.map(v => v.toFixed(6)), +p[8] + oc, p[9]].join(' '));
+      I.push(IL[k + 1].trim().split(/\s+/).map((v, j) => j % 3 === 2 && v !== '-1' ? String(+v + op) : v).join(' ')) }
+    for (const l of lines('points3D.txt')) { const p = l.trim().split(/\s+/); mp = Math.max(mp, +p[0]); const X = m.fwd([+p[1], +p[2], +p[3]]).map((v, k) => v - b[k]), F = [0, 1, 2].map(k => A[0][k] * X[0] + A[1][k] * X[1] + A[2][k] * X[2]);
+      P.push([+p[0] + op, ...F.map(v => v.toFixed(4)), p[4], p[5], p[6], p[7], ...p.slice(8).map((v, j) => j % 2 === 0 ? String(+v + oi) : v)].join(' ')) }
+    oc += mc + 1; oi += mi + 1; op += mp + 1 }
+  fs.writeFileSync(`${OD}/cameras.txt`, C.join('\n') + '\n'); fs.writeFileSync(`${OD}/images.txt`, I.join('\n') + '\n'); fs.writeFileSync(`${OD}/points3D.txt`, P.join('\n') + '\n');
+  L('merged model', ACC.length, 'models', I.length / 2, 'images', P.length, 'points') }
 let blockedPt = () => false;
 
 // ---------- main ----------
@@ -208,9 +230,10 @@ try {
   const dirs = fs.readdirSync('work/sparse').filter(n => n.endsWith('-txt') && fs.existsSync(`work/sparse/${n}/images.txt`));
   if (!dirs.length) throw new Error('no COLMAP model');
   const ref = new Map(); for (const l of fs.readFileSync('work/ref.txt', 'utf8').split('\n')) { const p = l.trim().split(/\s+/); if (p.length === 4) ref.set(p[0], [+p[1], +p[2], +p[3]]) }
-  let G = []; const GP = [];
+  let G = []; const GP = [], ACC = [];
   for (const dn of dirs) { let m = readModel('work/sparse/' + dn); L('model', dn, 'images', m.imgs.length, 'points', m.pts.length); if (m.imgs.length < 8) continue; m = alignGPS(m, ref); if (!m) { L('  could not align to GPS'); continue } const fit = fitToWalls(m.pts); if (!fit) { L('  could not fit onto walls'); continue } if (Math.hypot(fit.dx, fit.dz) > 12 || Math.abs(fit.th) > .12) { L('  wall fit too far from GPS: dropped'); continue }
     const inside = (x, z) => rings.some(R => { let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) if ((R[i][1] > z) !== (R[j][1] > z) && x < (R[j][0] - R[i][0]) * (z - R[i][1]) / (R[j][1] - R[i][1]) + R[i][0]) c = !c; return c });
+    ACC.push({dn, m, fit});
     const gc = gameCams(m, fit).filter(g => !inside(g.centre[0], g.centre[2])); L('  cameras kept', gc.length); G = G.concat(gc);
     { const c = Math.cos(fit.th), s2 = Math.sin(fit.th); for (const [X, Y, Z] of m.pts) { const x0 = X, z0 = -Y, x = CX + c * (x0 - CX) - s2 * (z0 - CZ) + fit.dx, z = CZ + s2 * (x0 - CX) + c * (z0 - CZ) + fit.dz, y = Z + fit.dy; if (Math.abs(y - T(x, z)) < 3) GP.push([x, y, z]) } } }
   L('registered cameras', G.length);
@@ -259,6 +282,7 @@ try {
   if (!process.env.NOFAC) fs.writeFileSync(`${OUT}/facades.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP reconstruction', center: [CX, CZ], radius: RAD, atlases: ai + 1, size: ATLAS, facades: FAC}));
   { const R = stat.roll || []; delete stat.roll; L('facades', JSON.stringify(stat), 'views rotated', R.length, 'median roll deg', R.length ? R.map(Math.abs).sort((a, b) => a - b)[R.length >> 1] : 0) }
   { const inside = (x, z) => rings.some(R => { if (Math.abs(R[0][0] - x) > 150 || Math.abs(R[0][1] - z) > 150) return false; let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) if ((R[i][1] > z) !== (R[j][1] > z) && x < (R[j][0] - R[i][0]) * (z - R[i][1]) / (R[j][1] - R[i][1]) + R[i][0]) c = !c; return c }); blockedPt = inside }
+  if (process.env.EXPORT_MERGED) exportMerged(ACC);
   if (process.env.GROUND) ground(G, img, groundHeight(GP));   // experimental, off by default
 } catch (e) { L('fatal', e.stack || e.message) }
 fs.writeFileSync('data/sfm-log.txt', log.join('\n') + '\n');

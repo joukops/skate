@@ -122,33 +122,60 @@ const board=new THREE.Group();rollI.add(board);const DECKY=.128;
 /* throttle remote in the back hand */
 add(new THREE.BoxGeometry(.035,.09,.03),M({color:lin('#151618'),roughness:.4}),elR,0,-.3,-.02);
 pelvis.rotation.y=-Math.PI/2;   /* stands sideways on the board, facing the right-hand side (regular stance: left foot at the nose) */
-/* ---- Wolt courier: a sit-down e-scooter with the blue Wolt box on the rear rack, rider seated ---- */
-const wolt=new THREE.Group();wolt.visible=false;sk.add(wolt);const WOLT={on:false,steer:new THREE.Group(),wheels:[]};
-{const W=(c,r=.5,m=0)=>M({color:lin(c),roughness:r,metalness:m}),body=W('#e9ecef',.35,.1),dark=W('#1d1f22',.6),blue=W('#00c2e8',.45),tyre=W('#151515',.8),chrome=W('#b9bec4',.25,.9),jacket=W('#00a7d6',.6),pants=W('#23262b',.8),skinM=W('#c99476',.6),helm=W('#f2f4f6',.3);
- /* scooter (local: -z forward) */
- const wheel=(z)=>{const g=new THREE.Group();g.position.set(0,.2,z);wolt.add(g);const t=new THREE.Mesh(new THREE.TorusGeometry(.17,.055,10,24),tyre);t.rotation.y=Math.PI/2;g.add(t);const h=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.08,16).rotateZ(Math.PI/2),chrome);g.add(h);WOLT.wheels.push(g);return g};
- wheel(.62);const fw=wheel(0);wolt.remove(fw);
- WOLT.steer.position.set(0,0,-.62);wolt.add(WOLT.steer);fw.position.set(0,.2,0);WOLT.steer.add(fw);
- add(new THREE.BoxGeometry(.34,.12,.9),dark,wolt,0,.3,.05);                        /* floorboard */
- {const s=new THREE.Shape();s.moveTo(-.45,0);s.lineTo(.45,0);s.quadraticCurveTo(.6,.05,.55,.45);s.lineTo(.1,.55);s.lineTo(-.25,.38);s.closePath();const g=new THREE.ExtrudeGeometry(s,{depth:.34,bevelEnabled:true,bevelSize:.03,bevelThickness:.03});g.translate(0,0,-.17);g.rotateY(-Math.PI/2);add(g,body,wolt,0,.33,.15)}   /* rear body */
- add(new THREE.BoxGeometry(.3,.09,.62),dark,wolt,0,.86,.3);                         /* seat */
- {const s=add(new THREE.BoxGeometry(.3,.75,.14),body,WOLT.steer,0,.62,.08);s.rotation.x=-.25}   /* leg shield + steering column */
- add(new THREE.CylinderGeometry(.03,.03,.5,8),chrome,WOLT.steer,0,.75,-.05).rotation.x=-.25;
- add(new THREE.BoxGeometry(.66,.04,.04),dark,WOLT.steer,0,1.02,-.12);               /* handlebar */
- add(new THREE.CylinderGeometry(.06,.06,.05,14).rotateX(Math.PI/2),M({color:lin('#fff6d8'),emissive:lin('#fff2c0'),emissiveIntensity:1}),WOLT.steer,0,.95,-.2);   /* headlight */
- add(new THREE.CylinderGeometry(.03,.025,.06,8).rotateX(Math.PI/2),M({color:lin('#ff2a1a'),emissive:lin('#ff1a0a'),emissiveIntensity:.8}),wolt,0,.7,.68);
- /* Wolt box on the rack */
- add(new THREE.BoxGeometry(.36,.04,.3),chrome,wolt,0,.9,.6);
- const box=add(new THREE.BoxGeometry(.46,.46,.46),blue,wolt,0,1.15,.66);
- {const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d');g.fillStyle='#ffffff';g.font="800 92px 'Inter Tight', sans-serif";g.textAlign='center';g.textBaseline='middle';g.fillText('Wolt',128,66);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const lm=new THREE.MeshBasicMaterial({map:t,transparent:true});
-  for(const[x,z,ry]of [[.232,.66,Math.PI/2],[-.232,.66,-Math.PI/2],[0,.892,0]]){const p=new THREE.Mesh(new THREE.PlaneGeometry(.42,.21),lm);p.position.set(x,1.15,z);p.rotation.y=ry;wolt.add(p)}}
- /* seated rider */
- const rd=new THREE.Group();wolt.add(rd);WOLT.rider=rd;
- add(new THREE.BoxGeometry(.34,.14,.3),pants,rd,0,.98,.28);                         /* hips */
- for(const sx of [-1,1]){const th=add(new THREE.CapsuleGeometry(.065,.32,4,8),pants,rd,sx*.1,1,.06);th.rotation.x=Math.PI/2-.15;const sh=add(new THREE.CapsuleGeometry(.055,.34,4,8),pants,rd,sx*.11,.6,-.08);sh.rotation.x=.25;add(new THREE.BoxGeometry(.1,.08,.26),dark,rd,sx*.11,.4,-.12)}
- const tor=add(new THREE.CapsuleGeometry(.17,.38,6,12),jacket,rd,0,1.36,.2);tor.rotation.x=-.18;tor.scale.set(1.15,1,.8);
- for(const sx of [-1,1]){const ua=add(new THREE.CapsuleGeometry(.05,.26,4,8),jacket,rd,sx*.22,1.42,.02);ua.rotation.x=1;ua.rotation.z=sx*.25;const fa=add(new THREE.CapsuleGeometry(.045,.24,4,8),jacket,rd,sx*.28,1.18,-.12);fa.rotation.x=1.3;add(new THREE.SphereGeometry(.05,8,6),dark,rd,sx*.31,1.05,-.15)}
- add(new THREE.SphereGeometry(.1,16,12),skinM,rd,0,1.73,.1);
- const hm=add(new THREE.SphereGeometry(.135,20,14,0,Math.PI*2,0,Math.PI*.62),helm,rd,0,1.75,.11);hm.scale.set(.95,1,1.08);
- add(new THREE.BoxGeometry(.2,.06,.02),M({color:lin('#1b2b38'),roughness:.1,metalness:.5}),rd,0,1.72,-.02)}   /* visor */
-function setWolt(on){WOLT.on=on;wolt.visible=on;board.visible=!on;rollI.visible=!on||false;pelvis.visible=!on;for(const t of TRK)t.visible=!on;try{localStorage.setItem('skh-wolt',on?1:0)}catch(e){}}
+/* ---- riders on other vehicles: a Wolt courier on a sit-down e-scooter, or you on a rental kick scooter (Voi, Dott, Ryde) ---- */
+const WOLT={on:false,wheels:[]},KICK={on:false,wheels:[],brand:null};
+const MAT=(c,r=.5,m=0)=>M({color:lin(c),roughness:r,metalness:m});
+/* a rounded person: tapered limbs, shoulders, hands, shoes; returns joints to pose */
+function person(jacketC,pantsC,helmetC){const g=new THREE.Group(),J={},skinM=MAT('#c99476',.6),jk=MAT(jacketC,.7),pn=MAT(pantsC,.8),sh=MAT('#1d1f22',.6),hm=MAT(helmetC,.3);
+  const limb=(r0,r1,l,m)=>{const geo=new THREE.CylinderGeometry(r1,r0,l,12,1);geo.translate(0,-l/2,0);const o=new THREE.Mesh(geo,m);o.castShadow=true;return o},ball=(r,m)=>{const o=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),m);o.castShadow=true;return o};
+  J.hip=new THREE.Group();g.add(J.hip);{const p=ball(.17,pn);p.scale.set(1.15,.7,.85);J.hip.add(p)}
+  J.chest=new THREE.Group();J.chest.position.y=.05;J.hip.add(J.chest);{const t=limb(.15,.19,.5,jk);t.rotation.x=Math.PI;t.position.y=0;J.chest.add(t);t.scale.set(1.15,1,.78);const sh2=ball(.2,jk);sh2.scale.set(1.25,.55,.8);sh2.position.y=.48;J.chest.add(sh2)}
+  J.head=new THREE.Group();J.head.position.y=.6;J.chest.add(J.head);{const n=limb(.05,.055,.1,skinM);n.rotation.x=Math.PI;J.head.add(n);const h=ball(.1,skinM);h.position.y=.17;h.scale.set(.9,1.1,1);J.head.add(h);
+    const hl=new THREE.Mesh(new THREE.SphereGeometry(.13,20,14,0,Math.PI*2,0,Math.PI*.58),hm);hl.position.y=.19;hl.scale.set(.95,1,1.08);hl.castShadow=true;J.head.add(hl);
+    const vz=new THREE.Mesh(new THREE.SphereGeometry(.125,16,8,Math.PI*.6,Math.PI*.8,Math.PI*.35,Math.PI*.22),MAT('#1b2b38',.08,.6));vz.position.y=.18;J.head.add(vz)}
+  for(const sx of [-1,1]){const S=new THREE.Group();S.position.set(sx*.23,.46,0);J.chest.add(S);const u=limb(.06,.05,.29,jk);S.add(u);const E=new THREE.Group();E.position.y=-.29;S.add(E);const f=limb(.05,.04,.27,jk);E.add(f);const hd=ball(.045,sh);hd.position.y=-.3;E.add(hd);
+    const H=new THREE.Group();H.position.set(sx*.1,-.05,0);J.hip.add(H);const th=limb(.085,.065,.43,pn);H.add(th);const K=new THREE.Group();K.position.y=-.43;H.add(K);const sn=limb(.06,.045,.42,pn);K.add(sn);
+    const ft=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.16,4,8),sh);ft.rotation.x=Math.PI/2;ft.position.set(0,-.45,-.06);ft.castShadow=true;K.add(ft);J[sx<0?'L':'R']={S,E,H,K}}
+  return{g,J}}
+const wolt=new THREE.Group();wolt.visible=false;sk.add(wolt);
+{const body=MAT('#eef0f2',.3,.1),trim=MAT('#2a2d31',.5),tyre=MAT('#141414',.85),rim=MAT('#c4c8cc',.25,.85),blue=MAT('#00c2e8',.45);
+ const wheel=(r)=>{const g=new THREE.Group(),t=new THREE.Mesh(new THREE.TorusGeometry(r,.055,12,28),tyre);t.rotation.y=Math.PI/2;g.add(t);const h=new THREE.Mesh(new THREE.CylinderGeometry(r*.68,r*.68,.07,20).rotateZ(Math.PI/2),rim);g.add(h);WOLT.wheels.push(g);return g};
+ const rw=wheel(.18);rw.position.set(0,.235,.58);wolt.add(rw);
+ WOLT.steer=new THREE.Group();WOLT.steer.position.set(0,0,-.55);WOLT.steer.rotation.x=-.42;wolt.add(WOLT.steer);   /* raked fork */
+ const fw=wheel(.18);fw.position.set(0,.235,-.05);wolt.add(fw);WOLT.front=fw;
+ /* Vespa-like body: lathe-turned rear cowl, rounded leg shield, floorboard */
+ {const pts=[];for(let i=0;i<=16;i++){const t=i/16;pts.push(new THREE.Vector2(.02+.2*Math.sin(Math.PI*Math.min(1,t*1.05))**.7,t*.95))}const g=new THREE.LatheGeometry(pts,24);g.rotateX(Math.PI/2);const c=new THREE.Mesh(g,body);c.scale.set(.95,.55,1);c.position.set(0,.5,-.05);c.castShadow=true;wolt.add(c)}
+ {const fb=new THREE.Mesh(new THREE.BoxGeometry(.36,.07,.62),trim);fb.position.set(0,.3,-.05);wolt.add(fb);const sd=new THREE.Mesh(new THREE.CapsuleGeometry(.05,.55,4,8),body);sd.rotation.x=Math.PI/2;sd.position.set(0,.29,-.05);sd.scale.set(3.6,1,1);wolt.add(sd)}
+ {const ls=new THREE.Mesh(new THREE.SphereGeometry(.42,24,16,0,Math.PI*2,0,Math.PI*.5),body);ls.scale.set(.45,1.05,.28);ls.rotation.x=-Math.PI/2+.35;ls.position.set(0,.42,-.42);ls.castShadow=true;wolt.add(ls)}
+ {const st=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.75,10),rim);st.position.set(0,.6,0);WOLT.steer.add(st);const hb=new THREE.Mesh(new THREE.CapsuleGeometry(.022,.6,4,8),trim);hb.rotation.z=Math.PI/2;hb.position.set(0,1.0,0);WOLT.steer.add(hb);
+  const hc=new THREE.Mesh(new THREE.SphereGeometry(.12,16,10),body);hc.scale.set(1.2,.7,.9);hc.position.set(0,.98,-.02);WOLT.steer.add(hc);const hl=new THREE.Mesh(new THREE.CircleGeometry(.06,16),MAT('#fff7dd'));hl.material.emissive=lin('#fff2c0');hl.material.emissiveIntensity=1.2;hl.position.set(0,.98,-.13);hl.rotation.y=Math.PI;WOLT.steer.add(hl);
+  for(const sx of [-1,1]){const fk=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.55,8),rim);fk.position.set(sx*.07,.33,0);WOLT.steer.add(fk)}}
+ {const seat=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,6,12),MAT('#202225',.7));seat.rotation.x=Math.PI/2;seat.scale.set(1.05,.5,1);seat.position.set(0,.84,.18);seat.castShadow=true;wolt.add(seat)}
+ {const tl=new THREE.Mesh(new THREE.BoxGeometry(.1,.04,.03),MAT('#ff2a1a'));tl.material.emissive=lin('#ff1a0a');tl.material.emissiveIntensity=1;tl.position.set(0,.66,.66);wolt.add(tl);const rk=new THREE.Mesh(new THREE.BoxGeometry(.36,.03,.34),rim);rk.position.set(0,.88,.56);wolt.add(rk)}
+ /* Wolt box: rounded edges, logo on three faces */
+ {const g=new THREE.BoxGeometry(.48,.46,.46,4,4,4),p=g.attributes.position,v=new THREE.Vector3();for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const q=v.clone().clampScalar(-.19,.19);const d=v.clone().sub(q);if(d.length()>0)d.setLength(Math.min(d.length(),.04));p.setXYZ(i,q.x+d.x*1.0+Math.sign(v.x)*(Math.abs(v.x)>.19?0:0),q.y+d.y,q.z+d.z)}g.computeVertexNormals();
+  const bx=new THREE.Mesh(g,blue);bx.position.set(0,1.13,.6);bx.castShadow=true;wolt.add(bx);
+  const c=document.createElement('canvas');c.width=256;c.height=128;const gg=c.getContext('2d');gg.fillStyle='#fff';gg.font="800 92px 'Inter Tight', sans-serif";gg.textAlign='center';gg.textBaseline='middle';gg.fillText('Wolt',128,66);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const lm=new THREE.MeshBasicMaterial({map:t,transparent:true});
+  for(const[x,z,ry]of [[.236,.6,Math.PI/2],[-.236,.6,-Math.PI/2],[0,.834,0]]){const pl=new THREE.Mesh(new THREE.PlaneGeometry(.4,.2),lm);pl.position.set(x,1.13,z);pl.rotation.y=ry;wolt.add(pl)}}
+ const R=person('#00a7d6','#23262b','#f2f4f6');R.g.position.set(0,.88,.2);wolt.add(R.g);WOLT.rider=R;const J=R.J;
+ J.chest.rotation.x=-.28;J.head.rotation.x=.2;for(const s2 of ['L','R']){const j=J[s2],sx=s2==='L'?-1:1;j.H.rotation.x=1.45;j.K.rotation.x=-1.5;j.S.rotation.x=1.05;j.S.rotation.z=-sx*.18;j.E.rotation.x=.45}}
+const kick=new THREE.Group();kick.visible=false;sk.add(kick);
+const BRANDS={Voi:'#f26961',Dott:'#00a6e0',Ryde:'#79c143'};
+function kickModel(brand,withRider){const g=new THREE.Group(),c=MAT(BRANDS[brand],.4,.1),dk=MAT('#1c1e21',.6),al=MAT('#c9cdd1',.3,.85),tyre=MAT('#141414',.85),ws=[];
+  const wheel=z=>{const w=new THREE.Group(),t=new THREE.Mesh(new THREE.TorusGeometry(.11,.035,10,22),tyre);t.rotation.y=Math.PI/2;w.add(t);const h=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.05,14).rotateZ(Math.PI/2),dk);w.add(h);w.position.set(0,.145,z);g.add(w);ws.push(w);return w};
+  wheel(.5);wheel(-.42);
+  {const d=new THREE.Mesh(new THREE.CapsuleGeometry(.07,.62,4,10),dk);d.rotation.x=Math.PI/2;d.scale.set(1.25,.55,1);d.position.set(0,.17,.06);g.add(d);const top=new THREE.Mesh(new THREE.BoxGeometry(.15,.012,.6),MAT('#2b2d30',.95));top.position.set(0,.205,.06);g.add(top)}
+  {const sm=new THREE.Mesh(new THREE.CylinderGeometry(.03,.034,1.05,12),c);sm.position.set(0,.66,-.48);sm.rotation.x=-.18;g.add(sm);const hb=new THREE.Mesh(new THREE.CapsuleGeometry(.018,.48,4,8),dk);hb.rotation.z=Math.PI/2;hb.position.set(0,1.16,-.57);g.add(hb);
+   const disp=new THREE.Mesh(new THREE.BoxGeometry(.09,.03,.06),dk);disp.position.set(0,1.17,-.55);g.add(disp);const fl=new THREE.Mesh(new THREE.BoxGeometry(.05,.03,.02),MAT('#fff7dd'));fl.material.emissive=lin('#fff2c0');fl.position.set(0,.95,-.56);g.add(fl);
+   const rf=new THREE.Mesh(new THREE.BoxGeometry(.13,.03,.24),c);rf.position.set(0,.27,.53);rf.rotation.x=-.25;g.add(rf);
+   const lb=document.createElement('canvas');lb.width=256;lb.height=64;const q=lb.getContext('2d');q.fillStyle='#fff';q.font="800 50px 'Inter Tight', sans-serif";q.textAlign='center';q.textBaseline='middle';q.fillText(brand.toUpperCase(),128,34);
+   const t=new THREE.CanvasTexture(lb);t.colorSpace=THREE.SRGBColorSpace;for(const sx of [-1,1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(.22,.055),new THREE.MeshBasicMaterial({map:t,transparent:true}));p.position.set(sx*.034,.7,-.47);p.rotation.set(-.18,sx*Math.PI/2,0,'YXZ');g.add(p)}}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true});
+  let rider=null;if(withRider){rider=person('#2f55b8','#1c2230','#d4461e');rider.g.position.set(0,1.12,.12);g.add(rider.g);const J=rider.J;J.chest.rotation.x=-.12;
+    J.L.H.rotation.x=-.1;J.L.K.rotation.x=.15;J.R.H.rotation.x=.25;J.R.K.rotation.x=.1;for(const s2 of ['L','R']){J[s2].S.rotation.x=.95;J[s2].E.rotation.x=.5;J[s2].S.rotation.z=(s2==='L'?1:-1)*.15}}   /* one foot ahead of the other on the deck, hands on the bar */
+  return{g,ws,rider}}
+/* switch rides; 'board' | 'wolt' | 'kick' */
+let RIDE='board';
+function setRide(r,brand){RIDE=r;WOLT.on=r==='wolt';KICK.on=r==='kick';wolt.visible=WOLT.on;rollI.visible=r==='board';for(const t of TRK)t.visible=r==='board';
+  if(KICK.on){kick.clear();const m=kickModel(brand||'Voi',true);kick.add(m.g);KICK.wheels=m.ws;KICK.rider=m.rider;KICK.brand=brand}kick.visible=KICK.on}
+function setWolt(on){setRide(on?'wolt':'board');try{localStorage.setItem('skh-wolt',on?1:0)}catch(e){}}

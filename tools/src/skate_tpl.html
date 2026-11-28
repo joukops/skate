@@ -91,6 +91,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <button class="tb" id="backBtn" aria-label="Rewind a few seconds"><svg viewBox="0 0 24 24"><path d="M11 6 4 12l7 6z"/><path d="M20 6l-7 6 7 6z"/></svg></button>
   <div id="where"></div>
   <button id="helmBtn" style="display:none;position:absolute;right:max(18px,env(safe-area-inset-right));bottom:calc(max(18px,env(safe-area-inset-bottom)) + 230px);pointer-events:auto;padding:12px 18px;border-radius:24px;border:0;background:#1c2d55;color:#fff;font:800 17px 'Inter Tight';z-index:4">⎈ Bridge</button>
+  <button id="kickBtn" style="display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 138px);pointer-events:auto;padding:14px 22px;border-radius:28px;border:0;background:#fff;color:#1c2d55;font:800 18px 'Inter Tight';box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:4">🛴</button>
   <button id="tramBtn" style="display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 74px);pointer-events:auto;padding:14px 22px;border-radius:28px;border:0;background:#2f9a4a;color:#fff;font:800 18px 'Inter Tight';box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:4">🚋</button>
   <button id="ferryBtn" style="display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 10px);pointer-events:auto;padding:14px 22px;border-radius:28px;border:0;background:#f2c22a;color:#1c2d55;font:800 18px 'Inter Tight';box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:4">⛴</button>
   <div id="tele" role="group" aria-label="Teleport to a spot"></div>
@@ -578,6 +579,9 @@ function conditionTerrain(ways,HW,isTunnel){const{nx,nz,cs,x0,z0}=TER,H=TER.h;
   for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const k=j*nx+i,x=x0+i*cs,z=z0+j*cs;if(isWater(x,z)){let edge=-1e9;for(const[a,b]of [[cs,0],[-cs,0],[0,cs],[0,-cs]])if(!isWater(x+a,z+b))edge=Math.max(edge,H[k+(a?Math.sign(a):Math.sign(b)*nx)]);
       /* next to a raised shore the ground stays level out past the waterline and is cut off there, so the quay wall stands vertical; low shores slope under the water */
       H[k]=edge>SEA+1.2?Math.max(SEA+.5,edge):Math.min(H[k],edge>-1e8?SEA-.25:SEA-1.6)}else H[k]=Math.max(H[k],SEA+.5)}
+  /* Kalasatama metro and Redi: the ground model carries the station and the mall podium as a 17 m mound; the streets around them (Junatie, Hermannin rantatie) are at street level */
+  {const bx0=-70,bx1=250,bz0=-310,bz1=-140,F=22;for(let j=0;j<nz;j++){const z=z0+j*cs;if(z<bz0-F||z>bz1+F)continue;for(let i=0;i<nx;i++){const x=x0+i*cs;if(x<bx0-F||x>bx1+F)continue;const k=j*nx+i;if(isWater(x,z))continue;
+     const dx=Math.max(bx0-x,x-bx1,0),dz=Math.max(bz0-z,z-bz1,0),d=Math.hypot(dx,dz);if(d>=F)continue;const w0=1-d/F,w=w0*w0*(3-2*w0),cap=2;if(H[k]>cap)H[k]+=(cap-H[k])*w}}}
   const N=nx*nz,SW=new Float32Array(N),SH=new Float32Array(N),MX=new Float32Array(N),gentle=/footway|cycleway|path|pedestrian|track|bridleway|living_street|service/;
   /* where the city's bridge models land, the ground and the approaching paths meet the deck */
   const ANC=[];for(const e of ways){const t=e.tags||{};if(!(t.bridge&&t.bridge!=='no')||!t.highway)continue;const G0=(e.geometry||[]).filter(Boolean);if(G0.length<2)continue;
@@ -720,7 +724,7 @@ function buildFerry(){try{
   const pnx=-DB.u[1],pnz=DB.u[0];
   /* ---- model (local: +x bow, +z starboard, y up from the waterline), proportions from FinFerries' side drawing ---- */
   const grp=new THREE.Group();scene.add(grp);const add=(g,m,x,y,z,p=grp)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o};
-  const halfW=lx=>{const b=18.2-lx,s=lx+18.2;return HB*Math.min(1,Math.pow(Math.max(0,b)/12,.9),.9+.1*Math.min(1,s/2.5))};
+  const halfW=lx=>{const b=18.2-lx,s=lx+18.2;return HB*Math.min(1,Math.pow(Math.max(0,b)/10,.6),.9+.1*Math.min(1,s/2.5))};
   const navy=M({color:lin('#1c2d55'),roughness:.5,side:THREE.DoubleSide}),white=M({color:lin('#f1f0ea'),roughness:.5,side:THREE.DoubleSide}),yel=M({color:lin('#f2c22a'),roughness:.5}),win=M({color:lin('#18306e'),roughness:.12,metalness:.35}),
     glass=M({color:lin('#1d2530'),roughness:.05,metalness:.6,transparent:true,opacity:.28,depthWrite:false}),inner=M({color:lin('#ece7da'),roughness:.8}),floorM=M({color:lin('#6f6457'),roughness:.75}),deckM=M({color:lin('#8b8f8c'),roughness:.8}),seat=M({color:lin('#2f4f8f'),roughness:.8}),
     orange=M({color:lin('#e8642a'),roughness:.5}),grey=M({color:lin('#8c8f92'),roughness:.4,metalness:.5}),rail=M({color:lin('#e9e6dc'),roughness:.5}),port=M({color:lin('#4b4f55'),roughness:.2,metalness:.6}),dark=M({color:lin('#22252a'),roughness:.6});
@@ -747,9 +751,9 @@ function buildFerry(){try{
       for(let k=0;k<5;k++){const x=-.4+k*1.2,o=add(new THREE.CylinderGeometry(.17,.17,.04,14),port,x,hd-1.5,sd*(halfW(x)*.99+.01));o.rotation.x=Math.PI/2}}
     add(new THREE.BoxGeometry(1.2,1.6,.15),navy,-17.9,-1.6,0);{const pr=add(new THREE.CylinderGeometry(.75,.75,.1,5),yel,-16.9,-1.7,0);pr.rotation.z=Math.PI/2}}
   /* foredeck: railing on top of the bulwark round the bow, mooring bitts, anchor windlass */
-  {const rm2=M({color:lin('#f2c22a'),roughness:.5});for(const sd of [-1,1]){let prev=null;for(let lx=4;lx<=18;lx+=.7){const w=halfW(lx)-.05,y=hd+1.05+.6*Math.max(0,(lx-6)/12.2)**2;const p=[lx,y,sd*w];
-      const st=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.5,6),rm2);st.position.set(lx,y+.25,sd*w);grp.add(st);
-      if(prev){const dx=p[0]-prev[0],dz=p[2]-prev[2],l=Math.hypot(dx,dz);for(const hh of [.25,.5]){const rl=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,l,6),rm2);rl.position.set((p[0]+prev[0])/2,y+hh,(p[2]+prev[2])/2);rl.rotation.set(0,-Math.atan2(dz,dx),Math.PI/2,'YXZ');grp.add(rl)}}prev=p}}
+  {const rm2=M({color:lin('#f2c22a'),roughness:.5});const pts=sd=>{const P=[];for(let lx=4;lx<=17.6;lx+=.4){const w=halfW(lx)-.05;P.push(new THREE.Vector3(lx,hd+1.05+.6*Math.max(0,(lx-6)/12.2)**2,sd*w))}return P};
+   {const L=pts(-1).reverse().concat(pts(1).slice(1));const cv=new THREE.CatmullRomCurve3(L);for(const hh of [.25,.55]){const tg=new THREE.TubeGeometry(cv,120,.025,6,false);tg.translate(0,hh,0);grp.add(new THREE.Mesh(tg,rm2))}
+    for(let i=0;i<L.length;i+=2){const st=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.55,6),rm2);st.position.set(L[i].x,L[i].y+.27,L[i].z);grp.add(st)}}   /* one continuous rail round the bow */
    const gm=M({color:lin('#3a3f46'),roughness:.5,metalness:.4});for(const[x,z]of [[14,1.6],[14,-1.6],[12,2.4],[12,-2.4]]){const b=new THREE.Mesh(new THREE.CylinderGeometry(.12,.14,.45,10),gm);b.position.set(x,hd+.22,z);grp.add(b)}
    const wl=new THREE.Mesh(new THREE.BoxGeometry(1.1,.6,1.4),gm);wl.position.set(15.6,hd+.3,0);grp.add(wl)}
   /* aft deckhouse = the passenger saloon you can ride into (door in its aft wall, walkways down both sides) */
@@ -773,13 +777,13 @@ function buildFerry(){try{
   for(const sd of [-1,1])for(let k=0;k<3;k++)add(new THREE.BoxGeometry(.55,.75,.03),glass,S1+1+k*1.4,hd+1.45,sd*(SW+.02));
   {const y0=hd+SH,W2=SW-.3,x0=4.9,x1=9.9;   /* hollow wheelhouse: sill below the windows, header above, corner posts; you can see out */
    add(new THREE.BoxGeometry(5,.02,W2*2),M({color:lin('#4a4f56'),roughness:.8}),7.4,y0+.01,0,roofG);
-   add(new THREE.BoxGeometry(.1,2,W2*2),yel,x0,y0+1,0,roofG);
-   for(const sd of [-1,1]){add(new THREE.BoxGeometry(5,.95,.1),yel,7.4,y0+.47,sd*W2,roofG);add(new THREE.BoxGeometry(5,.3,.1),yel,7.4,y0+1.85,sd*W2,roofG);for(const x of [x0+.05,5.95,7,8.05,x1-.1])add(new THREE.BoxGeometry(.12,1,.1),yel,x,y0+1.35,sd*W2,roofG)}
-   add(new THREE.BoxGeometry(.1,.7,W2*2),yel,x1,y0+.35,0,roofG);add(new THREE.BoxGeometry(.1,.25,W2*2),yel,x1-.15,y0+1.9,0,roofG);for(const z of [-W2,-1,0,1,W2])add(new THREE.BoxGeometry(.1,1.3,.1),yel,x1-.08,y0+1.25,z,roofG)}
-for(const sd of [-1,1])for(let k=0;k<4;k++)add(new THREE.BoxGeometry(.8,.7,.03),glass,5.6+k*1.05,hd+SH+1.35,sd*(SW-.28),roofG);
-  {const fr=add(new THREE.BoxGeometry(.08,1.3,SW*2-.8),glass,9.95,hd+SH+1.3,0,roofG);fr.rotation.z=-.25}
-  add(new THREE.BoxGeometry(5.6,.12,SW*2),white,7.4,hd+SH+2.06,0,roofG);for(const sd of [-1,1])add(new THREE.BoxGeometry(5.4,.035,.035),rail,7.4,hd+SH+2.6,sd*(SW-.05),roofG);
-  {const m=add(new THREE.BoxGeometry(.35,7.5,.35),yel,6,hd+SH+5.8,0,roofG);m.rotation.z=.12;add(new THREE.BoxGeometry(.12,.12,3),yel,5.6,hd+SH+7.6,0,roofG);add(new THREE.BoxGeometry(.5,.08,3.4),white,7.2,hd+SH+2.9,0,roofG);add(new THREE.CylinderGeometry(.18,.18,.5,10),white,6.9,hd+SH+2.4,1.5,roofG)}
+   add(new THREE.BoxGeometry(.1,2.45,W2*2),yel,x0,y0+1.22,0,roofG);
+   for(const sd of [-1,1]){add(new THREE.BoxGeometry(5,.95,.1),yel,7.4,y0+.47,sd*W2,roofG);add(new THREE.BoxGeometry(5,.25,.1),yel,7.4,y0+2.32,sd*W2,roofG);for(const x of [x0+.05,5.95,7,8.05,x1-.1])add(new THREE.BoxGeometry(.08,1.45,.08),yel,x,y0+1.57,sd*W2,roofG)}
+   add(new THREE.BoxGeometry(.1,.7,W2*2),yel,x1,y0+.35,0,roofG);add(new THREE.BoxGeometry(.1,.2,W2*2),yel,x1-.2,y0+2.36,0,roofG);for(const z of [-W2,-1.5,1.5,W2])add(new THREE.BoxGeometry(.07,1.75,.07),yel,x1-.1,y0+1.47,z,roofG)}   /* taller windows, slim mullions */
+for(const sd of [-1,1])for(let k=0;k<4;k++)add(new THREE.BoxGeometry(.9,1.4,.03),glass,5.6+k*1.05,hd+SH+1.6,sd*(SW-.28),roofG);
+  {const fr=add(new THREE.BoxGeometry(.08,1.75,SW*2-.8),glass,9.93,hd+SH+1.5,0,roofG);fr.rotation.z=-.2}
+  add(new THREE.BoxGeometry(5.6,.12,SW*2),white,7.4,hd+SH+2.5,0,roofG);for(const sd of [-1,1])add(new THREE.BoxGeometry(5.4,.035,.035),rail,7.4,hd+SH+3.04,sd*(SW-.05),roofG);
+  {const m=add(new THREE.BoxGeometry(.35,7.5,.35),yel,6,hd+SH+6.24,0,roofG);m.rotation.z=.12;add(new THREE.BoxGeometry(.12,.12,3),yel,5.6,hd+SH+8.04,0,roofG);add(new THREE.BoxGeometry(.5,.08,3.4),white,7.2,hd+SH+3.34,0,roofG);add(new THREE.CylinderGeometry(.18,.18,.5,10),white,6.9,hd+SH+2.84,1.5,roofG)}
   for(const sd of [-1,1]){const c=add(new THREE.CapsuleGeometry(.4,1.1,4,10),white,9.2,hd+SH+.5,sd*2.4,roofG);c.rotation.z=Math.PI/2}
   /* wheelhouse inside: console, the ship's wheel (ruori), engine telegraph */
   const helm=new THREE.Group();helm.position.set(9.0,hd+SH+.92,0);roofG.add(helm);
@@ -788,7 +792,15 @@ for(const sd of [-1,1])for(let k=0;k<4;k++)add(new THREE.BoxGeometry(.8,.7,.03),
   const wheel=new THREE.Group();helm.add(wheel);{const wm2=M({color:lin('#7a4b26'),roughness:.55}),br=M({color:lin('#c9a24a'),roughness:.3,metalness:.8});
     const rim=new THREE.Mesh(new THREE.TorusGeometry(.38,.03,8,32),wm2);rim.rotation.y=Math.PI/2;wheel.add(rim);const hub=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.08,12),br);hub.rotation.z=Math.PI/2;wheel.add(hub);
     for(let k=0;k<8;k++){const a=k/8*Math.PI*2,sp=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,.56,6),wm2);sp.position.set(0,Math.cos(a)*.24,Math.sin(a)*.24);sp.rotation.x=a;wheel.add(sp);const hd2=new THREE.Mesh(new THREE.CylinderGeometry(.022,.018,.12,6),wm2);hd2.position.set(0,Math.cos(a)*.47,Math.sin(a)*.47);hd2.rotation.x=a;wheel.add(hd2)}}
-  const tele=new THREE.Mesh(new THREE.BoxGeometry(.06,.3,.06),M({color:lin('#c9a24a'),roughness:.3,metalness:.8}));tele.geometry.translate(0,.15,0);tele.position.set(9.35,hd+SH+.97,.8);roofG.add(tele);
+  /* control console: textured panel with screens and dials, and a ship's engine control lever (black lever, red grip, notched quadrant) */
+  {const cv=mk(512,256),g=cv.getContext('2d');g.fillStyle='#2b3036';g.fillRect(0,0,512,256);g.fillStyle='#0b1a24';g.fillRect(30,30,180,120);g.fillStyle='#1d7a4a';for(let k=0;k<40;k++)g.fillRect(36+Math.random()*168,36+Math.random()*108,3,3);g.strokeStyle='#3ad07a';g.beginPath();g.arc(120,90,50,0,7);g.stroke();
+   g.fillStyle='#0b1a24';g.fillRect(300,30,180,120);g.fillStyle='#2a7fd0';g.fillRect(310,40,160,100);g.fillStyle='#e8e8e0';for(const x of [60,140,220,300,380,460]){g.beginPath();g.arc(x,205,26,0,7);g.fill()}g.strokeStyle='#c22';g.lineWidth=3;for(const x of [60,140,220,300,380,460]){g.beginPath();g.moveTo(x,205);g.lineTo(x+16,190);g.stroke()}
+   const t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;const pm=new THREE.Mesh(new THREE.PlaneGeometry(3.6,.62),new THREE.MeshStandardMaterial({map:t,roughness:.5}));pm.rotation.set(-Math.PI/2+.5,Math.PI/2,0,'YXZ');pm.position.set(9.4,hd+SH+.96,0);roofG.add(pm)}
+  {const cv=mk(256,256),g=cv.getContext('2d');for(let k=0;k<8;k++){g.fillStyle=`hsl(28,35%,${30+Math.random()*10}%)`;g.fillRect(0,k*32,256,31)}const t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,3);
+   const fl=new THREE.Mesh(new THREE.PlaneGeometry(4.8,SW*2-.7),new THREE.MeshStandardMaterial({map:t,roughness:.8}));fl.rotation.x=-Math.PI/2;fl.position.set(7.4,hd+SH+.03,0);roofG.add(fl)}
+  const tq=new THREE.Mesh(new THREE.BoxGeometry(.3,.12,.18),M({color:lin('#1d2024'),roughness:.4,metalness:.5}));tq.position.set(9.0,hd+SH+1.0,.72);roofG.add(tq);
+  const tele=new THREE.Group();tele.position.set(9.0,hd+SH+1.06,.72);roofG.add(tele);{const arm=new THREE.Mesh(new THREE.CylinderGeometry(.018,.022,.32,10),M({color:lin('#111214'),roughness:.3,metalness:.6}));arm.position.y=.16;tele.add(arm);
+   const grip=new THREE.Mesh(new THREE.CapsuleGeometry(.032,.07,4,10),M({color:lin('#c8201a'),roughness:.35}));grip.position.y=.34;tele.add(grip)}
   /* names and logos */
   const label=(txt,w,h,col,font)=>{const c=mk(512,Math.round(512*h/w)),g=c.getContext('2d');g.fillStyle=col;g.font=font;g.textAlign='center';g.textBaseline='middle';g.fillText(txt,c.width/2,c.height/2);
     const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshBasicMaterial({map:t,transparent:true})};
@@ -862,7 +874,7 @@ function ferryUpdate(dt){const F=FERRY;if(!F.ready)return;let nx,nz,ny;
     if(show)btn.textContent=F.state==='docked'?(F.at==='A'?'⛴  Sail to Kruunuvuorenranta':'⛴  Sail to Meritullintori'):F.state==='free'?'⛴  Autopilot to the nearest pier':(F.fast?'Sailing…':'Sailing… tap to speed up ⏩')}}
 /* on the bridge: eye height behind the wheel, looking out over the bow */
 function ferryCam(){const F=FERRY;if(!F.ready||F.state!=='helm')return;F.grp.updateMatrixWorld();   /* fixed behind the wheel, rocking with the ship; look around with the mouse or a finger */
-  const y0=F.hd+2.4,e=new THREE.Vector3(8.35,y0+1.62,0),ly=F.lookY||0,lp=F.lookP||0,d=new THREE.Vector3(Math.cos(ly)*Math.cos(lp),Math.sin(lp)-.06,Math.sin(ly)*Math.cos(lp));
+  const y0=F.hd+2.4,e=new THREE.Vector3(7.75,y0+1.7,0),ly=F.lookY||0,lp=F.lookP||0,d=new THREE.Vector3(Math.cos(ly)*Math.cos(lp),Math.sin(lp)-.06,Math.sin(ly)*Math.cos(lp));
   const t=e.clone().add(d.multiplyScalar(20));F.grp.localToWorld(e);F.grp.localToWorld(t);camera.position.copy(e);camera.up.set(0,1,0).applyQuaternion(F.grp.quaternion);camera.lookAt(t);camera.up.set(0,1,0);if(camera.fov!==66){camera.fov=66;camera.updateProjectionMatrix()}}
 function ferryHelm(){const F=FERRY;if(!F.ready)return;if(F.state==='helm'){F.state='free';camera.fov=60;camera.updateProjectionMatrix();pop('Free deck');return}
   if(F.state==='sailing'){if(F.retTo)Object.assign(F,{path:F.route.path,SL:F.route.SL,len:F.route.len});F.retTo=null;F.hv=F.v;F.v=0}else if(F.state==='docked')F.hv=0;F.state='helm';F.yr=0;F.lookY=0;F.lookP=0;pop('On the bridge · W/S telegraph · A/D wheel')}
@@ -871,15 +883,14 @@ function ferryGo(){const F=FERRY;if(!F.ready)return;if(F.state==='sailing'){F.fa
     const out=[D.x-D.u[1]*(dA<dB?30:-30),D.z+D.u[0]*(dA<dB?30:-30)],P=[[F.x,F.z],out,[D.x,D.z]],SL=[0,Math.hypot(out[0]-F.x,out[1]-F.z)];SL.push(SL[1]+Math.hypot(D.x-out[0],D.z-out[1]));
     Object.assign(F,{path:P,SL,len:SL[2],s:0,dir:1,v:Math.max(0,F.hv),state:'sailing'});pop('Autopilot');return}F.dir=F.at==='A'?1:-1;F.state='sailing';F.v=0;pop(F.dir>0?'Departing for Kruunuvuorenranta':'Departing for Meritullintori')}
 
-/* ---------------- tram 12: Kalasatama – Korkeasaari – Kruunuvuorenranta on the Kruunusillat track ----------------
-   Škoda Transtech Artic XL as used on the Kruunusillat line: about 34.5 m, 2.4 m wide, 3.6 m tall, five articulated sections,
-   HSL green lower body, light grey upper body, a black window band, pantograph on the middle section.
-   It runs end to end and back, dwelling 14 s at each stop; board it at any stop. */
-const TRAM={ready:false,on:false};
+/* ---------------- trams 11 and 12 on the Kruunusillat track (opened 7 Nov 2026) ----------------
+   11: Pasila – Kalasatama – Sompasaari – Korkeasaari – Kruunuvuorenranta;  12: Rautatientori – Hakaniemi – Merihaka – Korkeasaari – Laajasalo – Yliskylä.
+   The parts inside the map are run end to end and back. Škoda Transtech Artic XL: ~34.5 m, 2.4 m wide, five sections, HSL green and light grey. */
+const TRAMS=[];let RIDE_T=null;const TRAM={get on(){return !!RIDE_T},get v(){return RIDE_T?RIDE_T.v:0},get dir(){return RIDE_T?RIDE_T.dir:1}};
 function railY(x,z){const L=DH.get(dkey(Math.floor(x/DC),Math.floor(z/DC)));let h=null;
   if(L)for(const[d,k]of L){if(!d.rail)continue;const a=d.pts[k],c=d.pts[k+1],dx=c[0]-a[0],dz=c[1]-a[1],t=clamp(((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz||1)),px=a[0]+dx*t,pz=a[1]+dz*t;
     if((x-px)**2+(z-pz)**2>(d.w/2+.5)**2)continue;const hh=lerp(d.hs[k],d.hs[k+1],t);if(h===null||hh>h)h=hh}
-  return(h===null?T(x,z):h)+.16}
+  return(h===null?T(x,z):h)+.07}
 function buildTram(ways){try{
   const pos=new Map(),adj=new Map(),link=(a,b,l)=>{if(!adj.has(a))adj.set(a,[]);adj.get(a).push([b,l])};
   for(const e of ways){const t=e.tags||{};if(!/^(tram|light_rail)$/.test(t.railway||'')||t.service||!e.nodes||!e.geometry||e.nodes.length!==e.geometry.length)continue;
@@ -890,70 +901,87 @@ function buildTram(ways){try{
   const route=(a,b)=>{const D=new Map([[a,0]]),pr=new Map(),H=[[0,a]],pop2=()=>{let bi=0;for(let i=1;i<H.length;i++)if(H[i][0]<H[bi][0])bi=i;const v=H[bi];H[bi]=H[H.length-1];H.pop();return v};
     while(H.length){const[c,n]=pop2();if(n===b)break;if(c>D.get(n))continue;for(const[m,l]of adj.get(n)||[]){if(c+l<(D.get(m)??1e18)){D.set(m,c+l);pr.set(m,n);H.push([c+l,m])}}}
     if(!pr.has(b))return null;const P=[b];while(P[P.length-1]!==a)P.push(pr.get(P[P.length-1]));return P.reverse().map(n=>pos.get(n))};
-  /* stops: platform positions from OSM; Kalasatama at the Sompasaari end of the line */
-  const STOPS=[['Kalasatama',[30,718]],['Korkeasaari',[318,870]],['Kruunuvuori',[2151,1748]],['Hopealaakso',[2440,1769]],['Haakoninlahdenpuisto',[2341,2127]]];
-  let P=[];for(let i=0;i<STOPS.length-1;i++){const seg=route(near(STOPS[i][1]),near(STOPS[i+1][1]));if(!seg){console.warn('tram: no track',STOPS[i][0]);return}if(P.length)seg.shift();P=P.concat(seg)}
-  /* lead-in and tail beyond the end stops so the whole tram stays on track */
-  const ext=(a,b,d)=>[a[0]+(a[0]-b[0])/(Math.hypot(a[0]-b[0],a[1]-b[1])||1)*d,a[1]+(a[1]-b[1])/(Math.hypot(a[0]-b[0],a[1]-b[1])||1)*d];
-  P=[ext(P[0],P[1],25),...P,ext(P[P.length-1],P[P.length-2],25)];
-  P=dens(P,2);const S=[0];for(let i=1;i<P.length;i++)S.push(S[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));
-  const Y=P.map(p=>railY(p[0],p[1]));
-  const stopS=STOPS.map(([,q])=>{let bi=0,bd=1e18;P.forEach((p,i)=>{const d=(p[0]-q[0])**2+(p[1]-q[1])**2;if(d<bd){bd=d;bi=i}});return S[bi]});
-  const at=s=>{s=clamp(s,0,S[S.length-1]);let lo=0,hi=S.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(S[m]>s)hi=m;else lo=m}const t=(s-S[lo])/((S[hi]-S[lo])||1);return[lerp(P[lo][0],P[hi][0],t),lerp(Y[lo],Y[hi],t),lerp(P[lo][1],P[hi][1],t)]};
-  /* ---- the Artic XL ---- */
+  /* stop positions: OSM platforms where mapped (Hakaniemi, Merihaka, Korkeasaari, Kruunuvuori, Hopealaakso, Haakoninlahdenpuisto, Koirasaaret, Gunillankallio, Reiherintie); Kalasatama and Sompasaari on the track */
+  const LINES=[
+    {num:'11',ends:['Kalasatama (M)','Kruunuvuorenranta'],stops:[['Kalasatama (M)',[76,-266]],['Sompasaari',[33,700]],['Korkeasaari',[318,870]],['Kruunuvuori',[2151,1748]],['Haakoninlahdenpuisto',[2341,2127]],['Koirasaaret',[2234,2413]]]},
+    {num:'12',ends:['Hakaniemi','Yliskylä'],stops:[['Hakaniemi (M)',[-1387,738]],['Merihaka',[-920,749]],['Korkeasaari',[318,870]],['Kruunuvuori',[2151,1748]],['Hopealaakso',[2440,1769]],['Gunillankallio',[3138,1444]],['Reiherintie',[3478,1154]]]}];
   const green=M({color:lin('#2f9a4a'),roughness:.4,metalness:.1}),grey=M({color:lin('#d9dcd8'),roughness:.45}),band=M({color:lin('#16191b'),roughness:.12,metalness:.4}),
     roof=M({color:lin('#b9bcb8'),roughness:.6}),under=M({color:lin('#2a2c2e'),roughness:.8}),door=M({color:lin('#22252a'),roughness:.2,metalness:.4}),
     pant=M({color:lin('#3a3d40'),roughness:.4,metalness:.7}),lamp=M({color:lin('#fffbe6'),emissive:lin('#fff4d0'),emissiveIntensity:1.5}),red=M({color:lin('#ff2a1a'),emissive:lin('#ff1a0a'),emissiveIntensity:1});
   const cvsMat=(w,h,draw)=>{const c=mk(w,h),g=c.getContext('2d');draw(g);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide})};
-  const signM=dest=>cvsMat(512,96,g=>{g.fillStyle='#111';g.fillRect(0,0,512,96);g.fillStyle='#ffb21a';g.font="800 64px 'Inter Tight', sans-serif";g.textBaseline='middle';g.fillText('12',18,50);g.font="600 40px 'Inter Tight', sans-serif";g.fillText(dest,110,50)});
-  const sgF=signM('Kruunuvuorenranta'),sgB=signM('Kalasatama'),hsl=cvsMat(256,64,g=>{g.fillStyle='#2f9a4a';g.fillRect(0,0,256,64);g.fillStyle='#fff';g.font="800 44px 'Inter Tight', sans-serif";g.textBaseline='middle';g.fillText('HSL',8,34)});
-  const SEC=[6.4,6.4,8.9,6.4,6.4],GAP=.12,LEN=SEC.reduce((a,b)=>a+b)+GAP*4,W=2.4;const secs=[];
-  for(let i=0;i<5;i++){const g=new THREE.Group(),l=SEC[i],add=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
-    add(new THREE.BoxGeometry(W,1.05,l),green,0,.95,0);add(new THREE.BoxGeometry(W-.06,.34,l-.1),under,0,.25,0);
-    add(new THREE.BoxGeometry(W+.01,1.15,l-.2),band,0,2.05,0);
-    const np=Math.max(2,Math.floor(l/1.6));for(let k=0;k<=np;k++)add(new THREE.BoxGeometry(W+.03,1.15,.09),grey,0,2.05,-l/2+.1+k*(l-.2)/np);
-    add(new THREE.BoxGeometry(W,.75,l),grey,0,3.0,0);add(new THREE.BoxGeometry(W-.3,.12,l-.1),roof,0,3.43,0);
-    for(const sd of [-1,1]){for(const dz of l>7?[-2.2,2.2]:[0])add(new THREE.BoxGeometry(.02,2.1,1.3),door,sd*(W/2+.01),1.45,dz);const h=add(new THREE.PlaneGeometry(.9,.22),hsl,sd*(W/2+.02),.95,l>7?0:1.8);h.rotation.y=sd*Math.PI/2}
-    if(i===2){const p=new THREE.Group();p.position.set(0,3.5,0);g.add(p);const a=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,1.6),pant);a.rotation.x=.55;a.position.set(0,.35,.3);p.add(a);
-      const b=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,1.6),pant);b.rotation.x=-.55;b.position.set(0,1,.3);p.add(b);const hd=new THREE.Mesh(new THREE.BoxGeometry(1.6,.05,.25),pant);hd.position.set(0,1.38,-.05);p.add(hd)}
-    if(i===0||i===4){const sgn=i===4?1:-1;   /* driver's cab: raked black windscreen, green nose, destination sign, lights */
-      const ws=new THREE.Mesh(new THREE.BoxGeometry(W-.04,1.5,.9),band);ws.position.set(0,2.1,sgn*(l/2+.4));ws.rotation.x=sgn*.18;g.add(ws);
-      const nose=new THREE.Mesh(new THREE.BoxGeometry(W-.04,1.25,1.1),green);nose.position.set(0,.82,sgn*(l/2+.45));g.add(nose);
-      const cap=new THREE.Mesh(new THREE.BoxGeometry(W-.04,.7,.8),grey);cap.position.set(0,3.02,sgn*(l/2+.3));g.add(cap);
-      const sg=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.36),sgn>0?sgF:sgB);sg.position.set(0,3.05,sgn*(l/2+.71));sg.rotation.y=sgn>0?0:Math.PI;g.add(sg);
-      for(const sx of [-.85,.85]){const hl=new THREE.Mesh(new THREE.BoxGeometry(.26,.12,.04),lamp);hl.position.set(sx,.95,sgn*(l/2+1.01));g.add(hl);const tl=new THREE.Mesh(new THREE.BoxGeometry(.12,.1,.04),red);tl.position.set(sx,.72,sgn*(l/2+1.01));g.add(tl)}}
-    scene.add(g);secs.push({g,l})}
-  const offs=[];{let o=LEN/2;for(let i=0;i<5;i++){offs.push(o-SEC[i]/2);o-=SEC[i]+GAP}offs.reverse()}   /* section 4 leads in the +s direction */
-  /* platforms: low concrete platform each side with a glass shelter and the stop name */
-  const plat=M({color:lin('#bdbab3'),roughness:.85}),glass=M({color:lin('#c7d4dc'),roughness:.05,metalness:.3,transparent:true,opacity:.35}),post=M({color:lin('#3d4247'),roughness:.4,metalness:.6});
-  const STOPX=stopS.map((s,i)=>{const a=at(s-12),b=at(s+12),dx=b[0]-a[0],dz=b[2]-a[2],l=Math.hypot(dx,dz)||1,ux=dx/l,uz=dz/l,nx=-uz,nz=ux,c=at(s);
-    const nm=cvsMat(512,80,gg=>{gg.fillStyle='#0a6ac2';gg.fillRect(0,0,512,80);gg.fillStyle='#fff';gg.font="700 44px 'Inter Tight', sans-serif";gg.textBaseline='middle';gg.fillText(STOPS[i][0],18,42);gg.fillStyle='#ffb21a';gg.fillText('12',440,42)});
-    for(const sd of [-1,1]){const g=new THREE.Group(),px=c[0]+nx*sd*2.75,pz=c[2]+nz*sd*2.75;g.position.set(px,c[1]-.16,pz);g.rotation.y=Math.atan2(ux,uz);scene.add(g);
-      const pl=new THREE.Mesh(new THREE.BoxGeometry(2.6,.3,36),plat);pl.position.y=.15;pl.receiveShadow=true;g.add(pl);
-      const sh=new THREE.Group();sh.position.set(sd*.55,.3,4);g.add(sh);for(const z of [-2,2]){const p=new THREE.Mesh(new THREE.BoxGeometry(.08,2.5,.08),post);p.position.set(sd*.7,1.25,z);sh.add(p)}
-      const bk=new THREE.Mesh(new THREE.BoxGeometry(.03,2.1,4),glass);bk.position.set(sd*.72,1.2,0);sh.add(bk);const rf=new THREE.Mesh(new THREE.BoxGeometry(1.7,.08,4.4),post);rf.position.y=2.55;sh.add(rf);
-      const ns=new THREE.Mesh(new THREE.PlaneGeometry(2.2,.34),nm);ns.position.set(sd*.7,2.9,0);ns.rotation.y=Math.PI/2;sh.add(ns);
-      addDeck([[px-ux*18,pz-uz*18],[px+ux*18,pz+uz*18]],[c[1]+.14,c[1]+.14],2.6,STOPS[i][0]+' tram stop')}
-    return{x:c[0],z:c[2],nx,nz,name:STOPS[i][0]}});
-  Object.assign(TRAM,{secs,offs,at,stopS,STOPX,s:stopS[0],dir:1,v:0,state:'dwell',dwell:8,at_:0,next:1,ready:true});
-  SPOTS.push({id:'tram',n:'Tram 12',s:'Kalasatama stop — ride to Korkeasaari and Kruunuvuorenranta',x:STOPX[0].x+STOPX[0].nx*3,z:STOPX[0].z+STOPX[0].nz*3,r:12});
-  tramPlace()}catch(e){console.warn('tram',e)}}
-function tramPlace(){const R=TRAM;for(let i=0;i<5;i++){const c=R.s+R.dir*R.offs[i]*1,a=R.at(c-R.secs[i].l*.45),b=R.at(c+R.secs[i].l*.45),g=R.secs[i].g;
+  const plat=M({color:lin('#bdbab3'),roughness:.85}),glassM=M({color:lin('#c7d4dc'),roughness:.05,metalness:.3,transparent:true,opacity:.35}),post=M({color:lin('#3d4247'),roughness:.4,metalness:.6});
+  const builtStops=new Map();
+  for(const L of LINES){
+    let P=[];let ok=true;for(let i=0;i<L.stops.length-1;i++){const seg=route(near(L.stops[i][1]),near(L.stops[i+1][1]));if(!seg){console.warn('tram '+L.num+': no track',L.stops[i][0]);ok=false;break}if(P.length)seg.shift();P=P.concat(seg)}if(!ok)continue;
+    const ext=(a,b,d)=>{const l=Math.hypot(a[0]-b[0],a[1]-b[1])||1;return[a[0]+(a[0]-b[0])/l*d,a[1]+(a[1]-b[1])/l*d]};P=[ext(P[0],P[1],25),...P,ext(P[P.length-1],P[P.length-2],25)];
+    P=dens(P,2);const S=[0];for(let i=1;i<P.length;i++)S.push(S[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));const Y=P.map(p=>railY(p[0],p[1]));
+    const stopS=L.stops.map(([,q])=>{let bi=0,bd=1e18;P.forEach((p,i)=>{const d=(p[0]-q[0])**2+(p[1]-q[1])**2;if(d<bd){bd=d;bi=i}});return S[bi]});
+    const at=s=>{s=clamp(s,0,S[S.length-1]);let lo=0,hi=S.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(S[m]>s)hi=m;else lo=m}const t=(s-S[lo])/((S[hi]-S[lo])||1);return[lerp(P[lo][0],P[hi][0],t),lerp(Y[lo],Y[hi],t),lerp(P[lo][1],P[hi][1],t)]};
+    const signM=dest=>cvsMat(512,96,g=>{g.fillStyle='#111';g.fillRect(0,0,512,96);g.fillStyle='#ffb21a';g.font="800 64px 'Inter Tight', sans-serif";g.textBaseline='middle';g.fillText(L.num,18,50);g.font="600 40px 'Inter Tight', sans-serif";g.fillText(dest,110,50)});
+    const sgF=signM(L.ends[1]),sgB=signM(L.ends[0]),hsl=cvsMat(256,64,g=>{g.fillStyle='#2f9a4a';g.fillRect(0,0,256,64);g.fillStyle='#fff';g.font="800 44px 'Inter Tight', sans-serif";g.textBaseline='middle';g.fillText('HSL',8,34)});
+    const SEC=[6.4,6.4,8.9,6.4,6.4],GAP=.12,LEN=SEC.reduce((a,b)=>a+b)+GAP*4,W=2.4;const secs=[];
+    for(let i=0;i<5;i++){const g=new THREE.Group(),l=SEC[i],add=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
+      add(new THREE.BoxGeometry(W,1.05,l),green,0,.95,0);add(new THREE.BoxGeometry(W-.06,.34,l-.1),under,0,.25,0);add(new THREE.BoxGeometry(W+.01,1.15,l-.2),band,0,2.05,0);
+      const np=Math.max(2,Math.floor(l/1.6));for(let k=0;k<=np;k++)add(new THREE.BoxGeometry(W+.03,1.15,.09),grey,0,2.05,-l/2+.1+k*(l-.2)/np);
+      add(new THREE.BoxGeometry(W,.75,l),grey,0,3.0,0);add(new THREE.BoxGeometry(W-.3,.12,l-.1),roof,0,3.43,0);
+      for(const sd of [-1,1]){for(const dz of l>7?[-2.2,2.2]:[0])add(new THREE.BoxGeometry(.02,2.1,1.3),door,sd*(W/2+.01),1.45,dz);const h=add(new THREE.PlaneGeometry(.9,.22),hsl,sd*(W/2+.02),.95,l>7?0:1.8);h.rotation.y=sd*Math.PI/2}
+      if(i===2){const p=new THREE.Group();p.position.set(0,3.5,0);g.add(p);const a=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,1.6),pant);a.rotation.x=.55;a.position.set(0,.35,.3);p.add(a);
+        const b=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,1.6),pant);b.rotation.x=-.55;b.position.set(0,1,.3);p.add(b);const hd=new THREE.Mesh(new THREE.BoxGeometry(1.6,.05,.25),pant);hd.position.set(0,1.38,-.05);p.add(hd)}
+      if(i===0||i===4){const sgn=i===4?1:-1;const ws=new THREE.Mesh(new THREE.BoxGeometry(W-.04,1.5,.9),band);ws.position.set(0,2.1,sgn*(l/2+.4));ws.rotation.x=sgn*.18;g.add(ws);
+        const nose=new THREE.Mesh(new THREE.BoxGeometry(W-.04,1.25,1.1),green);nose.position.set(0,.82,sgn*(l/2+.45));g.add(nose);const cap=new THREE.Mesh(new THREE.BoxGeometry(W-.04,.7,.8),grey);cap.position.set(0,3.02,sgn*(l/2+.3));g.add(cap);
+        const sg=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.36),sgn>0?sgF:sgB);sg.position.set(0,3.05,sgn*(l/2+.71));sg.rotation.y=sgn>0?0:Math.PI;g.add(sg);
+        for(const sx of [-.85,.85]){const hl=new THREE.Mesh(new THREE.BoxGeometry(.26,.12,.04),lamp);hl.position.set(sx,.95,sgn*(l/2+1.01));g.add(hl);const tl=new THREE.Mesh(new THREE.BoxGeometry(.12,.1,.04),red);tl.position.set(sx,.72,sgn*(l/2+1.01));g.add(tl)}}
+      scene.add(g);secs.push({g,l})}
+    const offs=[];{let o=LEN/2;for(let i=0;i<5;i++){offs.push(o-SEC[i]/2);o-=SEC[i]+GAP}offs.reverse()}
+    const STOPX=stopS.map((s0,i)=>{const nm0=L.stops[i][0],a=at(s0-12),b=at(s0+12),dx=b[0]-a[0],dz=b[2]-a[2],l=Math.hypot(dx,dz)||1,ux=dx/l,uz=dz/l,nx=-uz,nz=ux,c=at(s0);
+      const key=nm0;const ex=builtStops.get(key);if(ex&&Math.hypot(ex.x-c[0],ex.z-c[2])<40){ex.lines.push(L.num);return{...ex}}
+      const sx={x:c[0],z:c[2],nx,nz,name:nm0,lines:[L.num]};builtStops.set(key,sx);
+      const nm=cvsMat(512,80,gg=>{gg.fillStyle='#0a6ac2';gg.fillRect(0,0,512,80);gg.fillStyle='#fff';gg.font="700 40px 'Inter Tight', sans-serif";gg.textBaseline='middle';gg.fillText(nm0,16,42);gg.fillStyle='#ffb21a';gg.textAlign='right';gg.fillText(nm0==='Korkeasaari'||nm0==='Kruunuvuori'?'11 12':L.num,496,42)});
+      for(const sd of [-1,1]){const g=new THREE.Group(),px=c[0]+nx*sd*2.75,pz=c[2]+nz*sd*2.75;g.position.set(px,c[1]-.07,pz);g.rotation.y=Math.atan2(ux,uz);scene.add(g);
+        const pl=new THREE.Mesh(new THREE.BoxGeometry(2.6,.25,36),plat);pl.position.y=.12;pl.receiveShadow=true;g.add(pl);
+        const sh=new THREE.Group();sh.position.set(sd*.55,.25,4);g.add(sh);for(const z of [-2,2]){const p=new THREE.Mesh(new THREE.BoxGeometry(.08,2.5,.08),post);p.position.set(sd*.7,1.25,z);sh.add(p)}
+        const bk=new THREE.Mesh(new THREE.BoxGeometry(.03,2.1,4),glassM);bk.position.set(sd*.72,1.2,0);sh.add(bk);const rf=new THREE.Mesh(new THREE.BoxGeometry(1.7,.08,4.4),post);rf.position.y=2.55;sh.add(rf);
+        const ns=new THREE.Mesh(new THREE.PlaneGeometry(2.2,.34),nm);ns.position.set(sd*.7,2.9,0);ns.rotation.y=Math.PI/2;sh.add(ns);
+        addDeck([[px-ux*18,pz-uz*18],[px+ux*18,pz+uz*18]],[c[1]+.18,c[1]+.18],2.6,nm0+' tram stop')}
+      return sx});
+    const T2={num:L.num,ends:L.ends,secs,offs,at,stopS,STOPX,s:stopS[0],dir:1,v:0,state:'dwell',dwell:8+TRAMS.length*30,at_:0,next:1};
+    if(L.num==='12'){T2.s=stopS[2];T2.at_=2;T2.next=3}   /* start the 12 at Korkeasaari so the two lines are spread out */
+    TRAMS.push(T2);tramPlace(T2);
+    SPOTS.push({id:'tram'+L.num,n:'Tram '+L.num,s:STOPX[T2.at_].name+' stop — the tram is waiting',x:STOPX[T2.at_].x+STOPX[T2.at_].nx*3.2,z:STOPX[T2.at_].z+STOPX[T2.at_].nz*3.2,r:12,tram:T2})}
+ }catch(e){console.warn('tram',e)}}
+function tramPlace(R){for(let i=0;i<5;i++){const c=R.s+R.dir*R.offs[i],a=R.at(c-R.secs[i].l*.45),b=R.at(c+R.secs[i].l*.45),g=R.secs[i].g;
     g.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);g.rotation.set(0,0,0);const f=R.dir>0?b:a;g.lookAt(f[0],(a[1]+b[1])/2,f[2])}}
-function tramUpdate(dt){const R=TRAM;if(!R.ready)return;
+function tramStep(R,dt){
   if(R.state==='dwell'){R.dwell-=dt;if(R.dwell<=0){if(R.next>=R.stopS.length||R.next<0){R.dir=-R.dir;R.next=R.at_+R.dir}R.state='run'}}
   else{const tgt=R.stopS[R.next],rem=(tgt-R.s)*R.dir;R.v=Math.min(13.9,R.v+dt*1.1,Math.sqrt(Math.max(0,2*rem))+.2);R.s+=R.dir*Math.min(R.v*dt,Math.max(0,rem));
-    if(rem<=.05){R.s=tgt;R.v=0;R.state='dwell';R.dwell=14;R.at_=R.next;R.next+=R.dir;if(R.on&&R.leave)tramOff(R.at_);else if(R.on)pop(R.STOPX[R.at_].name)}}
-  tramPlace();
-  const btn=$('tramBtn');if(!btn)return;let show=false;
-  if(R.on){show=true;const nx=R.STOPX[R.next]||R.STOPX[R.at_];btn.textContent=R.state==='dwell'?'Get off · '+R.STOPX[R.at_].name:(R.leave?'Getting off at '+nx.name:'Get off at '+nx.name)}
-  else if(R.state==='dwell'&&state==='play'&&FERRY.state!=='helm'){const m=R.secs[2].g.position;if(Math.hypot(Pl.x-m.x,Pl.z-m.z)<22){show=true;btn.textContent='🚋 Board tram 12'}}
+    if(rem<=.05){R.s=tgt;R.v=0;R.state='dwell';R.dwell=14;R.at_=R.next;R.next+=R.dir;if(RIDE_T===R&&R.leave)tramOff(R.at_);else if(RIDE_T===R)pop(R.STOPX[R.at_].name)}}
+  tramPlace(R)}
+function tramUpdate(dt){for(const R of TRAMS)tramStep(R,dt);
+  const btn=$('tramBtn');if(!btn)return;let show=false;const R=RIDE_T;
+  if(R){show=true;const nx=R.STOPX[R.next]||R.STOPX[R.at_];btn.textContent=R.state==='dwell'?'Get off · '+R.STOPX[R.at_].name:(R.leave?'Getting off at '+nx.name:'Get off at '+nx.name)}
+  else if(state==='play'&&FERRY.state!=='helm'){for(const T2 of TRAMS){if(T2.state!=='dwell')continue;const m=T2.secs[2].g.position;if(Math.hypot(Pl.x-m.x,Pl.z-m.z)<22){show=true;btn.textContent='🚋 Board tram '+T2.num;btn.dataset.t=TRAMS.indexOf(T2);break}}}
   btn.style.display=show?'block':'none'}
-function tramBoard(){const R=TRAM;if(R.on){if(R.state==='dwell')tramOff(R.at_);else R.leave=true;return}R.on=true;R.leave=false;sk.visible=false;const toEnd=R.next>=R.stopS.length||R.next<0?-R.dir:R.dir;pop('Tram 12 → '+(toEnd>0?'Kruunuvuorenranta':'Kalasatama'))}
-function tramOff(i){const R=TRAM,s=R.STOPX[i];R.on=false;R.leave=false;sk.visible=true;teleport(s.x+s.nx*2.8,s.z+s.nz*2.8,Pl.yaw);pop(s.name)}
-function tramCam(){const R=TRAM;if(!R.on)return;const m=R.secs[2].g,f=new THREE.Vector3(0,0,1).applyQuaternion(m.quaternion),r=new THREE.Vector3(f.z,0,-f.x);   /* window seat in the middle section */
+function tramBoard(){const R=RIDE_T;if(R){if(R.state==='dwell')tramOff(R.at_);else R.leave=true;return}const T2=TRAMS[+$('tramBtn').dataset.t];if(!T2)return;RIDE_T=T2;T2.leave=false;sk.visible=false;
+  const toEnd=T2.next>=T2.stopS.length||T2.next<0?-T2.dir:T2.dir;pop('Tram '+T2.num+' → '+(toEnd>0?T2.ends[1]:T2.ends[0]))}
+function tramOff(i){const R=RIDE_T,s=R.STOPX[i];RIDE_T=null;R.leave=false;sk.visible=true;teleport(s.x+s.nx*3.2,s.z+s.nz*3.2,Pl.yaw);pop(s.name)}
+function tramCam(){const R=RIDE_T;if(!R)return;const m=R.secs[2].g,f=new THREE.Vector3(0,0,1).applyQuaternion(m.quaternion),r=new THREE.Vector3(f.z,0,-f.x);
   Pl.x=m.position.x;Pl.z=m.position.z;camera.position.set(m.position.x+r.x*.6,m.position.y+1.9,m.position.z+r.z*.6);camera.lookAt(m.position.x+r.x*30+f.x*14,m.position.y+1.5,m.position.z+r.z*30+f.z*14)}
-
+/* the quick link brings the tram to the stop and holds it there for you */
+function tramCall(T2){const i=T2.at_,s=T2.STOPX[i];T2.s=T2.stopS[i];T2.state='dwell';T2.dwell=40;T2.v=0;T2.next=i+T2.dir;tramPlace(T2);return s}
+/* rental e-scooters parked around the area; ride one away, park it where you leave it */
+const PARKED=[];let SWITCH=null;
+function placeScooters(){const spots=[[38,712],[330,858],[-260,560],[-60,180],[-905,762],[-1370,752],[2165,1762],[2430,1785],[-900,1690],[180,300]];const B=Object.keys(BRANDS);let k=0;
+  for(const[x0,z0]of spots){const[x,z]=nearestOpen(x0,z0);const a=Math.random()*6.28;for(let i=0;i<3;i++){const b=B[(k++)%3],x1=x+Math.cos(a)*i*.7,z1=z+Math.sin(a)*i*.7;parkScooter(b,x1,z1,a+Math.PI/2+(Math.random()-.5)*.3)}}}
+function parkScooter(brand,x,z,yaw){const m=kickModel(brand,false);m.g.position.set(x,T(x,z)+.02,z);m.g.rotation.set(0,yaw,.12);scene.add(m.g);PARKED.push({brand,x,z,g:m.g})}
+function rideSwitch(target){if(SWITCH)return;SWITCH={t:0,target,swapped:false};Pl.v=0}
+function switchUpdate(dt){
+  const btn=$('kickBtn');if(btn){let show=false;if(state==='play'&&!SWITCH&&!TRAM.on&&FERRY.state!=='helm'&&!WOLT.on){if(KICK.on){show=Math.abs(Pl.v)<1.5;btn.textContent='🛹 Park the scooter'}else{const n=PARKED.find(p=>Math.hypot(p.x-Pl.x,p.z-Pl.z)<3.5);if(n){show=true;btn.textContent='🛴 Ride '+n.brand;btn.dataset.i=PARKED.indexOf(n)}}}btn.style.display=show?'block':'none'}
+  if(!SWITCH)return;const S2=SWITCH;S2.t+=dt;const k=Math.min(1,S2.t/.9);Pl.v=0;
+  /* step off, the new ride comes under you, step on: a quick dip and rise */
+  const dip=Math.sin(Math.PI*k);sk.scale.set(1,1-.16*dip,1);
+  if(S2.target!=='board'&&S2.p){const p=S2.p,e=Math.min(1,k/.5);p.g.position.lerp(new THREE.Vector3(Pl.x,Pl.y+.02,Pl.z),e*.35);p.g.rotation.y=lerp(p.g.rotation.y,Pl.yaw,e*.3);p.g.rotation.z*=1-e*.3}
+  if(!S2.swapped&&k>=.5){S2.swapped=true;if(S2.target==='board'){parkScooter(KICK.brand,Pl.x+Math.cos(Pl.yaw)*.8,Pl.z-Math.sin(Pl.yaw)*.8,Pl.yaw+.3);setRide('board')}else{scene.remove(S2.p.g);PARKED.splice(PARKED.indexOf(S2.p),1);setRide('kick',S2.p.brand)}SK.vmax=20.8}
+  if(k>=1){sk.scale.set(1,1,1);SWITCH=null}}
 function levelDecks(){
    /* a lane that ends on another deck joins it at that deck's height, blended back over 25 m */
   for(const d of DECKS){if(d.rail||d.pts.length<2)continue;const n=d.pts.length,S=[0];for(let k=1;k<n;k++)S.push(S[k-1]+Math.hypot(d.pts[k][0]-d.pts[k-1][0],d.pts[k][1]-d.pts[k-1][1]));
@@ -1272,7 +1300,7 @@ function buildWorld(D){
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
   for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.2)}
   /* ground ribbons */
-  for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,LAYER[k]*.008+.04,true)}
+  for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,LAYER[k]*.02+.04,true)}
   /* lane markings: dashed centre line on two-way streets, edge lines on main roads */
   {const MK={pos:[]},LAMPS=[];const main=/^(primary|secondary|tertiary|trunk)$/,lit=/^(primary|secondary|tertiary|trunk|residential|unclassified|living_street|pedestrian|cycleway)$/;
    const strip=(P,off,w,dash,gap,y)=>{let carry=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const ux=dx/l,uz=dz/l,nx=-uz,nz=ux;
@@ -1305,9 +1333,9 @@ function buildWorld(D){
        if(L)for(const[d,k]of L){if(!d.rail)continue;const a=d.pts[k],c=d.pts[k+1],dx=c[0]-a[0],dz=c[1]-a[1],t=clamp(((x[0]-a[0])*dx+(x[1]-a[1])*dz)/(dx*dx+dz*dz||1)),px=a[0]+dx*t,pz=a[1]+dz*t;
          if((x[0]-px)**2+(x[1]-pz)**2>(d.w/2+.5)**2)continue;const hh=lerp(d.hs[k],d.hs[k+1],t);if(h===null||hh>h)h=hh}
        return h===null?T(x[0],x[1]):h};
-     for(let i=0;i<P.length-1;i++){const a=P[i],c2=P[i+1],dx=c2[0]-a[0],dz=c2[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const nx=-dz/l,nz=dx/l,ha=deckH(a)+(tram?.13:.32),hb=deckH(c2)+(tram?.13:.32);
-       for(const o of [-.72,.72]){const q=(s2,y)=>[a[0]+nx*(o+s2)+(c2[0]-a[0])*y,0,a[1]+nz*(o+s2)+(c2[1]-a[1])*y];const A=q(-.04,0),B=q(.04,0),C=q(.04,1),E=q(-.04,1);A[1]=B[1]=ha;C[1]=E[1]=hb;
-         const lo=v=>[v[0],v[1]-.12,v[2]];rails.push(...A,...C,...B,...A,...E,...C,...lo(A),...E,...A,...lo(A),...lo(E),...E,...B,...C,...lo(C),...B,...lo(C),...lo(B))}
+     for(let i=0;i<P.length-1;i++){const a=P[i],c2=P[i+1],dx=c2[0]-a[0],dz=c2[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const nx=-dz/l,nz=dx/l,ha=deckH(a)+(tram?.06:.32),hb=deckH(c2)+(tram?.06:.32);
+       for(const o of [-.72,.72]){const q=(s2,y)=>[a[0]+nx*(o+s2)+(c2[0]-a[0])*y,0,a[1]+nz*(o+s2)+(c2[1]-a[1])*y];const A=q(-.035,0),B=q(.035,0),C=q(.035,1),E=q(-.035,1);A[1]=B[1]=ha;C[1]=E[1]=hb;
+         const lo=v=>[v[0],v[1]-(tram?.055:.12),v[2]];rails.push(...A,...C,...B,...A,...E,...C,...lo(A),...E,...A,...lo(A),...lo(E),...E,...B,...C,...lo(C),...B,...lo(C),...lo(B))}
        if(!tram){const w=1.8,y0=ha-.25,y1=hb-.25;ball.pos.push(a[0]-nx*w,y0,a[1]-nz*w,c2[0]-nx*w,y1,c2[1]-nz*w,c2[0]+nx*w,y1,c2[1]+nz*w,a[0]-nx*w,y0,a[1]-nz*w,c2[0]+nx*w,y1,c2[1]+nz*w,a[0]+nx*w,y0,a[1]+nz*w)}}}
    if(rails.length){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(rails,3));geo.computeVertexNormals();const m=new THREE.Mesh(geo,M({color:lin('#8a8783'),roughness:.35,metalness:.8,side:THREE.DoubleSide}));m.receiveShadow=true;scene.add(m)}   /* steel rails with a head and web, visible from afar */
    if(ball.pos.length){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(ball.pos,3));geo.computeVertexNormals();const m=new THREE.Mesh(geo,M({color:lin('#7d766c'),roughness:1,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,side:THREE.DoubleSide}));m.receiveShadow=true;scene.add(m)}}
@@ -1378,7 +1406,7 @@ function buildWorld(D){
         if(mh>.5)for(const k of [f[0],f[1],f[2]]){geo.roof.p.push(all[k].x,mh,all[k].y);geo.roof.c.push(roofC.r*.6,roofC.g*.6,roofC.b*.6)}}}}catch(e){}}
   /* Hanasaari plant: the city's 3D model when available (plant=hand in the URL shows the hand-built model instead) */
   const PLANTM=(location.hash.match(/plant=(\w+)/)||[])[1]||'city';
-  buildPaanu();buildSite();levelDecks();buildFerry();buildTram(ways);
+  buildPaanu();buildSite();levelDecks();buildFerry();buildTram(ways);placeScooters();
   if(D.plantTiles&&D.plantTiles.length&&PLANTM!=='hand')buildHanasaari(HZB,decodeTiles(D.plantTiles));else buildHanasaari(HZB);
   if(D.tileGeo){const n=buildTiles(D.tileGeo,{hideMeshZones:true});D.tileTris=n}
   if(D.bridgeGeo)buildTiles(D.bridgeGeo);
@@ -1623,7 +1651,7 @@ const mapUp=e=>{MP.delete(e.pointerId);if(MP.size<2)mapPinch=null};mapC.addEvent
 mapC.addEventListener('wheel',e=>{if(!mapBig)return;e.preventDefault();const[px,py]=mapPt(e);mapZoomAt(e.deltaY<0?1.25:.8,px,py)},{passive:false});
 $('mapPlus').onclick=e=>{e.stopPropagation();mapZoomAt(1.5,mapC.width/2,mapC.width/2)};$('mapMinus').onclick=e=>{e.stopPropagation();mapZoomAt(1/1.5,mapC.width/2,mapC.width/2)};
 function buildTele(){const el=$('tele');el.textContent='';for(const s2 of SPOTS){const b=document.createElement('button');b.textContent=s2.n.replace(' plaza','').replace('Suvilahti ','');b.title='Teleport to '+s2.n;if(seen.has(s2.id))b.className='seen';
-  b.onclick=e=>{e.stopPropagation();if(state!=='play')return;if(s2.id==='diy'){spawn('diy')}else teleport(s2.x,s2.z);pop(s2.n)};el.append(b)}}
+  b.onclick=e=>{e.stopPropagation();if(state!=='play')return;if(s2.id==='diy'){spawn('diy')}else if(s2.tram){const st=tramCall(s2.tram);teleport(st.x+st.nx*3.2,st.z+st.nz*3.2)}else teleport(s2.x,s2.z);pop(s2.n)};el.append(b)}}
 const mapView=()=>mapBig?{cx:MV.cx,cz:MV.cz,ppm:mapBase()*MV.z}:{cx:Pl.x,cz:Pl.z,ppm:1};
 function drawMap(){if(!mapBg)return;const W=mapC.width,H2=W/2,V=mapView(),s=V.ppm*RS;mctx.save();mctx.fillStyle='#c4c8ba';mctx.fillRect(0,0,W,W);mctx.translate(H2,H2);mctx.scale(s,s);mctx.translate(-RX(V.cx),-RZ(V.cz));mctx.drawImage(mapBg,0,0);mctx.restore();
   const fx=-Math.sin(Pl.yaw),fz=-Math.cos(Pl.yaw),ax=H2+(Pl.x-V.cx)*V.ppm,az=H2+(Pl.z-V.cz)*V.ppm;mctx.fillStyle='#ffe977';mctx.strokeStyle='#0b1440';mctx.lineWidth=2.5;mctx.beginPath();mctx.moveTo(ax+fx*16,az+fz*16);mctx.lineTo(ax-fx*8+fz*9,az-fz*8-fx*9);mctx.lineTo(ax-fx*8-fz*9,az-fz*8+fx*9);mctx.closePath();mctx.fill();mctx.stroke();
@@ -1658,8 +1686,8 @@ $('reloadBtn').onclick=async()=>{await cacheClear();location.reload()};
 function togglePause(){if(state==='play'){state='pause';$('posInfo').textContent='You are at '+(LAT0-Pl.z/KZ).toFixed(5)+', '+(LON0+Pl.x/KX).toFixed(5);$('pT').textContent=fmtT(St.t);$('pD').textContent=fmtD(St.dist);$('pB').textContent=seen.size+' / '+SPOTS.length;$('pV').textContent=Math.round(St.top*3.6)+' km/h';show('pause',true)}
   else if(state==='pause'){state='play';show('pause',false);if(!mobile){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}}
 {const sl=$('camSl'),sv=$('camV'),upd=()=>{sv.textContent=CAMD.toFixed(1)+' m'};sl.value=CAMD;upd();sl.oninput=()=>{CAMD=parseFloat(sl.value);upd();try{localStorage.setItem('skh-cd',CAMD)}catch(e){}}}
-$('ferryBtn').onclick=e=>{e.stopPropagation();ferryGo()};$('tramBtn').onclick=e=>{e.stopPropagation();tramBoard()};$('helmBtn').onclick=e=>{e.stopPropagation();ferryHelm()};
-{const wb=$('woltBtn');let w=false;try{w=localStorage.getItem('skh-wolt')==='1'}catch(e){}const upd=()=>{wb.textContent=WOLT.on?'Ride: Wolt scooter':'Ride: skateboard';$('goBtn').textContent=WOLT.on?'Start riding':'Start skating';setTimeout(()=>{SK.vmax=WOLT.on?12.5:20.8})};setWolt(w);upd();wb.onclick=()=>{setWolt(!WOLT.on);upd()}}
+$('ferryBtn').onclick=e=>{e.stopPropagation();ferryGo()};$('tramBtn').onclick=e=>{e.stopPropagation();tramBoard()};$('kickBtn').onclick=e=>{e.stopPropagation();if(KICK.on)rideSwitch('board');else{const p=PARKED[+$('kickBtn').dataset.i];if(p){SWITCH=null;rideSwitch('kick');SWITCH.p=p}}};$('helmBtn').onclick=e=>{e.stopPropagation();ferryHelm()};
+{const wb=$('woltBtn');let w=false;try{w=localStorage.getItem('skh-wolt')==='1'}catch(e){}const upd=()=>{wb.textContent=WOLT.on?'Ride: Wolt scooter':'Ride: skateboard';$('goBtn').textContent=WOLT.on?'Start riding':'Start skating';setTimeout(()=>{SK.vmax=WOLT.on?12.5:20.8})};window.__rideUpd=upd;setWolt(w);upd();wb.onclick=()=>{setWolt(!WOLT.on);upd()}}
 $('pauseBtn').onclick=togglePause;$('resetBtn').onclick=()=>{if(state==='play')resetPos()};$('backBtn').onclick=()=>{if(state==='play')rewind()};$('resBtn').onclick=togglePause;
 $('menuBtn').onclick=()=>{show('pause',false);show('hud',false);joy.style.display='none';$('joyHint').style.display='none';$('mouseHint').style.display='none';state='menu';show('menu',true)};
 
@@ -1771,7 +1799,7 @@ function animateSkater(dt){
   Pl.lean+=((Pl.leanT||0)-Pl.lean)*Math.min(1,dt*5);
   if(Pl.visY===null||Pl.air||Math.abs(Pl.visY-Pl.y)>.6)Pl.visY=Pl.y;else Pl.visY=lerp(Pl.visY,Pl.y,Math.min(1,dt*22));sk.position.set(Pl.x,Pl.visY,Pl.z);
   if(Pl.air)tmpN.set(0,1,0);else{const e=.3,c=G(Pl.x,Pl.z),f=v=>Math.abs(v-c)>.2?0:v-c;tmpN.set(f(G(Pl.x-e,Pl.z))-f(G(Pl.x+e,Pl.z)),2*e,f(G(Pl.x,Pl.z-e))-f(G(Pl.x,Pl.z+e))).normalize()}
-  surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);sk.quaternion.copy(qA).multiply(qY);rollG.rotation.z=Pl.lean*.75;if(WOLT.on){wolt.rotation.z=Pl.lean*.9;WOLT.steer.rotation.y=clamp((Pl.w||0)*.35,-.5,.5);for(const w of WOLT.wheels)w.rotation.x-=Pl.v*dt/.2}   /* deck and rider tilt on the bushings, wheels stay down */
+  surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);sk.quaternion.copy(qA).multiply(qY);rollG.rotation.z=Pl.lean*.75;if(WOLT.on){wolt.rotation.z=Pl.lean*.9;const st=clamp((Pl.w||0)*.35,-.5,.5);WOLT.steer.rotation.y=st;WOLT.front.rotation.y=st;for(const w of WOLT.wheels)w.rotation.x-=Pl.v*dt/.23}if(KICK.on){kick.rotation.z=Pl.lean*.85;for(const w of KICK.wheels)w.rotation.x-=Pl.v*dt/.145}   /* deck and rider tilt on the bushings, wheels stay down */
   {const v=Math.max(1.5,Math.abs(Pl.v)),dl=Pl.air?0:clamp(Math.atan(.31*(Pl.w||0)/v)*1.8*Math.sign(Pl.v||1)+Pl.lean*.25,-.38,.38);TRK[0].rotation.y+=(dl-TRK[0].rotation.y)*Math.min(1,dt*12);TRK[1].rotation.y=-TRK[0].rotation.y}   /* front and rear trucks steer opposite ways */
   if(Pl.air&&!Pl._air)Pl.olT=0;if(Pl.olT!==undefined)Pl.olT+=dt;{const t=Pl.olT??9,p=t<.09?.42*t/.09:t<.34?.42*(1-(t-.09)/.25)-.06*Math.sin(Math.PI*(t-.09)/.25):0;olG.rotation.x=Pl.air||t<.34?p:0}   /* ollie: snap the tail, the nose rises, the front foot levels it out */
   if(Pl._air&&!Pl.air)Pl.land=Math.min(1,.35+Math.abs(Pl._vy||0)/5);Pl._air=Pl.air;Pl._vy=Pl.vy;Pl.land=Math.max(0,(Pl.land||0)-dt*2.6);   /* knees soak up a landing */
@@ -1834,7 +1862,7 @@ function frame(now){
   const dt=clamp((now-last)/1000,0,.05);last=Math.max(last,now);tAll+=dt;
   try{
     stepWeather(dt);CLOUDT+=dt*cur.wind;cloudMat.uniforms.uTime.value=CLOUDT;
-    ferryUpdate(dt);tramUpdate(dt);if(state==='play'&&FERRY.state!=='helm'&&!TRAM.on){updatePlayer(dt);recordHist(dt)}
+    ferryUpdate(dt);tramUpdate(dt);switchUpdate(dt);if(state==='play'&&FERRY.state!=='helm'&&!TRAM.on){updatePlayer(dt);recordHist(dt)}
     if(!isFinite(Pl.x+Pl.z+Pl.y+Pl.v+Pl.yaw))spawn(lastStart);
     animateSkater(state==='pause'?0:dt);updateCamera(dt,state!=='play'&&state!=='pause');ferryCam();tramCam();updateRain(dt);
     if(LAMPMAT)LAMPMAT.emissiveIntensity=lerp(LAMPMAT.emissiveIntensity,weather==='golden'?1.6:weather==='rain'?1.3:weather==='cloudy'?.4:0,Math.min(1,dt*2));
@@ -1845,7 +1873,7 @@ function frame(now){
   }catch(e){report(e.message)}
 }
 if(/test/.test(location.hash))window.__MAPBG=()=>mapBg;
-if(/test/.test(location.hash))window.__T={TRAM,tramBoard,setWolt,ferryHelm,blocked,stepMove,wallAt,ferryGo,ferryUpdate,ferryLocal,FERRY,scene,renderer,hemi,sun,bridgeTop,T,blocked,decksAt,wallAt,isWater,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
+if(/test/.test(location.hash))window.__T={PARKED,rideSwitch,setRide,TRAMS,TRAM,tramBoard,setWolt,ferryHelm,blocked,stepMove,wallAt,ferryGo,ferryUpdate,ferryLocal,FERRY,scene,renderer,hemi,sun,bridgeTop,T,blocked,decksAt,wallAt,isWater,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
 let cityOK=false,cityMsg='';

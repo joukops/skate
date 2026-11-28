@@ -557,6 +557,9 @@ let DIYB=0;function diyAt(x,z){const[u,v]=toLocal(x,z);if(u<0||v<0||u>DW||v>DD)r
 const DIYU={uDC:uniform(new THREE.Vector4()),uDS:uniform(new THREE.Vector2())};
 const diyIn=p=>{const C=DIYU.uDC,S=DIYU.uDS,d=p.sub(C.xy),lu=d.x.mul(C.z).sub(d.y.mul(C.w)).add(S.x.mul(.5)),lv=d.x.mul(C.w).add(d.y.mul(C.z)).add(S.y.mul(.5));return lu.greaterThan(.05).and(lv.greaterThan(.05)).and(lu.lessThan(S.x.sub(.05))).and(lv.lessThan(S.y.sub(.05)))};
 function diyHoleStd(m){addDiscard(m,()=>diyIn(positionWorld.xz))}
+/* where a photo ground tile lies, the drawn road/path surfaces step aside (a coverage mask filled in when the tiles load) */
+const GCOV={x0:30,z0:30,s:400,n:1024},GCT=new THREE.DataTexture(new Uint8Array(GCOV.n*GCOV.n),GCOV.n,GCOV.n,THREE.RedFormat);GCT.magFilter=GCT.minFilter=THREE.NearestFilter;GCT.needsUpdate=true;
+function photoGroundHole(m){addDiscard(m,()=>texture(GCT,positionWorld.xz.sub(vec2(GCOV.x0,GCOV.z0)).div(GCOV.s)).r.greaterThan(.5))}
 /* =====================================================================
    BUILD THE CITY
    ===================================================================== */
@@ -938,6 +941,19 @@ async function loadFacades(dir){let ix;try{const r=await fetch('data/'+dir+'/fac
     g.p.push(ax,f.y0,az,bx,f.y0,bz,bx,f.y1,bz,ax,f.y0,az,bx,f.y1,bz,ax,f.y1,az);g.u.push(u0,v1,u1,v1,u1,v0,u0,v1,u1,v0,u0,v0)}
   G.forEach((g,i)=>{if(!g.p.length)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(g.p,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(g.u,2));
     const tx=TL.load('data/'+dir+'/a'+i+'.jpg');tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;const m=new THREE.Mesh(geo,MESHMAT(tx));scene.add(m)})}
+/* street-level photos turned into ground texture tiles (data/ground), laid on the terrain */
+async function loadGround(){let ix;try{const r=await fetch('data/ground/index.json',{cache:'no-cache'});if(!r.ok)return;ix=await r.json()}catch(e){return}
+  const cov=GCT.image.data,N=GCOV.n;
+  for(const t of ix.tiles||[]){const im=new Image();im.src='data/ground/'+t.f;try{await im.decode()}catch(e){continue}
+    const c=mk(im.width,im.height),g=c.getContext('2d');g.drawImage(im,0,0);const A=g.getImageData(0,0,im.width,im.height).data;
+    for(let j=0;j<N;j++){const z=GCOV.z0+(j+.5)*GCOV.s/N;if(z<t.z0||z>=t.z0+t.size)continue;for(let i=0;i<N;i++){const x=GCOV.x0+(i+.5)*GCOV.s/N;if(x<t.x0||x>=t.x0+t.size)continue;
+      const u=Math.floor((x-t.x0)/t.size*im.width),v=Math.floor((z-t.z0)/t.size*im.height);if(A[(v*im.width+u)*4+3]>200)cov[j*N+i]=255}}
+    const n=26,P=[],U=[],I=[];for(let j=0;j<=n;j++)for(let i=0;i<=n;i++){const x=t.x0+t.size*i/n,z=t.z0+t.size*j/n,h=T(x,z),e=.8,k=Math.max(0,h-(T(x+e,z)+T(x-e,z))/2,h-(T(x,z+e)+T(x,z-e))/2);P.push(x,h+.07+Math.min(.08,k),z);U.push(i/n,j/n)}
+    for(let j=0;j<n;j++)for(let i=0;i<n;i++){const a=j*(n+1)+i;I.push(a,a+n+1,a+1,a+1,a+n+1,a+n+2)}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));geo.setIndex(I);
+    const tx=new THREE.Texture(im);tx.flipY=false;tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=maxAniso;tx.needsUpdate=true;const m=MESHMAT(tx);m.transparent=true;m.alphaTest=.3;depthPush(m,.002,.03);diyHoleStd(m);
+    const me=new THREE.Mesh(geo,m);me.renderOrder=1;scene.add(me)}
+  GCT.needsUpdate=true}
 function buildWorld(D){
   if(D.bridges&&!D.bridgeGeo)D.bridgeGeo=decodeTiles(D.bridges);BRGEO=D.bridgeGeo||null;
   const tags=e=>e.tags||{};
@@ -1237,7 +1253,7 @@ function buildWorld(D){
   const addArea=(P,y)=>{if(P.length<4)return;const pts=P.slice(0,-1).map(p=>new THREE.Vector2(p[0],p[1]));if(THREE.ShapeUtils.isClockWise(pts))pts.reverse();const tri=THREE.ShapeUtils.triangulateShape(pts,[]);for(const f of tri)for(const k of [f[0],f[2],f[1]])areaGeo.pos.push(pts[k].x,y,pts[k].y)};
   for(const e of ways){const t=tags(e);if(t.highway&&t.area==='yes'&&!isTunnel(t))addArea(wayPts(e),.12)}
   for(const e of D.land.elements){const t=tags(e);if(e.type==='way'&&(t.place==='square'||t['area:highway']==='footway'||t['area:highway']==='pedestrian'))addArea(wayPts(e),.11)}
-  const RMAT={};for(const k in COLOR){RMAT[k]=wet(M({color:lin(COLOR[k]),map:tex(asphaltTile(k),1,1),roughness:k==='stone'?.7:.85,polygonOffset:true,polygonOffsetFactor:k==='road'?-2:-4,polygonOffsetUnits:k==='road'?-2:-4,side:THREE.DoubleSide}),k==='gravel'?.6:.12);depthPush(RMAT[k],.002,LAYER[k]*.012);diyHoleStd(RMAT[k])}
+  const RMAT={};for(const k in COLOR){RMAT[k]=wet(M({color:lin(COLOR[k]),map:tex(asphaltTile(k),1,1),roughness:k==='stone'?.7:.85,polygonOffset:true,polygonOffsetFactor:k==='road'?-2:-4,polygonOffsetUnits:k==='road'?-2:-4,side:THREE.DoubleSide}),k==='gravel'?.6:.12);depthPush(RMAT[k],.002,LAYER[k]*.012);diyHoleStd(RMAT[k]);photoGroundHole(RMAT[k])}
   for(const k in ribbons){const R=ribbons[k];if(!R.pos.length)continue;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(R.pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(R.uv,2));geo.computeVertexNormals();const m=new THREE.Mesh(geo,RMAT[k]);m.receiveShadow=true;scene.add(m)}
   if(areaGeo.pos.length&&!TER){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(areaGeo.pos,3));const uv=[];for(let i=0;i<areaGeo.pos.length;i+=3)uv.push(areaGeo.pos[i]/4,areaGeo.pos[i+2]/4);geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();const m=new THREE.Mesh(geo,RMAT.stone);m.receiveShadow=true;scene.add(m)}
   /* tracks: rails on ballast or in the street */
@@ -1924,7 +1940,7 @@ let cityOK=false,cityMsg='';
     try{D.city=await loadCity(.52,.58);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
     D.tiles=await loadTiles(.58,.61);D.bridges=await loadTiles(.61,.615,'bridges','LOD3 bridges');
     if(D.tiles){D.plantTiles=D.tiles.filter(x=>x.t.plant);D.tiles=D.tiles.filter(x=>!x.t.plant)}
-    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{if(!/nofacades/.test(location.hash))loadFacades('facades');if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
+    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{if(!/nofacades/.test(location.hash))loadFacades('facades');if(/[#&]ground\b/.test(location.hash))loadGround();if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
     if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}
   catch(e){status(e.message,0);report(e.message)}

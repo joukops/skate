@@ -1,7 +1,7 @@
 model 0-txt images 85 points 11433
-  levelled by 84.9 deg; GPS fit: inliers 40 / 85 mean error 2.89 m, scale 43.123
-wall fit: points 1067 median residual 0.64 m; shift 0.22 0.95 rotation 0.33 deg
-height: ground points 2002 offset 0.37
+  levelled by 84.9 deg; GPS fit: inliers 40 / 85 mean error 2.92 m, scale 43.461
+wall fit: points 1071 median residual 0.66 m; shift 0.04 1.08 rotation 0.43 deg
+height: ground points 1999 offset 0.34
   cameras kept 85
 model 1-txt images 110 points 14672
   levelled by 89.0 deg; GPS fit: inliers 49 / 110 mean error 2.53 m, scale 16.059
@@ -19,14 +19,14 @@ wall fit: points 1579 median residual 0.17 m; shift -11.16 0.07 rotation 12.58 d
 height: ground points 81 offset -0.66
   wall fit too far from GPS: dropped
 model 2-txt images 21 points 3828
-  levelled by 87.7 deg; GPS fit: inliers 10 / 21 mean error 1.92 m, scale 26.693
-wall fit: points 535 median residual 0.46 m; shift 147.15 11.04 rotation 8.94 deg
-height: ground points 1438 offset -1.50
+  levelled by 87.7 deg; GPS fit: inliers 10 / 21 mean error 1.78 m, scale 25.950
+wall fit: points 434 median residual 0.60 m; shift 37.84 -3.49 rotation -7.87 deg
+height: ground points 513 offset 2.31
   wall fit too far from GPS: dropped
 model 3-txt images 72 points 9403
-  levelled by 87.8 deg; GPS fit: inliers 36 / 72 mean error 1.97 m, scale 8.342
-wall fit: points 2212 median residual 0.54 m; shift 2.39 0.34 rotation -1.18 deg
-height: ground points 1999 offset 0.22
+  levelled by 87.8 deg; GPS fit: inliers 37 / 72 mean error 2.16 m, scale 8.255
+wall fit: points 2241 median residual 0.56 m; shift 2.30 0.54 rotation -1.17 deg
+height: ground points 2011 offset 0.28
   cameras kept 54
 model 4-txt images 26 points 4295
   levelled by 91.9 deg; GPS fit: inliers 21 / 26 mean error 1.49 m, scale 7.963
@@ -44,8 +44,8 @@ wall fit: points 97 median residual 0.46 m; shift 3.73 -0.05 rotation -0.93 deg
 height: ground points 88 offset 0.28
   cameras kept 10
 model 7-txt images 11 points 659
-  levelled by 92.2 deg; GPS fit: inliers 5 / 11 mean error 3.01 m, scale 10.746
-wall fit: points 109 median residual 0.60 m; shift 12.27 22.81 rotation 11.70 deg
+  levelled by 92.2 deg; GPS fit: inliers 5 / 11 mean error 2.64 m, scale 13.899
+wall fit: points 64 median residual 0.60 m; shift 39.14 4.89 rotation -5.60 deg
 height: ground points 1 offset 0.00
   wall fit too far from GPS: dropped
 model 8-txt images 10 points 515
@@ -60,4 +60,4 @@ height: ground points 31 offset 1.17
   wall fit too far from GPS: dropped
 registered cameras 266
 walls in the block 147
-facades {"few":114,"disagree":1,"ok":15,"sky":12,"lean":5} views rotated 10 median roll deg 4.7
+facades {"few":114,"disagree":1,"ok":15,"sky":13,"lean":4} views rotated 15 median roll deg 4.5

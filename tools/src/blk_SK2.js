@@ -16,7 +16,7 @@ const skin=M({color:lin('#c99476'),roughness:.6}),
   jacket=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2f6fa8'),roughness:.62}),jacket2=M({color:lin('#1f4f7c'),roughness:.7}),
   pants=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2b3442'),roughness:.88}),
   helmetM=M({color:lin('#e8e9ea'),roughness:.28,metalness:.05}),helmetV=M({color:lin('#202326'),roughness:.6}),
-  padM=M({color:lin('#26292d'),roughness:.55}),hairM=M({color:lin('#3a2a1f'),roughness:.9}),eyeM=M({color:lin('#1a1a1a'),roughness:.3}),
+  padM=M({color:lin('#26292d'),roughness:.55}),hairM=M({color:lin('#6b4426'),roughness:.9}),capM=M({color:lin('#b4552f'),roughness:.85}),capB=M({color:lin('#8e3f22'),roughness:.85}),eyeM=M({color:lin('#1a1a1a'),roughness:.3}),
   shellM=M({color:lin('#1c1f23'),roughness:.32,metalness:.1}),shellA=M({color:lin('#d23a2a'),roughness:.4}),linerM=M({color:lin('#3a3f46'),roughness:.9}),
   frameM=M({color:lin('#b8bec4'),roughness:.25,metalness:.9}),tyreM=M({color:lin('#e7e3d6'),roughness:.55}),hubM=M({color:lin('#1d1f22'),roughness:.4,metalness:.4}),bearM=M({color:lin('#c9ced2'),roughness:.2,metalness:.95}),
   strapM=M({color:lin('#111316'),roughness:.6}),buckleM=M({color:lin('#c0c5ca'),roughness:.25,metalness:.9}),soleM=M({color:lin('#2a2d31'),roughness:.8});
@@ -42,11 +42,11 @@ add(taper(.09,[.046,.05,.052],12),skin,head,0,.09,0);   /* neck */
  for(const s of [-1,1]){add(new THREE.SphereGeometry(.024,10,8),skin,head,s*.085,.155,0).scale.set(.45,1,.75);
    add(new THREE.SphereGeometry(.011,8,6),eyeM,head,s*.033,.175,-.083)}
  add(new THREE.SphereGeometry(.1,18,10,0,Math.PI*2,0,Math.PI*.42),hairM,head,0,.17,.015).scale.set(.9,1,1);
- /* helmet: shell with vent slots, rim and chin strap */
- const hm=add(new THREE.SphereGeometry(.122,28,16,0,Math.PI*2,0,Math.PI*.52),helmetM,head,0,.168,.0);hm.scale.set(.93,1,1.08);
- for(let i=-2;i<=2;i++){const v=add(new THREE.BoxGeometry(.016,.012,.09),helmetV,head,i*.04,.288-Math.abs(i)*.012,-.01);v.rotation.z=i*.18}
- {const o=add(new THREE.TorusGeometry(.117,.007,6,30),helmetV,head,0,.17,0);o.rotation.x=Math.PI/2;o.scale.set(.93,1.08,1)}
- for(const s of [-1,1]){const st=add(new THREE.CylinderGeometry(.003,.003,.12,4),strapM,head,s*.07,.1,-.01);st.rotation.z=s*.35}}
+ /* brown hair showing under a burnt-clay cap: tufts over the ears and at the nape */
+ for(const[x,y,z,sx,sy,sz]of [[-.075,.13,.03,.5,.9,1],[.075,.13,.03,.5,.9,1],[0,.12,.075,1.05,.75,.6],[-.05,.11,.06,.6,.7,.7],[.05,.11,.06,.6,.7,.7]])add(new THREE.SphereGeometry(.06,12,10),hairM,head,x,y,z).scale.set(sx,sy,sz);
+ {const cap=add(new THREE.SphereGeometry(.108,28,14,0,Math.PI*2,0,Math.PI*.5),capM,head,0,.175,.005);cap.scale.set(.93,.82,1.02);
+  const br=add(new THREE.CylinderGeometry(.085,.085,.008,24,1,false,Math.PI*.5,Math.PI),capM,head,0,.18,-.06);br.scale.set(1,1,.75);br.rotation.x=.12;   /* brim */
+  add(new THREE.TorusGeometry(.099,.005,6,32),capB,head,0,.178,.005).rotation.x=Math.PI/2;add(new THREE.SphereGeometry(.009,8,6),capM,head,0,.264,.005)}}
 function limb(par,x,y,l1,l2,r1,r2,m1,m2,arm){const a=new THREE.Group();a.position.set(x,y,0);par.add(a);
   add(taper(l1,arm?[r1*1.15,r1*1.05,r1*.9,r1*.78]:[r1*1.18,r1*1.08,r1*.95,r1*.8,r1*.72]),m1,a);
   const b=new THREE.Group();b.position.y=-l1;a.add(b);
@@ -86,13 +86,18 @@ const SN=(()=>{const L0=-.035,L1=.3,len=L1-L0,wid=u=>{const t=(u-L0)/len;return 
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
   /* sneaker: heel at +z, toe at -z; sole 8.5 cm below the ankle */
-  const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
-  add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);add(SN.toe,shoeS,sk3);
+  const sk3=new THREE.Group();sk3.position.set(0,-.072,.07);sk3.rotation.y=Math.PI/2;sk3.scale.set(.88,1,.95);f.add(sk3);
+  add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);
   for(let i=0;i<5;i++){const u=.115+i*.026,o=add(new THREE.CapsuleGeometry(.0028,.045,2,6),shoeS,sk3,u,SN.top(u)+.002,0);o.rotation.x=Math.PI/2;o.rotation.z=-.35*(1-i*.12)}   /* laces */
-  {const o=add(new THREE.TorusGeometry(.046,.009,8,20),shoeM,sk3,.02,.098,0);o.rotation.x=Math.PI/2;o.rotation.y=-.25;o.scale.set(1.15,.85,1)}   /* padded collar */
+
   CUFF.push(new THREE.Group())}
 /* powered skateboard: 98 cm deck, grip tape, two trucks, four 90 mm wheels, belt drives on the rear truck, battery under the deck */
-const board=new THREE.Group();sk.add(board);const DECKY=.128;
+/* how a skateboard moves: the trucks stay on the ground; leaning tilts the deck (and rider) on the bushings around the kingpins,
+   and that tilt steers the two trucks in opposite directions. An ollie pops the tail and pivots the board up around it. */
+const olG=new THREE.Group();olG.position.z=.42;sk.add(olG);const olI=new THREE.Group();olI.position.z=-.42;olG.add(olI);
+const rollG=new THREE.Group();rollG.position.y=.075;olI.add(rollG);const rollI=new THREE.Group();rollI.position.y=-.075;rollG.add(rollI);rollI.add(pelvis);
+const TRK=[-.31,.31].map(z=>{const g=new THREE.Group();g.position.z=z;olI.add(g);return g});
+const board=new THREE.Group();rollI.add(board);const DECKY=.128;
 {const deckS=new THREE.Shape(),L=.49,W=.125;deckS.moveTo(-W,-L+.1);deckS.quadraticCurveTo(-W,-L,0,-L);deckS.quadraticCurveTo(W,-L,W,-L+.1);deckS.lineTo(W,L-.1);deckS.quadraticCurveTo(W,L,0,L);deckS.quadraticCurveTo(-W,L,-W,L-.1);deckS.closePath();
  const dg=new THREE.ExtrudeGeometry(deckS,{depth:.014,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:2,curveSegments:10});dg.rotateX(Math.PI/2);
  {const p=dg.attributes.position;for(let i=0;i<p.count;i++){const z=p.getZ(i),k=Math.max(0,Math.abs(z)-.36);p.setY(i,p.getY(i)+k*k*3.2+.0)}dg.computeVertexNormals()}   /* kicktails */
@@ -103,15 +108,15 @@ const board=new THREE.Group();sk.add(board);const DECKY=.128;
    batM=M({color:lin('#26282b'),roughness:.5,metalness:.2}),motM=M({color:lin('#3a3d42'),roughness:.3,metalness:.8}),ledM=M({color:lin('#3fb6ff'),emissive:lin('#2a8fff'),emissiveIntensity:2,roughness:.4});
  for(const tz of [-.31,.31]){add(new THREE.BoxGeometry(.065,.012,.09),trM,board,0,DECKY-.02,tz);                    /* baseplate */
    add(new THREE.CylinderGeometry(.018,.018,.03,10),bushM,board,0,DECKY-.04,tz);                                    /* bushing */
-   add(new THREE.BoxGeometry(.2,.026,.03),trM,board,0,.052,tz);                                                    /* hanger */
-   add(new THREE.CylinderGeometry(.005,.005,.27,8).rotateZ(Math.PI/2),trM,board,0,.045,tz);                        /* axle */
-   for(const sx of [-1,1]){const hub=new THREE.Group();hub.position.set(sx*.118,.045,tz);board.add(hub);
+   const tg=TRK[tz<0?0:1];add(new THREE.BoxGeometry(.2,.026,.03),trM,tg,0,.052,0);                                 /* hanger */
+   add(new THREE.CylinderGeometry(.005,.005,.27,8).rotateZ(Math.PI/2),trM,tg,0,.045,0);                            /* axle */
+   for(const sx of [-1,1]){const hub=new THREE.Group();hub.position.set(sx*.118,.045,0);tg.add(hub);
      const wg=new THREE.CylinderGeometry(.045,.045,.05,24).rotateZ(Math.PI/2);add(wg,urM,hub);
      add(new THREE.CylinderGeometry(.024,.024,.052,10).rotateZ(Math.PI/2),coreM,hub);
      for(let k=0;k<3;k++)add(new THREE.BoxGeometry(.054,.006,.03),coreM,hub).rotation.x=k*Math.PI/3;
      WHEELS.push(hub);SPIN.push(hub)}}
- for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.027,.027,.055,14).rotateX(Math.PI/2),motM,board,sx*.075,.06,.38);   /* motors behind the rear truck */
-   add(new THREE.BoxGeometry(.012,.07,.1),M({color:lin('#202224'),roughness:.6}),board,sx*.15,.05,.35)}                     /* belt covers */
+ for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.027,.027,.055,14).rotateX(Math.PI/2),motM,TRK[1],sx*.075,.06,.07);   /* motors on the rear truck */
+   add(new THREE.BoxGeometry(.012,.07,.1),M({color:lin('#202224'),roughness:.6}),TRK[1],sx*.15,.05,.04)}                     /* belt covers */
  add(new THREE.BoxGeometry(.17,.032,.5),batM,board,0,DECKY-.03,0);                 /* battery enclosure */
  add(new THREE.BoxGeometry(.004,.008,.42),ledM,board,.087,DECKY-.035,0);add(new THREE.BoxGeometry(.004,.008,.42),ledM,board,-.087,DECKY-.035,0)}
 /* throttle remote in the back hand */

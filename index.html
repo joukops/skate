@@ -139,7 +139,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.webgpu.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
 /* three.js r170 with the WebGPU renderer (falls back to WebGL 2 where WebGPU is missing); materials are node materials, custom shading is TSL */
-import * as T3 from 'three/webgpu';import * as TSL from 'three/tsl';import {SkyMesh} from 'three/addons/objects/SkyMesh.js';import {WaterMesh} from 'three/addons/objects/WaterMesh.js';
+import * as T3 from 'three/webgpu';import * as TSL from 'three/tsl';import {SkyMesh} from './vendor/SkyMesh.js';import {WaterMesh} from 'three/addons/objects/WaterMesh.js';
 T3.ColorManagement.enabled=false;
 /* r170 chooses a 64 KB uniform buffer for instances when the current draw count is <= 1000, but sizes it from the full capacity:
    a 1200-tree set drawn with fewer trees overflows it and blanks the whole WebGPU frame. Always use the per-instance attribute path. */
@@ -237,7 +237,7 @@ Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:
 sun.shadow.bias=-.0004;sun.shadow.normalBias=.04;scene.add(sun,sun.target);
 const pmrem=new THREE.PMREMGenerator(renderer);let envRT=null;
 scene.environmentIntensity=2.2;   /* the old engine scaled sky light by pi internally; physical lighting does not */
-function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;if(envRT){const old=envRT;setTimeout(()=>old.dispose(),4000)}envRT=rt}   /* free the old sky light only after the materials have moved over */catch(e){report('sky lighting: '+e.message)}}
+function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;envRT=rt}   /* old sky-light targets are kept: a material that hasn't been drawn for a while may still point at one, and a freed one renders black */   /* free the old sky light only after the materials have moved over */catch(e){report('sky lighting: '+e.message)}}
 
 const WX={
   sunny:{el:46,az:210,turb:3.5,ray:1.1,mie:.004,mieG:.8,cover:.28,dark:0,fogD:.00028,sunI:3.3,hemiI:.25,expo:.5,rain:0,wet:0,wave:1.6,fog:[1.1,1.25,1.5],sunC:[1,.95,.88],col:[.97,.97,.98],shd:[.72,.76,.83],haze:[.8,.86,.94],hazeA:0,water:[.11,.29,.35],envZ:[.22,.42,.8],envH:[.7,.8,.95],envG:[.22,.25,.17]},
@@ -576,7 +576,7 @@ function inRing(x,z,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){co
 const num=v=>{const f=parseFloat(String(v||'').replace(',','.'));return isFinite(f)?f:NaN};
 
 /* the ground plane is cut away wherever the map says water, so the sea shows 3 m below street level */
-let WTEX=null,WF=null,QF=null;
+let WTEX=null,WF=null,QF=null,BRENDS=[];
 function seaHole(m){addDiscard(m,()=>texture(WTEX,positionWorld.xz.sub(vec2(X0,Z0)).div(vec2(RW*RS,RH*RS))).r.greaterThan(.5))}
 function graniteCanvas(){const W=256,H=256,c=mk(W,H),g=c.getContext('2d');g.fillStyle='#55524d';g.fillRect(0,0,W,H);
   for(let row=0;row<8;row++){let x=-rnd(0,40);while(x<W){const w=rnd(50,90),y=row*32;const k=rnd(-14,14);g.fillStyle=`rgb(${128+k},${124+k},${118+k})`;g.fillRect(x+2,y+2,w-4,28);speckle(g,0,0,0,0,0);x+=w}}
@@ -599,7 +599,8 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       else{const o=4.5;quad(Rk,[a[0]-nx*1.2,T(a[0]-nx*1.2,a[1]-nz*1.2)+.02,a[1]-nz*1.2],[b[0]-nx*1.2,T(b[0]-nx*1.2,b[1]-nz*1.2)+.02,b[1]-nz*1.2],[b[0]+nx*o,SEA-.6,b[1]+nz*o],[a[0]+nx*o,SEA-.6,a[1]+nz*o],u0,u1,0,1)}}}
   /* shore edge along the line where the ground is cut (marching squares on the smoothed water field): a vertical wall down into the sea with a coping on top;
      granite on built shores, rock on natural ones; none on beaches, which slope in */
-  const RL={p:[]},RP=[];let racc=0;const inSompa=(x,z)=>x>-320&&x<230&&z>200&&z<1050&&z>.24*(x+90)+178;
+  const RL={p:[]},RP=[];let racc=0;   /* (no railing where a bridge lands) */
+  const inSompa=(x,z)=>x>-320&&x<230&&z>200&&z<1050&&z>.24*(x+90)+178;
   if(TER&&WF){const F=(i,j)=>WF[j*RW+i],W=(x,y)=>[X0+(x+.5)*RS,Z0+(y+.5)*RS];let du=0,bacc=0;
     const seg=(p,q)=>{const mx=(p[0]+q[0])/2,mz=(p[1]+q[1])/2,dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.05)return;let nx=-dz/l,nz=dx/l;
       const gi=(mx-X0)/RS-.5,gj=(mz-Z0)/RS-.5,f1=wf(gi+nx/RS,gj+nz/RS),f0=wf(gi-nx/RS,gj-nz/RS);if(f0>f1){nx=-nx;nz=-nz}   /* n toward the water */
@@ -607,7 +608,7 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const ha=T(p[0]-nx*.7,p[1]-nz*.7),hb=T(q[0]-nx*.7,q[1]-nz*.7);if(Math.max(ha,hb)<SEA+.25)return;
       const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=inQuayZone(mx,mz)||inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0,u0=du/4,u1=(du+l)/4;du+=l;
       const ta=ha+.06,tb=hb+.06,A=built?Q:Rk,cw=built?.75:.45;
-      if(built&&inSompa(mx,mz)){const ra=[p[0]-nx*.3,ta,p[1]-nz*.3],rb=[q[0]-nx*.3,tb,q[1]-nz*.3];   /* Sompasaarenlaituri: steel railing along the edge instead of ship bollards */
+      if(built&&inSompa(mx,mz)&&!BRENDS.some(b=>Math.hypot(b[0]-mx,b[1]-mz)<14)){const ra=[p[0]-nx*.3,ta,p[1]-nz*.3],rb=[q[0]-nx*.3,tb,q[1]-nz*.3];   /* Sompasaarenlaituri: steel railing along the edge instead of ship bollards */
         for(const hh of [1.02,.52]){RL.p.push(ra[0],ra[1]+hh,ra[2],rb[0],rb[1]+hh,rb[2],rb[0],rb[1]+hh+.06,rb[2],ra[0],ra[1]+hh,ra[2],rb[0],rb[1]+hh+.06,rb[2],ra[0],ra[1]+hh+.06,ra[2])}
         racc+=l;if(racc>2){racc=0;RP.push([ra[0],ra[1],ra[2]])}}
       else if(built&&inQuayZone(mx,mz)){bacc+=l;if(bacc>24){bacc=0;BOLL.push([mx-nx*.9,mz-nz*.9,(ta+tb)/2,Math.atan2(nx,nz),mx,mz])}}
@@ -1130,6 +1131,7 @@ function buildWorld(D){
   if(TER){const pm=M({color:lin('#2c4b52'),roughness:.08,metalness:.25});for(const P of waterPolys){if(P.length<4)continue;let mn=1e9,sm=0;for(const q of P){const h=T(q[0],q[1]);mn=Math.min(mn,h);sm+=h}if(sm/P.length<SEA+1.2)continue;
     try{const pts=P.slice(0,-1).map(q=>new THREE.Vector2(q[0],q[1]));const tri=THREE.ShapeUtils.triangulateShape(pts,[]),pos=[];for(const f of tri)for(const k of [f[0],f[2],f[1]])pos.push(pts[k].x,mn-.3,pts[k].y);
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.computeVertexNormals();const m=new THREE.Mesh(g,pm);m.receiveShadow=true;scene.add(m)}catch(e){}}}
+  BRENDS=[];for(const e of ways){const t=tags(e);if(t.bridge&&t.bridge!=='no'&&(t.highway||t.railway)){const P=wayPts(e);if(P.length>1)BRENDS.push(P[0],P[P.length-1])}}
   {const lines=coast.map(wayPts).filter(P=>P.length>1).concat(waterPolys);const beaches=[];for(const e of D.land.elements){const t=tags(e);if(e.type==='way'&&(t.natural==='beach'||t.natural==='sand'||t.leisure==='beach_resort'))beaches.push(wayPts(e))}buildShores(lines,beaches)}
   /* ---------- streets: ribbons by class and surface ---------- */
   status('Paving streets and paths…',.8);
@@ -1162,7 +1164,7 @@ function buildWorld(D){
   for(const e of ways){const t=tags(e);if(isTunnel(t))continue;const P=wayPts(e);if(P.length<2)continue;
     const isBr=t.bridge&&t.bridge!=='no'||t.man_made==='bridge'&&false;
     if(t.highway&&HW[t.highway]&&t.area!=='yes'){(isBr?bridgeWays:groundWays).push({P:!isBr&&isPathT(t.highway)?fillet(P,e,5):P,t,w:isBr?Math.max(5,t.width&&num(t.width)>0?num(t.width):0,HW[t.highway]||0):wayW(t,HW,3),rail:false})}
-    else if(t.railway){(isBr?bridgeWays:groundWays).push({P,t,w:t.railway==='tram'||t.railway==='light_rail'?2.6:4,rail:true})}}
+    else if(/^(rail|tram|light_rail|subway|narrow_gauge)$/.test(t.railway||'')&&!t.service&&!t.disused&&!t.construction){(isBr?bridgeWays:groundWays).push({P,t,w:t.railway==='tram'||t.railway==='light_rail'?2.6:4,rail:true})}}
   const key=p=>Math.round(p[0]*20)+','+Math.round(p[1]*20);
   const chains=[];{const used=new Set();const byEnd=new Map();bridgeWays.forEach((b,i)=>{for(const k of [key(b.P[0]),key(b.P[b.P.length-1])]){if(!byEnd.has(k))byEnd.set(k,[]);byEnd.get(k).push(i)}});
     const compat=(a,b)=>a.rail===b.rail&&(num(a.t.layer)||1)===(num(b.t.layer)||1)&&(a.rail||Math.abs(a.w-b.w)<6);
@@ -1529,7 +1531,7 @@ const skin=M({color:lin('#c99476'),roughness:.6}),
   jacket=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2f6fa8'),roughness:.62}),jacket2=M({color:lin('#1f4f7c'),roughness:.7}),
   pants=M({map:tex(fabric('#ffffff',true),2,2),color:lin('#2b3442'),roughness:.88}),
   helmetM=M({color:lin('#e8e9ea'),roughness:.28,metalness:.05}),helmetV=M({color:lin('#202326'),roughness:.6}),
-  padM=M({color:lin('#26292d'),roughness:.55}),hairM=M({color:lin('#3a2a1f'),roughness:.9}),eyeM=M({color:lin('#1a1a1a'),roughness:.3}),
+  padM=M({color:lin('#26292d'),roughness:.55}),hairM=M({color:lin('#6b4426'),roughness:.9}),capM=M({color:lin('#b4552f'),roughness:.85}),capB=M({color:lin('#8e3f22'),roughness:.85}),eyeM=M({color:lin('#1a1a1a'),roughness:.3}),
   shellM=M({color:lin('#1c1f23'),roughness:.32,metalness:.1}),shellA=M({color:lin('#d23a2a'),roughness:.4}),linerM=M({color:lin('#3a3f46'),roughness:.9}),
   frameM=M({color:lin('#b8bec4'),roughness:.25,metalness:.9}),tyreM=M({color:lin('#e7e3d6'),roughness:.55}),hubM=M({color:lin('#1d1f22'),roughness:.4,metalness:.4}),bearM=M({color:lin('#c9ced2'),roughness:.2,metalness:.95}),
   strapM=M({color:lin('#111316'),roughness:.6}),buckleM=M({color:lin('#c0c5ca'),roughness:.25,metalness:.9}),soleM=M({color:lin('#2a2d31'),roughness:.8});
@@ -1555,11 +1557,11 @@ add(taper(.09,[.046,.05,.052],12),skin,head,0,.09,0);   /* neck */
  for(const s of [-1,1]){add(new THREE.SphereGeometry(.024,10,8),skin,head,s*.085,.155,0).scale.set(.45,1,.75);
    add(new THREE.SphereGeometry(.011,8,6),eyeM,head,s*.033,.175,-.083)}
  add(new THREE.SphereGeometry(.1,18,10,0,Math.PI*2,0,Math.PI*.42),hairM,head,0,.17,.015).scale.set(.9,1,1);
- /* helmet: shell with vent slots, rim and chin strap */
- const hm=add(new THREE.SphereGeometry(.122,28,16,0,Math.PI*2,0,Math.PI*.52),helmetM,head,0,.168,.0);hm.scale.set(.93,1,1.08);
- for(let i=-2;i<=2;i++){const v=add(new THREE.BoxGeometry(.016,.012,.09),helmetV,head,i*.04,.288-Math.abs(i)*.012,-.01);v.rotation.z=i*.18}
- {const o=add(new THREE.TorusGeometry(.117,.007,6,30),helmetV,head,0,.17,0);o.rotation.x=Math.PI/2;o.scale.set(.93,1.08,1)}
- for(const s of [-1,1]){const st=add(new THREE.CylinderGeometry(.003,.003,.12,4),strapM,head,s*.07,.1,-.01);st.rotation.z=s*.35}}
+ /* brown hair showing under a burnt-clay cap: tufts over the ears and at the nape */
+ for(const[x,y,z,sx,sy,sz]of [[-.075,.13,.03,.5,.9,1],[.075,.13,.03,.5,.9,1],[0,.12,.075,1.05,.75,.6],[-.05,.11,.06,.6,.7,.7],[.05,.11,.06,.6,.7,.7]])add(new THREE.SphereGeometry(.06,12,10),hairM,head,x,y,z).scale.set(sx,sy,sz);
+ {const cap=add(new THREE.SphereGeometry(.108,28,14,0,Math.PI*2,0,Math.PI*.5),capM,head,0,.175,.005);cap.scale.set(.93,.82,1.02);
+  const br=add(new THREE.CylinderGeometry(.085,.085,.008,24,1,false,Math.PI*.5,Math.PI),capM,head,0,.18,-.06);br.scale.set(1,1,.75);br.rotation.x=.12;   /* brim */
+  add(new THREE.TorusGeometry(.099,.005,6,32),capB,head,0,.178,.005).rotation.x=Math.PI/2;add(new THREE.SphereGeometry(.009,8,6),capM,head,0,.264,.005)}}
 function limb(par,x,y,l1,l2,r1,r2,m1,m2,arm){const a=new THREE.Group();a.position.set(x,y,0);par.add(a);
   add(taper(l1,arm?[r1*1.15,r1*1.05,r1*.9,r1*.78]:[r1*1.18,r1*1.08,r1*.95,r1*.8,r1*.72]),m1,a);
   const b=new THREE.Group();b.position.y=-l1;a.add(b);
@@ -1599,13 +1601,18 @@ const SN=(()=>{const L0=-.035,L1=.3,len=L1-L0,wid=u=>{const t=(u-L0)/len;return 
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
   /* sneaker: heel at +z, toe at -z; sole 8.5 cm below the ankle */
-  const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
-  add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);add(SN.toe,shoeS,sk3);
+  const sk3=new THREE.Group();sk3.position.set(0,-.072,.07);sk3.rotation.y=Math.PI/2;sk3.scale.set(.88,1,.95);f.add(sk3);
+  add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);
   for(let i=0;i<5;i++){const u=.115+i*.026,o=add(new THREE.CapsuleGeometry(.0028,.045,2,6),shoeS,sk3,u,SN.top(u)+.002,0);o.rotation.x=Math.PI/2;o.rotation.z=-.35*(1-i*.12)}   /* laces */
-  {const o=add(new THREE.TorusGeometry(.046,.009,8,20),shoeM,sk3,.02,.098,0);o.rotation.x=Math.PI/2;o.rotation.y=-.25;o.scale.set(1.15,.85,1)}   /* padded collar */
+
   CUFF.push(new THREE.Group())}
 /* powered skateboard: 98 cm deck, grip tape, two trucks, four 90 mm wheels, belt drives on the rear truck, battery under the deck */
-const board=new THREE.Group();sk.add(board);const DECKY=.128;
+/* how a skateboard moves: the trucks stay on the ground; leaning tilts the deck (and rider) on the bushings around the kingpins,
+   and that tilt steers the two trucks in opposite directions. An ollie pops the tail and pivots the board up around it. */
+const olG=new THREE.Group();olG.position.z=.42;sk.add(olG);const olI=new THREE.Group();olI.position.z=-.42;olG.add(olI);
+const rollG=new THREE.Group();rollG.position.y=.075;olI.add(rollG);const rollI=new THREE.Group();rollI.position.y=-.075;rollG.add(rollI);rollI.add(pelvis);
+const TRK=[-.31,.31].map(z=>{const g=new THREE.Group();g.position.z=z;olI.add(g);return g});
+const board=new THREE.Group();rollI.add(board);const DECKY=.128;
 {const deckS=new THREE.Shape(),L=.49,W=.125;deckS.moveTo(-W,-L+.1);deckS.quadraticCurveTo(-W,-L,0,-L);deckS.quadraticCurveTo(W,-L,W,-L+.1);deckS.lineTo(W,L-.1);deckS.quadraticCurveTo(W,L,0,L);deckS.quadraticCurveTo(-W,L,-W,L-.1);deckS.closePath();
  const dg=new THREE.ExtrudeGeometry(deckS,{depth:.014,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:2,curveSegments:10});dg.rotateX(Math.PI/2);
  {const p=dg.attributes.position;for(let i=0;i<p.count;i++){const z=p.getZ(i),k=Math.max(0,Math.abs(z)-.36);p.setY(i,p.getY(i)+k*k*3.2+.0)}dg.computeVertexNormals()}   /* kicktails */
@@ -1616,15 +1623,15 @@ const board=new THREE.Group();sk.add(board);const DECKY=.128;
    batM=M({color:lin('#26282b'),roughness:.5,metalness:.2}),motM=M({color:lin('#3a3d42'),roughness:.3,metalness:.8}),ledM=M({color:lin('#3fb6ff'),emissive:lin('#2a8fff'),emissiveIntensity:2,roughness:.4});
  for(const tz of [-.31,.31]){add(new THREE.BoxGeometry(.065,.012,.09),trM,board,0,DECKY-.02,tz);                    /* baseplate */
    add(new THREE.CylinderGeometry(.018,.018,.03,10),bushM,board,0,DECKY-.04,tz);                                    /* bushing */
-   add(new THREE.BoxGeometry(.2,.026,.03),trM,board,0,.052,tz);                                                    /* hanger */
-   add(new THREE.CylinderGeometry(.005,.005,.27,8).rotateZ(Math.PI/2),trM,board,0,.045,tz);                        /* axle */
-   for(const sx of [-1,1]){const hub=new THREE.Group();hub.position.set(sx*.118,.045,tz);board.add(hub);
+   const tg=TRK[tz<0?0:1];add(new THREE.BoxGeometry(.2,.026,.03),trM,tg,0,.052,0);                                 /* hanger */
+   add(new THREE.CylinderGeometry(.005,.005,.27,8).rotateZ(Math.PI/2),trM,tg,0,.045,0);                            /* axle */
+   for(const sx of [-1,1]){const hub=new THREE.Group();hub.position.set(sx*.118,.045,0);tg.add(hub);
      const wg=new THREE.CylinderGeometry(.045,.045,.05,24).rotateZ(Math.PI/2);add(wg,urM,hub);
      add(new THREE.CylinderGeometry(.024,.024,.052,10).rotateZ(Math.PI/2),coreM,hub);
      for(let k=0;k<3;k++)add(new THREE.BoxGeometry(.054,.006,.03),coreM,hub).rotation.x=k*Math.PI/3;
      WHEELS.push(hub);SPIN.push(hub)}}
- for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.027,.027,.055,14).rotateX(Math.PI/2),motM,board,sx*.075,.06,.38);   /* motors behind the rear truck */
-   add(new THREE.BoxGeometry(.012,.07,.1),M({color:lin('#202224'),roughness:.6}),board,sx*.15,.05,.35)}                     /* belt covers */
+ for(const sx of [-1,1]){add(new THREE.CylinderGeometry(.027,.027,.055,14).rotateX(Math.PI/2),motM,TRK[1],sx*.075,.06,.07);   /* motors on the rear truck */
+   add(new THREE.BoxGeometry(.012,.07,.1),M({color:lin('#202224'),roughness:.6}),TRK[1],sx*.15,.05,.04)}                     /* belt covers */
  add(new THREE.BoxGeometry(.17,.032,.5),batM,board,0,DECKY-.03,0);                 /* battery enclosure */
  add(new THREE.BoxGeometry(.004,.008,.42),ledM,board,.087,DECKY-.035,0);add(new THREE.BoxGeometry(.004,.008,.42),ledM,board,-.087,DECKY-.035,0)}
 /* throttle remote in the back hand */
@@ -1857,7 +1864,9 @@ function animateSkater(dt){
   Pl.lean+=((Pl.leanT||0)-Pl.lean)*Math.min(1,dt*5);
   if(Pl.visY===null||Pl.air||Math.abs(Pl.visY-Pl.y)>.6)Pl.visY=Pl.y;else Pl.visY=lerp(Pl.visY,Pl.y,Math.min(1,dt*22));sk.position.set(Pl.x,Pl.visY,Pl.z);
   if(Pl.air)tmpN.set(0,1,0);else{const e=.3,c=G(Pl.x,Pl.z),f=v=>Math.abs(v-c)>.2?0:v-c;tmpN.set(f(G(Pl.x-e,Pl.z))-f(G(Pl.x+e,Pl.z)),2*e,f(G(Pl.x,Pl.z-e))-f(G(Pl.x,Pl.z+e))).normalize()}
-  surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);qL.setFromAxisAngle(ZV,Pl.lean);sk.quaternion.copy(qA).multiply(qY).multiply(qL);
+  surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);sk.quaternion.copy(qA).multiply(qY);rollG.rotation.z=Pl.lean*.75;   /* deck and rider tilt on the bushings, wheels stay down */
+  {const v=Math.max(1.5,Math.abs(Pl.v)),dl=Pl.air?0:clamp(Math.atan(.31*(Pl.w||0)/v)*Math.sign(Pl.v||1),-.32,.32);TRK[0].rotation.y+=(dl-TRK[0].rotation.y)*Math.min(1,dt*12);TRK[1].rotation.y=-TRK[0].rotation.y}   /* front and rear trucks steer opposite ways */
+  if(Pl.air&&!Pl._air)Pl.olT=0;if(Pl.olT!==undefined)Pl.olT+=dt;{const t=Pl.olT??9,p=t<.09?.42*t/.09:t<.34?.42*(1-(t-.09)/.25)-.06*Math.sin(Math.PI*(t-.09)/.25):0;olG.rotation.x=Pl.air||t<.34?p:0}   /* ollie: snap the tail, the nose rises, the front foot levels it out */
   if(Pl._air&&!Pl.air)Pl.land=Math.min(1,.35+Math.abs(Pl._vy||0)/5);Pl._air=Pl.air;Pl._vy=Pl.vy;Pl.land=Math.max(0,(Pl.land||0)-dt*2.6);   /* knees soak up a landing */
   const ln=Math.abs(Pl.lean),thr=md==='push'?inp.fwd:md==='brake'?-1:0,crouch=(md==='air'?.55:.12+.22*st+.55*ln+(md==='brake'?.12:0))+Pl.land*.6;
   const yw=clamp((Pl.w||0)*.3,-.45,.45),sway=Math.sin(tAll*1.1)*.05,buzz=Pl.air?0:Math.sin(tAll*31)*.003*st;   /* turning twist, idle balance sway, road buzz */

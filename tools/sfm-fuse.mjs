@@ -223,10 +223,51 @@ function exportMerged(ACC) {
     oc += mc + 1; oi += mi + 1; op += mp + 1 }
   fs.writeFileSync(`${OD}/cameras.txt`, C.join('\n') + '\n'); fs.writeFileSync(`${OD}/images.txt`, I.join('\n') + '\n'); fs.writeFileSync(`${OD}/points3D.txt`, P.join('\n') + '\n');
   L('merged model', ACC.length, 'models', I.length / 2, 'images', P.length, 'points') }
+/* ground tiles from the OpenMVS textured mesh: a top-down render of its upward-facing, ground-level triangles */
+function pngRead(buf) { let o = 8, w = 0, h = 0, ct = 0; const ID = [];
+  while (o < buf.length) { const len = buf.readUInt32BE(o), ty = buf.toString('ascii', o + 4, o + 8), d = buf.subarray(o + 8, o + 8 + len); if (ty === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; if (d[8] !== 8 || d[12]) throw new Error('png: 8-bit non-interlaced only') } else if (ty === 'IDAT') ID.push(d); else if (ty === 'IEND') break; o += 12 + len }
+  const bpp = ct === 6 ? 4 : ct === 2 ? 3 : ct === 0 ? 1 : 0; if (!bpp) throw new Error('png colour type ' + ct); const raw = zlib.inflateSync(Buffer.concat(ID)), st = w * bpp, out = new Uint8Array(w * h * 4), prev = new Uint8Array(st), cur = new Uint8Array(st);
+  for (let y = 0; y < h; y++) { const f = raw[y * (st + 1)], row = raw.subarray(y * (st + 1) + 1, (y + 1) * (st + 1));
+    for (let i = 0; i < st; i++) { const a = i >= bpp ? cur[i - bpp] : 0, b = prev[i], c = i >= bpp ? prev[i - bpp] : 0; let v = row[i];
+      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1; else if (f === 4) { const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c); v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c } cur[i] = v & 255 }
+    for (let x = 0; x < w; x++) { const q = (y * w + x) * 4; if (bpp === 1) out[q] = out[q + 1] = out[q + 2] = cur[x]; else for (let k = 0; k < 3; k++) out[q + k] = cur[x * bpp + k]; out[q + 3] = bpp === 4 ? cur[x * 4 + 3] : 255 } prev.set(cur) }
+  return {width: w, height: h, data: out} }
+function meshGround(dir) {
+  const objF = fs.readdirSync(dir).find(f => f.endsWith('.obj')); if (!objF) { L('mesh ground: no obj'); return }
+  const V = [], VT = [], F = [], mats = new Map(); let mat = null, mtl = null;
+  for (const l of fs.readFileSync(`${dir}/${objF}`, 'utf8').split('\n')) { const p = l.trim().split(/\s+/);
+    if (p[0] === 'v') V.push([+p[1], +p[2], +p[3]]); else if (p[0] === 'vt') VT.push([+p[1], +p[2]]); else if (p[0] === 'usemtl') mat = p[1]; else if (p[0] === 'mtllib') mtl = p[1];
+    else if (p[0] === 'f') { const q = p.slice(1).map(t => t.split('/').map(Number)); for (let k = 1; k + 1 < q.length; k++) F.push([q[0], q[k], q[k + 1], mat]) } }
+  if (mtl) { let cur = null; for (const l of fs.readFileSync(`${dir}/${mtl}`, 'utf8').split('\n')) { const p = l.trim().split(/\s+/); if (p[0] === 'newmtl') cur = p[1]; else if (p[0] === 'map_Kd' && cur) mats.set(cur, p.slice(1).join(' ')) } }
+  const tex = new Map(); const getTex = m => { if (!tex.has(m)) { const f = mats.get(m); let im = null; try { const b = fs.readFileSync(`${dir}/${f}`); im = /\.png$/i.test(f) ? pngRead(b) : jpeg.decode(b, {useTArray: true}) } catch (e) { L('texture', f, e.message) } tex.set(m, im) } return tex.get(m) };
+  L('mesh ground: vertices', V.length, 'faces', F.length, 'textures', mats.size);
+  /* the mesh is in the merged frame: (x, -z, y up) of the game */
+  const G3 = V.map(v => [v[0], v[2], -v[1]]);
+  const GPX = 20, TS = 512, TM = TS / GPX, GO = 'data/ground'; fs.rmSync(GO, {recursive: true, force: true}); fs.mkdirSync(GO, {recursive: true});
+  const tiles = new Map(); const tileOf = (tx, tz) => { const k = tx + '_' + tz; if (!tiles.has(k)) tiles.set(k, {tx, tz, c: new Uint8Array(TS * TS * 4), zb: new Float32Array(TS * TS).fill(1e9)}); return tiles.get(k) };
+  let used = 0;
+  for (const [a, b, c, m] of F) { const A = G3[a[0] - 1], B = G3[b[0] - 1], C = G3[c[0] - 1];
+    const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2], ny = uz * vx - ux * vz, nl = Math.hypot(uy * vz - uz * vy, ny, ux * vy - uy * vx); if (nl < 1e-9 || Math.abs(ny) / nl < .75) continue;   /* faces up (either winding) */
+    const cx = (A[0] + B[0] + C[0]) / 3, cz = (A[2] + B[2] + C[2]) / 3, cy = (A[1] + B[1] + C[1]) / 3, t0 = T(cx, cz); if (cy < t0 - 1.6 || cy > t0 + .9) continue;   /* at street level, not a car roof or a canopy */
+    const im = getTex(m); if (!im || !a[1] || !b[1] || !c[1]) continue; const ta = VT[a[1] - 1], tb = VT[b[1] - 1], tc = VT[c[1] - 1]; used++;
+    const x0 = Math.min(A[0], B[0], C[0]), x1 = Math.max(A[0], B[0], C[0]), z0 = Math.min(A[2], B[2], C[2]), z1 = Math.max(A[2], B[2], C[2]); if (x1 - x0 > 6 || z1 - z0 > 6) continue;
+    const den = (B[2] - C[2]) * (A[0] - C[0]) + (C[0] - B[0]) * (A[2] - C[2]); if (Math.abs(den) < 1e-12) continue;
+    for (let gz = Math.floor(z0 * GPX); gz <= Math.ceil(z1 * GPX); gz++) for (let gx = Math.floor(x0 * GPX); gx <= Math.ceil(x1 * GPX); gx++) { const x = (gx + .5) / GPX, z = (gz + .5) / GPX;
+      const l1 = ((B[2] - C[2]) * (x - C[0]) + (C[0] - B[0]) * (z - C[2])) / den, l2 = ((C[2] - A[2]) * (x - C[0]) + (A[0] - C[0]) * (z - C[2])) / den, l3 = 1 - l1 - l2; if (l1 < -1e-4 || l2 < -1e-4 || l3 < -1e-4) continue;
+      const y = l1 * A[1] + l2 * B[1] + l3 * C[1], tx = Math.floor(gx / TS), tz = Math.floor(gz / TS), t = tileOf(tx, tz), o = (gz - tz * TS) * TS + (gx - tx * TS); if (y >= t.zb[o]) continue; t.zb[o] = y;
+      const u = (l1 * ta[0] + l2 * tb[0] + l3 * tc[0]) * (im.width - 1), v = (1 - (l1 * ta[1] + l2 * tb[1] + l3 * tc[1])) * (im.height - 1), iu = clamp(Math.floor(u), 0, im.width - 2), iv = clamp(Math.floor(v), 0, im.height - 2), fu = u - iu, fv = v - iv;
+      for (let k = 0; k < 3; k++) { const P2 = (xx, yy) => im.data[(yy * im.width + xx) * 4 + k]; t.c[o * 4 + k] = (P2(iu, iv) * (1 - fu) + P2(iu + 1, iv) * fu) * (1 - fv) + (P2(iu, iv + 1) * (1 - fu) + P2(iu + 1, iv + 1) * fu) * fv } t.c[o * 4 + 3] = 255 } }
+  const out = []; let px = 0;
+  for (const t of tiles.values()) { let n = 0; for (let i = 0; i < TS * TS; i++) if (t.c[i * 4 + 3]) n++; if (n < TS * TS * .02) continue;
+    const A = new Uint8Array(TS * TS); for (let i = 0; i < TS * TS; i++) A[i] = t.c[i * 4 + 3]; for (let v = 1; v < TS - 1; v++) for (let u = 1; u < TS - 1; u++) { const i = v * TS + u; if (A[i] && (!A[i - 1] || !A[i + 1] || !A[i - TS] || !A[i + TS])) t.c[i * 4 + 3] = 140 }
+    const f = `g${t.tx}_${t.tz}.png`; fs.writeFileSync(`${GO}/${f}`, png(TS, TS, t.c)); out.push({f, x0: t.tx * TM, z0: t.tz * TM, size: TM}); px += n }
+  fs.writeFileSync(`${GO}/index.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP + OpenMVS reconstruction', tiles: out}));
+  L('mesh ground: faces used', used, 'tiles', out.length, 'area m2', (px / GPX / GPX).toFixed(0)) }
 let blockedPt = () => false;
 
 // ---------- main ----------
 try {
+  if (process.env.MESHGROUND) { meshGround(process.env.MESHGROUND); throw new Error('done (mesh ground only)') }
   const dirs = fs.readdirSync('work/sparse').filter(n => n.endsWith('-txt') && fs.existsSync(`work/sparse/${n}/images.txt`));
   if (!dirs.length) throw new Error('no COLMAP model');
   const ref = new Map(); for (const l of fs.readFileSync('work/ref.txt', 'utf8').split('\n')) { const p = l.trim().split(/\s+/); if (p.length === 4) ref.set(p[0], [+p[1], +p[2], +p[3]]) }

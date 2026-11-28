@@ -45,7 +45,7 @@ Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:
 sun.shadow.bias=-.0004;sun.shadow.normalBias=.04;scene.add(sun,sun.target);
 const pmrem=new THREE.PMREMGenerator(renderer);let envRT=null;
 scene.environmentIntensity=2.2;   /* the old engine scaled sky light by pi internally; physical lighting does not */
-function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;if(envRT){const old=envRT;setTimeout(()=>old.dispose(),4000)}envRT=rt}   /* free the old sky light only after the materials have moved over */catch(e){report('sky lighting: '+e.message)}}
+function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;envRT=rt}   /* old sky-light targets are kept: a material that hasn't been drawn for a while may still point at one, and a freed one renders black */   /* free the old sky light only after the materials have moved over */catch(e){report('sky lighting: '+e.message)}}
 
 const WX={
   sunny:{el:46,az:210,turb:3.5,ray:1.1,mie:.004,mieG:.8,cover:.28,dark:0,fogD:.00028,sunI:3.3,hemiI:.25,expo:.5,rain:0,wet:0,wave:1.6,fog:[1.1,1.25,1.5],sunC:[1,.95,.88],col:[.97,.97,.98],shd:[.72,.76,.83],haze:[.8,.86,.94],hazeA:0,water:[.11,.29,.35],envZ:[.22,.42,.8],envH:[.7,.8,.95],envG:[.22,.25,.17]},

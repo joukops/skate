@@ -47,11 +47,13 @@ const pmrem=new THREE.PMREMGenerator(renderer);let envRT=null;
 scene.environmentIntensity=2.2;   /* the old engine scaled sky light by pi internally; physical lighting does not */
 function updateEnv(){try{paintEnvSky();const es=new THREE.Scene();es.add(envSky);const rt=pmrem.fromScene(es,0,.1,1000);scene.environment=rt.texture;envRT=rt}   /* old sky-light targets are kept: a material that hasn't been drawn for a while may still point at one, and a freed one renders black */   /* free the old sky light only after the materials have moved over */catch(e){report('sky lighting: '+e.message)}}
 
+const STORMU=uniform(0);let CLOUDT=0;
 const WX={
-  sunny:{el:46,az:210,turb:3.5,ray:1.1,mie:.004,mieG:.8,cover:.28,dark:0,fogD:.00028,sunI:3.3,hemiI:.25,expo:.5,rain:0,wet:0,wave:1.6,fog:[1.1,1.25,1.5],sunC:[1,.95,.88],col:[.97,.97,.98],shd:[.72,.76,.83],haze:[.8,.86,.94],hazeA:0,water:[.11,.29,.35],envZ:[.22,.42,.8],envH:[.7,.8,.95],envG:[.22,.25,.17]},
-  golden:{el:7,az:262,turb:7,ray:2.6,mie:.006,mieG:.86,cover:.32,dark:0,fogD:.00042,sunI:2.6,hemiI:.3,expo:.75,rain:0,wet:0,wave:1.4,fog:[1.25,1.0,.82],sunC:[1,.68,.38],col:[1,.84,.66],shd:[.56,.46,.52],haze:[.96,.8,.66],hazeA:0,water:[.14,.26,.3],envZ:[.22,.28,.55],envH:[.95,.62,.4],envG:[.22,.17,.12]},
-  cloudy:{el:38,az:200,turb:16,ray:.4,mie:.02,mieG:.7,cover:.9,dark:.35,fogD:.0009,sunI:.65,hemiI:.9,expo:.9,rain:0,wet:.15,wave:2.2,fog:[.62,.66,.72],sunC:[.9,.93,.96],col:[.83,.85,.88],shd:[.55,.58,.62],haze:[.72,.75,.79],hazeA:.9,water:[.17,.28,.31],envZ:[.5,.53,.57],envH:[.6,.63,.67],envG:[.2,.22,.18]},
-  rain:{el:35,az:200,turb:20,ray:.3,mie:.03,mieG:.7,cover:1,dark:1,fogD:.0017,sunI:.28,hemiI:.85,expo:1,rain:1,wet:1,wave:3.6,fog:[.32,.35,.39],sunC:[.8,.85,.9],col:[.6,.62,.66],shd:[.36,.38,.42],haze:[.52,.55,.59],hazeA:1,water:[.13,.2,.23],envZ:[.27,.29,.32],envH:[.34,.36,.39],envG:[.13,.14,.12]}};
+  sunny:{wind:1,size:1.6,foam:0,el:46,az:210,turb:3.5,ray:1.1,mie:.004,mieG:.8,cover:.28,dark:0,fogD:.00028,sunI:3.3,hemiI:.25,expo:.5,rain:0,wet:0,wave:1.6,fog:[1.1,1.25,1.5],sunC:[1,.95,.88],col:[.97,.97,.98],shd:[.72,.76,.83],haze:[.8,.86,.94],hazeA:0,water:[.11,.29,.35],envZ:[.22,.42,.8],envH:[.7,.8,.95],envG:[.22,.25,.17]},
+  golden:{wind:.8,size:1.6,foam:0,el:7,az:262,turb:7,ray:2.6,mie:.006,mieG:.86,cover:.32,dark:0,fogD:.00042,sunI:2.6,hemiI:.3,expo:.75,rain:0,wet:0,wave:1.4,fog:[1.25,1.0,.82],sunC:[1,.68,.38],col:[1,.84,.66],shd:[.56,.46,.52],haze:[.96,.8,.66],hazeA:0,water:[.14,.26,.3],envZ:[.22,.28,.55],envH:[.95,.62,.4],envG:[.22,.17,.12]},
+  cloudy:{wind:1.6,size:1.4,foam:0,el:38,az:200,turb:16,ray:.4,mie:.02,mieG:.7,cover:.9,dark:.35,fogD:.0009,sunI:.65,hemiI:.9,expo:.9,rain:0,wet:.15,wave:2.2,fog:[.62,.66,.72],sunC:[.9,.93,.96],col:[.83,.85,.88],shd:[.55,.58,.62],haze:[.72,.75,.79],hazeA:.9,water:[.17,.28,.31],envZ:[.5,.53,.57],envH:[.6,.63,.67],envG:[.2,.22,.18]},
+  rain:{wind:2.5,size:1.1,foam:.15,el:35,az:200,turb:20,ray:.3,mie:.03,mieG:.7,cover:1,dark:1,fogD:.0017,sunI:.28,hemiI:.85,expo:1,rain:1,wet:1,wave:3.6,fog:[.32,.35,.39],sunC:[.8,.85,.9],col:[.6,.62,.66],shd:[.36,.38,.42],haze:[.52,.55,.59],hazeA:1,water:[.13,.2,.23],envZ:[.27,.29,.32],envH:[.34,.36,.39],envG:[.13,.14,.12]},
+  storm:{wind:9,size:.55,foam:1,el:30,az:210,turb:20,ray:.25,mie:.04,mieG:.6,cover:1,dark:1.35,fogD:.0021,sunI:.18,hemiI:.7,expo:1.05,rain:.85,wet:1,wave:9,fog:[.26,.29,.32],sunC:[.75,.8,.85],col:[.48,.5,.54],shd:[.26,.28,.31],haze:[.42,.45,.49],hazeA:1,water:[.09,.15,.17],envZ:[.2,.22,.25],envH:[.27,.29,.32],envG:[.1,.11,.1]}};
 const cur=JSON.parse(JSON.stringify(WX[weather]||WX.sunny));let envDirty=true,envT=0;
 const WETMATS=[];
 const SUNV=new THREE.Vector3();
@@ -63,7 +65,7 @@ function applyWeather(){
   sun.intensity=cur.sunI*2.4;if(window.MESHMATS&&window.MESHMATS.length){const MESHMATS=window.MESHMATS;const k=1+.15*Math.min(1,cur.sunI/3);for(const m of MESHMATS)m.color.setRGB(k*lerp(1,cur.sunC[0],.15),k*lerp(1,cur.sunC[1],.15),k*lerp(1,cur.sunC[2],.15))}   /* photo mesh follows the weather a little */sun.color.setRGB(...cur.sunC).convertSRGBToLinear();hemi.intensity=Math.max(.35,scene.environment?cur.hemiI:cur.hemiI+.9)*Math.PI*3.5;   /* a floor, so shade is never pitch black */
   renderer.toneMappingExposure=cur.expo;
   for(const[m,d,w]of WETMATS){m.roughness=lerp(d,w,cur.wet);m.envMapIntensity=1+cur.wet*.8}
-  if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave}
+  if(water){water.sunDirection.value.copy(SUNV);water.sunColor.value.setRGB(...cur.sunC);water.waterColor.value.setRGB(...cur.water);water.distortionScale.value=cur.wave;water.size.value=cur.size}STORMU.value=cur.foam;
   rain.visible=cur.rain>.05;rainMat.opacity=.32*cur.rain;
 }
 function setWeather(w){if(!WX[w])return;weather=w;envDirty=true;envT=0;try{localStorage.setItem('olp2-w',w)}catch(e){}

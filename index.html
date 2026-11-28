@@ -90,6 +90,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <button class="tb" id="resetBtn" aria-label="Reset position"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg></button>
   <button class="tb" id="backBtn" aria-label="Rewind a few seconds"><svg viewBox="0 0 24 24"><path d="M11 6 4 12l7 6z"/><path d="M20 6l-7 6 7 6z"/></svg></button>
   <div id="where"></div>
+  <button id="helmBtn" style="display:none;position:absolute;right:max(18px,env(safe-area-inset-right));bottom:calc(max(18px,env(safe-area-inset-bottom)) + 230px);pointer-events:auto;padding:12px 18px;border-radius:24px;border:0;background:#1c2d55;color:#fff;font:800 17px 'Inter Tight';z-index:4">⎈ Bridge</button>
   <button id="ferryBtn" style="display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 10px);pointer-events:auto;padding:14px 22px;border-radius:28px;border:0;background:#f2c22a;color:#1c2d55;font:800 18px 'Inter Tight';box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:4">⛴</button>
   <div id="tele" role="group" aria-label="Teleport to a spot"></div>
   <div id="mapHelp">Double-tap a place to teleport · tap ✕ to close</div><button id="mapClose" aria-label="Close map">✕</button><button id="mapPlus" class="mz" aria-label="Zoom in">+</button><button id="mapMinus" class="mz" aria-label="Zoom out">−</button><button id="mapZoom" aria-label="Enlarge map"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M10.5 7.5v6M7.5 10.5h6"/></svg></button>
@@ -467,7 +468,7 @@ let MESHZ=[];const inMeshZone=(x,z)=>MESHZ.some(([a,b,c,d])=>x>=a&&x<=c&&z>=b&&z
 /* Hanasaari construction site (the former coal field inside the waterfront cycle loop): fenced, levelled earth with a few low piles */
 /* built quays (Merihaka, Hakaniemi, Kalasatama, Sompasaari, Hanasaari): flat to the edge, at least 2.6 m above the sea */
 const BOLL=[];
-const QZ=[[-930,260,150,800],[180,560,-820,275],[-320,20,780,1050]],inQuayZone=(x,z)=>QZ.some(b=>x>b[0]&&x<b[1]&&z>b[2]&&z<b[3]);   /* Hanasaari, Sompasaari, Merihaka; Kalasatama east and Verkkosaari; the south pier */
+const inMusti=(x,z)=>x>360&&x<1150&&z>290&&z<790;const QZ=[[-930,260,150,800],[180,560,-820,275],[-320,20,780,1050]],inQuayZone=(x,z)=>QZ.some(b=>x>b[0]&&x<b[1]&&z>b[2]&&z<b[3]);   /* Hanasaari, Sompasaari, Merihaka; Kalasatama east and Verkkosaari; the south pier */
 const SITE=[[-525,572],[-582,515],[-602,418],[-548,352],[-512,276],[-484,240],[-450,282],[-405,309],[-350,352],[-334,368]],SITE_BASE=-.9,
   SITE_PILES=[[-545,465,3.4,15],[-470,425,2.6,12],[-505,515,2.2,10],[-425,350,3,11]];
 const PAANU_ID=1571344481,PAANU=[[329,901],[337,902],[344,901],[355,902],[358,903],[361,903],[375,905],[379,905],[383,905],[400,898],[404,896],[413,896],[422,896],[427,896],[444,896],[438,899],[437,900],[438,902],[438,903],[439,905],[390,922],[356,923],[350,919],[347,916],[343,914],[331,904]],PAANU_FRONT=15;   /* game height 0 = typical waterfront street level, ~3 m above mean sea level */
@@ -591,7 +592,7 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
   for(const P of lines){let dist=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);if(l<.2)continue;let nx=-dz/l,nz=dx/l;
       const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;const wR=isWater(mx+nx*3,mz+nz*3),wL=isWater(mx-nx*3,mz-nz*3);if(wR===wL){dist+=l;continue}if(wL){nx=-nx;nz=-nz}   /* n points to the water */
       const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),u0=dist/4,u1=(dist+l)/4;dist+=l;
-      const built=inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0;
+      const built=!inMusti(lx,lz)&&(inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0);
       if(onBeach(mx-nx*2,mz-nz*2)||onBeach(mx+nx*2,mz+nz*2)){const o=9;quad(Sd,[a[0]-nx*1.5,T(a[0]-nx*1.5,a[1]-nz*1.5)+.02,a[1]-nz*1.5],[b[0]-nx*1.5,T(b[0]-nx*1.5,b[1]-nz*1.5)+.02,b[1]-nz*1.5],[b[0]+nx*o,SEA-.7,b[1]+nz*o],[a[0]+nx*o,SEA-.7,a[1]+nz*o],u0,u1,0,1)}
       else if(built){if(TER&&WF)continue;const ta=Math.max(SEA+.4,T(a[0]-nx*.8,a[1]-nz*.8))+.15,tb=Math.max(SEA+.4,T(b[0]-nx*.8,b[1]-nz*.8))+.15;quad(Q,[a[0],ta,a[1]],[b[0],tb,b[1]],[b[0],SEA-1.2,b[1]],[a[0],SEA-1.2,a[1]],u0,u1,0,(ta-SEA+1.2)/4);
         quad(C,[a[0]-nx*1.1,ta,a[1]-nz*1.1],[b[0]-nx*1.1,tb,b[1]-nz*1.1],[b[0]+nx*.35,tb,b[1]+nz*.35],[a[0]+nx*.35,ta,a[1]+nz*.35],u0,u1,0,.3);
@@ -606,12 +607,12 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const gi=(mx-X0)/RS-.5,gj=(mz-Z0)/RS-.5,f1=wf(gi+nx/RS,gj+nz/RS),f0=wf(gi-nx/RS,gj-nz/RS);if(f0>f1){nx=-nx;nz=-nz}   /* n toward the water */
       if(onBeach(mx-nx*2,mz-nz*2)||onBeach(mx+nx*2,mz+nz*2))return;
       const ha=T(p[0]-nx*.7,p[1]-nz*.7),hb=T(q[0]-nx*.7,q[1]-nz*.7);if(Math.max(ha,hb)<SEA+.25)return;
-      const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=inQuayZone(mx,mz)||inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0,u0=du/4,u1=(du+l)/4;du+=l;
+      const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=!inMusti(mx,mz)&&(inQuayZone(mx,mz)||inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0),u0=du/4,u1=(du+l)/4;du+=l;
       const ta=ha+.06,tb=hb+.06,A=built?Q:Rk,cw=built?.75:.45;
       if(built&&inSompa(mx,mz)&&!BRENDS.some(b=>Math.hypot(b[0]-mx,b[1]-mz)<14)){const ra=[p[0]-nx*.3,ta,p[1]-nz*.3],rb=[q[0]-nx*.3,tb,q[1]-nz*.3];   /* Sompasaarenlaituri: steel railing along the edge instead of ship bollards */
         for(const hh of [1.02,.52]){RL.p.push(ra[0],ra[1]+hh,ra[2],rb[0],rb[1]+hh,rb[2],rb[0],rb[1]+hh+.06,rb[2],ra[0],ra[1]+hh,ra[2],rb[0],rb[1]+hh+.06,rb[2],ra[0],ra[1]+hh+.06,ra[2])}
         racc+=l;if(racc>2){racc=0;RP.push([ra[0],ra[1],ra[2]])}}
-      else if(built&&inQuayZone(mx,mz)){bacc+=l;if(bacc>24){bacc=0;BOLL.push([mx-nx*.9,mz-nz*.9,(ta+tb)/2,Math.atan2(nx,nz),mx,mz])}}
+      else if(built&&inQuayZone(mx,mz)){bacc+=l;if(bacc>36&&!BRENDS.some(b=>Math.hypot(b[0]-mx,b[1]-mz)<30)&&surf(mx-nx*.9,mz-nz*.9)!==4){bacc=0;BOLL.push([mx-nx*.9,mz-nz*.9,(ta+tb)/2,Math.atan2(nx,nz),mx,mz])}}
       quad(A,[p[0],ta,p[1]],[q[0],tb,q[1]],[q[0],SEA-1.5,q[1]],[p[0],SEA-1.5,p[1]],u0,u1,0,(ta-SEA+1.5)/4);
       quad(built?C:Rk,[p[0]-nx*cw,ta,p[1]-nz*cw],[q[0]-nx*cw,tb,q[1]-nz*cw],[q[0]+nx*.12,tb,q[1]+nz*.12],[p[0]+nx*.12,ta,p[1]+nz*.12],u0,u1,0,.25)};
     const wf=(x,y)=>{const i=clamp(Math.floor(x),0,RW-2),j=clamp(Math.floor(y),0,RH-2),u=clamp(x-i,0,1),v=clamp(y-j,0,1);return lerp(lerp(F(i,j),F(i+1,j),u),lerp(F(i,j+1),F(i+1,j+1),u),v)};
@@ -758,11 +759,16 @@ function paGlassCanvas(){const c=document.createElement('canvas');c.width=256;c.
   g.fillStyle='#2b2724';for(let x=0;x<256;x+=64)g.fillRect(x,0,5,128);g.fillRect(0,0,256,5);g.fillRect(0,123,256,5);return c}
 function paPlankCanvas(){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');for(let x=0;x<128;x+=8){const v=135+Math.random()*35|0;g.fillStyle=`rgb(${v+45},${v+5},${v-45})`;g.fillRect(x,0,8,128);g.fillStyle='rgba(0,0,0,.2)';g.fillRect(x+7,0,1,128)}return c}
 /* the entrance building: glass at ground level, a wavy band of wooden shingles above, a planted roof rising into the hill behind */
+/* Paanu's glass: a reflection of its real surroundings, captured by a cube camera at the building (re-taken every 30 s as the weather changes); the glass then reflects it by view angle, which costs nothing per frame */
+let PAGLASS=null;function paanuReflect(){if(!PAGLASS)return;try{let cx=0,cz=0;for(const p of PAANU){cx+=p[0];cz+=p[1]}cx/=PAANU.length;cz/=PAANU.length;
+  const rt=new THREE.CubeRenderTarget(256),cc=new THREE.CubeCamera(1,3000,rt);cc.position.set(cx,T(cx,cz)+2,cz);scene.add(cc);
+  const snap=()=>{const v=sk.visible;sk.visible=false;cc.update(renderer,scene);sk.visible=v};snap();setInterval(snap,30000);
+  PAGLASS.envMap=rt.texture;PAGLASS.envMapIntensity=1.3;PAGLASS.roughness=.03;PAGLASS.metalness=.85;PAGLASS.needsUpdate=true}catch(e){console.warn('reflect',e)}}
 function buildPaanu(){if(!TER)return;const F=PAANU.slice(0,PAANU_FRONT),y0=T(385,898)+.02;
   const L=[0];for(let i=1;i<F.length;i++)L.push(L[i-1]+Math.hypot(F[i][0]-F[i-1][0],F[i][1]-F[i-1][1]));const LT=L[L.length-1];
   const hf=s=>{const u=s/LT;return 5.4+1.1*Math.sin(u*Math.PI)+.35*Math.sin(u*Math.PI*3.2+.6)};   /* the shingle band undulates along the front */
   const GL=3.7,OUT=.9;
-  const glass=M({map:tex(paGlassCanvas(),1,1),roughness:.12,metalness:.55}),shing=M({map:tex(paShingleCanvas(),1,1),roughness:.9}),wood=M({map:tex(paPlankCanvas(),1,1),roughness:.75}),
+  const glass=(PAGLASS=M({map:tex(paGlassCanvas(),1,1),roughness:.12,metalness:.55})),shing=M({map:tex(paShingleCanvas(),1,1),roughness:.9}),wood=M({map:tex(paPlankCanvas(),1,1),roughness:.75}),
     roofM=M({color:lin('#8d8a6a'),roughness:1}),under=M({color:lin('#6f5a43'),roughness:.8});
   const gp=[],gu=[],sp=[],su=[],up=[];
   const nrm=i=>{const a=F[Math.max(0,i-1)],b=F[Math.min(F.length-1,i+1)];const dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz)||1;return[dz/l,-dx/l]};   /* outward (toward the plaza, north) */
@@ -813,66 +819,108 @@ function buildSite(){if(!TER)return;
    orange rescue boat and white raft canisters. It lies alongside the quay at Meritullintori; board it and sail across. */
 const FERRY=window.__F={on:false,ready:false};
 function buildFerry(){try{
-  const L=36.4,HB=4.3,quayNear=(x0,z0,R,dir,spr)=>{/* nearest water edge from a land point, searching in one direction, with the edge's normal */let best=null;for(let r=2;r<=R&&!best;r+=2)for(let q=-8;q<=8;q++){const an=dir+q/8*spr,x=x0+Math.cos(an)*r,z=z0+Math.sin(an)*r;if(isWater(x,z)&&isWater(x+Math.cos(an)*8,z+Math.sin(an)*8)){best=[x,z];break}}
+  /* m/s Kökar (FinFerries): length 36.4 m, breadth 8.9 m, draught 3.2 m, 226 passengers, built 1967 at Uudenkaupungin telakka */
+  const L=36.4,HB=4.45,quayNear=(x0,z0,R,dir,spr)=>{/* nearest water edge from a land point, searching in one direction, with the edge's normal */let best=null;for(let r=2;r<=R&&!best;r+=2)for(let q=-8;q<=8;q++){const an=dir+q/8*spr,x=x0+Math.cos(an)*r,z=z0+Math.sin(an)*r;if(isWater(x,z)&&isWater(x+Math.cos(an)*8,z+Math.sin(an)*8)){best=[x,z];break}}
       if(!best)return null;let[x,z]=best;const n=waterNormal(x,z,0,1);for(let k=0;k<12&&isWater(x,z);k++){x-=n[0]*.5;z-=n[1]*.5}return{x,z,n}};
   const A=quayNear(-924,1684,160,0,.9),Bq=quayNear(1975,1765,320,Math.PI,.9);if(!A||!Bq)return;
-  const deckY=T(A.x-A.n[0]*2,A.z-A.n[1]*2)+.02,hd=deckY-SEA;
-  /* the ferry lies alongside: its side 0.4 m off the quay, bow pointing along the edge */
-  const dock=(q,side)=>{const tx=-q.n[1]*side,tz=q.n[0]*side;return{x:q.x+q.n[0]*(HB+.4),z:q.z+q.n[1]*(HB+.4),yaw:Math.atan2(-tx,-tz)}};
-  const DA=dock(A,1);
-  /* Kruunuvuorenranta: a 30 m floating pier out from the shore, the ferry alongside its end */
-  const pier0=[Bq.x-Bq.n[0]*3,Bq.z-Bq.n[1]*3],pier1=[Bq.x+Bq.n[0]*26,Bq.z+Bq.n[1]*26],ph0=T(pier0[0],pier0[1])+.05;
-  {const P=[],H=[];for(let i=0;i<=14;i++){const t=i/14;P.push([lerp(pier0[0],pier1[0],t),lerp(pier0[1],pier1[1],t)]);const d=t*29;H.push(d<6?lerp(ph0,deckY,d/6):deckY)}addDeck(P,H,4,'Ferry pier');
-    const g=new THREE.Group(),wm=M({color:lin('#8a8177'),roughness:.85}),fm=M({color:lin('#d8d3c8'),roughness:.7});
-    for(let i=0;i<14;i++){const a=P[i],b=P[i+1],cx=(a[0]+b[0])/2,cz=(a[1]+b[1])/2,l=Math.hypot(b[0]-a[0],b[1]-a[1]),h=(H[i]+H[i+1])/2;
-      const m=new THREE.Mesh(new THREE.BoxGeometry(4,.35,l+.05),wm);m.position.set(cx,h-.18,cz);m.rotation.y=Math.atan2(b[0]-a[0],b[1]-a[1]);m.rotation.x=-Math.atan2(H[i+1]-H[i],l);m.receiveShadow=true;g.add(m)}
-    const fl=new THREE.Mesh(new THREE.BoxGeometry(5,1.2,20),fm);fl.position.set((P[8][0]+P[14][0])/2,SEA+.25,(P[8][1]+P[14][1])/2);fl.rotation.y=Math.atan2(pier1[0]-pier0[0],pier1[1]-pier0[1]);g.add(fl);   /* pontoon */
-    const sh=new THREE.Mesh(new THREE.BoxGeometry(3.6,.1,5),M({color:lin('#3b4a57'),roughness:.4,metalness:.4}));sh.position.set(P[10][0],deckY+2.7,P[10][1]);sh.rotation.y=fl.rotation.y;g.add(sh);   /* shelter roof */
-    scene.add(g)}
-  const pd=[pier1[0]-pier0[0],pier1[1]-pier0[1]],pl=Math.hypot(...pd),pu=[pd[0]/pl,pd[1]/pl],pnx=-pu[1],pnz=pu[0];
-  const DB={x:pier1[0]-pu[0]*5+pnx*(2+HB+.4),z:pier1[1]-pu[1]*5+pnz*(2+HB+.4)};DB.yaw=Math.atan2(-pu[0],-pu[1]);   /* bow out along the pier */
-  /* ---- model (local: +x bow, +z port, y up from the waterline) ---- */
+  const deckY=T(A.x-A.n[0]*2,A.z-A.n[1]*2)+.02,hd=deckY-SEA,GATE=-13.25;
+  /* a ferry pier at each end: 30 m straight out from the shore, ramp then level, a pontoon, a shelter; the ship lies along its side, bow out */
+  const wm=M({color:lin('#8a8177'),roughness:.85}),fm=M({color:lin('#d8d3c8'),roughness:.7}),rm=M({color:lin('#9a9c9e'),roughness:.4,metalness:.7}),ym=M({color:lin('#f2c22a'),roughness:.6});
+  const pier=(q,name)=>{const p0=[q.x-q.n[0]*3,q.z-q.n[1]*3],p1=[q.x+q.n[0]*27,q.z+q.n[1]*27],h0=T(p0[0],p0[1])+.05,P=[],H=[];
+    for(let i=0;i<=15;i++){const t=i/15;P.push([lerp(p0[0],p1[0],t),lerp(p0[1],p1[1],t)]);const d=t*30;H.push(d<6?lerp(h0,deckY,d/6):deckY)}addDeck(P,H,4,name);
+    const g=new THREE.Group(),ang=Math.atan2(p1[0]-p0[0],p1[1]-p0[1]);
+    for(let i=0;i<15;i++){const a=P[i],b=P[i+1],l=Math.hypot(b[0]-a[0],b[1]-a[1]);const m=new THREE.Mesh(new THREE.BoxGeometry(4,.35,l+.05),wm);m.position.set((a[0]+b[0])/2,(H[i]+H[i+1])/2-.18,(a[1]+b[1])/2);m.rotation.y=ang;m.rotation.x=-Math.atan2(H[i+1]-H[i],l);m.receiveShadow=true;g.add(m)}
+    const u=[(p1[0]-p0[0])/30,(p1[1]-p0[1])/30],at=(d,o)=>[p0[0]+u[0]*d-u[1]*o,p0[1]+u[1]*d+u[0]*o];
+    {const c=at(19,0),fl=new THREE.Mesh(new THREE.BoxGeometry(5,1.2,22),fm);fl.position.set(c[0],SEA+.25,c[1]);fl.rotation.y=ang;g.add(fl)}
+    for(let d=8;d<=30;d+=2.2){const c=at(d,-1.9),po=new THREE.Mesh(new THREE.BoxGeometry(.06,1.1,.06),rm);po.position.set(c[0],deckY+.55,c[1]);g.add(po)}   /* railing on the shore-side edge only */
+    {const c=at(19,-1.9),r=new THREE.Mesh(new THREE.BoxGeometry(.05,.05,22),rm);r.position.set(c[0],deckY+1.08,c[1]);r.rotation.y=ang;g.add(r)}
+    {const c=at(24,-.9),sh=new THREE.Mesh(new THREE.BoxGeometry(2,.1,4),M({color:lin('#3b4a57'),roughness:.4,metalness:.4}));sh.position.set(c[0],deckY+2.6,c[1]);sh.rotation.y=ang;g.add(sh);
+      for(const dd of [-1.8,1.8]){const pc=at(24+dd,-1.8),po=new THREE.Mesh(new THREE.BoxGeometry(.08,2.6,.08),rm);po.position.set(pc[0],deckY+1.3,pc[1]);g.add(po)}}
+    for(const d of [10,18,26]){const c=at(d,1.75),b=new THREE.Mesh(new THREE.CylinderGeometry(.13,.16,.45,10),ym);b.position.set(c[0],deckY+.22,c[1]);g.add(b)}   /* mooring bollards */
+    scene.add(g);const ctr=at(6-GATE+3.5,2+HB+.45);return{x:ctr[0],z:ctr[1],yaw:Math.atan2(-u[0],-u[1]),gate:at(6-GATE+3.5+GATE,2),u}};
+  const DA=pier(A,'Meritullintori ferry pier'),DB=pier(Bq,'Kruunuvuorenranta ferry pier');
+  const pnx=-DB.u[1],pnz=DB.u[0];
+  /* ---- model (local: +x bow, +z starboard, y up from the waterline), proportions from FinFerries' side drawing ---- */
   const grp=new THREE.Group();scene.add(grp);const add=(g,m,x,y,z,p=grp)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o};
-  const halfW=lx=>{const s=lx+18.2,b=18.2-lx;return HB*Math.min(1,Math.sqrt(Math.max(0,b)/5.5),.82+.18*Math.min(1,s/3))};
-  const navy=M({color:lin('#1c2d55'),roughness:.55}),white=M({color:lin('#f1f0ea'),roughness:.5}),yel=M({color:lin('#f2c22a'),roughness:.5}),win=M({color:lin('#16307a'),roughness:.15,metalness:.3}),
-    glass=M({color:lin('#151a20'),roughness:.08,metalness:.5}),inner=M({color:lin('#e9e4d8'),roughness:.8}),floorM=M({color:lin('#7b6e60'),roughness:.7}),seat=M({color:lin('#2f4f8f'),roughness:.8}),orange=M({color:lin('#e8642a'),roughness:.5}),grey=M({color:lin('#8c8f92'),roughness:.4,metalness:.5});
-  /* hull: plan outline lofted from keel to deck edge, navy below, white band above */
-  {const N=40,pts=[];for(let i=0;i<=N;i++){const lx=-18.2+L*i/N;pts.push([lx,halfW(lx)])}const sh=new THREE.Shape();sh.moveTo(pts[0][0],-pts[0][1]);for(const[x,w]of pts)sh.lineTo(x,w);for(let i=N;i>=0;i--)sh.lineTo(pts[i][0],-pts[i][1]);
-    const mk2=(y0,y1,m)=>{const g=new THREE.ExtrudeGeometry(sh,{depth:y1-y0,bevelEnabled:false,curveSegments:2});g.rotateX(-Math.PI/2);g.translate(0,y0,0);
-      const p=g.attributes.position;for(let i=0;i<p.count;i++){const y=p.getY(i),k=clamp((y+2.2)/(hd+2.2),0,1);p.setZ(i,p.getZ(i)*(.62+.38*Math.sqrt(k)))}g.computeVertexNormals();return add(g,m,0,0,0)};
-    mk2(-2.2,hd-.6,navy);mk2(hd-.6,hd-.05,white);
-    const dg=new THREE.ShapeGeometry(sh);dg.rotateX(-Math.PI/2);add(dg,floorM,0,hd-.04,0).scale.set(.995,1,.98);
-    /* bulwark with the boarding gates open on both sides */
-    for(let i=0;i<N;i++){const[a,wa]=pts[i],[b,wb]=pts[i+1];for(const sd of [-1,1]){if(a>-13.2&&b<-8.2)continue;const l=Math.hypot(b-a,wb-wa);const o=add(new THREE.BoxGeometry(l+.02,1.05,.1),yel,(a+b)/2,hd+.48,sd*(wa+wb)/2-.05*sd);o.rotation.y=-sd*Math.atan2(wb-wa,b-a)}}
-    for(let i=0;i<=4;i++){const z=-HB*.8+i*HB*.4;add(new THREE.BoxGeometry(.1,1.05,HB*.4),yel,-18.15,hd+.48,z)}}
-  /* passenger saloon */
-  const S0=-6,S1=9,SW=2.9,SH=2.35;const roofG=new THREE.Group();grp.add(roofG);
-  for(const sd of [-1,1]){add(new THREE.BoxGeometry(S1-S0,SH,.12),yel,(S0+S1)/2,hd+SH/2,sd*SW);add(new THREE.BoxGeometry(S1-S0-1.2,.85,.02),win,(S0+S1)/2,hd+1.45,sd*(SW+.07));
+  const halfW=lx=>{const b=18.2-lx,s=lx+18.2;return HB*Math.min(1,Math.pow(Math.max(0,b)/7.5,.55),.9+.1*Math.min(1,s/2.5))};
+  const navy=M({color:lin('#1c2d55'),roughness:.5,side:THREE.DoubleSide}),white=M({color:lin('#f1f0ea'),roughness:.5,side:THREE.DoubleSide}),yel=M({color:lin('#f2c22a'),roughness:.5}),win=M({color:lin('#18306e'),roughness:.12,metalness:.35}),
+    glass=M({color:lin('#1d2530'),roughness:.05,metalness:.6,transparent:true,opacity:.28,depthWrite:false}),inner=M({color:lin('#ece7da'),roughness:.8}),floorM=M({color:lin('#6f6457'),roughness:.75}),deckM=M({color:lin('#8b8f8c'),roughness:.8}),seat=M({color:lin('#2f4f8f'),roughness:.8}),
+    orange=M({color:lin('#e8642a'),roughness:.5}),grey=M({color:lin('#8c8f92'),roughness:.4,metalness:.5}),rail=M({color:lin('#e9e6dc'),roughness:.5}),port=M({color:lin('#4b4f55'),roughness:.2,metalness:.6}),dark=M({color:lin('#22252a'),roughness:.6});
+  /* hull: lofted sections. Sheer rises a little toward the bow, the stem is raked, the stern a transom; navy below, a white band under the deck edge that ends in a slant at the bow */
+  {const N=48,R=10,pos=[],idx=[],col=[],sheer=lx=>hd+.15+.6*Math.max(0,(lx-6)/12.2)**2,keel=lx=>-2.2+1.9*Math.max(0,(lx-11)/7.2)**1.6+.8*Math.max(0,(-15.5-lx)/2.7);
+    for(let i=0;i<=N;i++){const lx=-18.2+L*i/N,w=halfW(lx),top=sheer(lx),bot=keel(lx);
+      for(let k=0;k<=R;k++){const a=k/R*Math.PI,cs=Math.cos(a),sn=Math.sin(a);const y=bot+(top-bot)*(1-Math.pow(sn,6)*.0)*(.5+.5*cs*0)+0;
+        const t=k/R;let yy,zz;if(t<=.5){const q=t/.5;yy=lerp(top,bot+.6,q);zz=w*(1-.25*q*q*q)}else{const q=(t-.5)/.5;yy=lerp(bot+.6,bot,Math.sin(q*Math.PI/2));zz=w*.75*(1-q)}
+        pos.push(lx,yy,zz);const band=yy>top-1.05+.45*Math.max(0,(lx-11)/7)&&yy<top-.02;col.push(band?1:0)}}
+    const g=new THREE.BufferGeometry(),P2=[],C2=[];const at=(i,k,s2)=>{const o=(i*(R+1)+k)*3;return[pos[o],pos[o+1],pos[o+2]*s2]};
+    for(const s2 of [1,-1])for(let i=0;i<N;i++)for(let k=0;k<R;k++){const a=at(i,k,s2),b=at(i+1,k,s2),c=at(i+1,k+1,s2),d=at(i,k+1,s2),ca=col[i*(R+1)+k];const tri=s2>0?[a,b,c,a,c,d]:[a,c,b,a,d,c];for(const v of tri){P2.push(...v);C2.push(ca)}}
+    {const i=0;for(const s2 of [1]){for(let k=0;k<R;k++){const a=at(i,k,1),b=at(i,k,-1),c=at(i,k+1,-1),d=at(i,k+1,1);P2.push(...a,...c,...b,...a,...d,...c);for(let q=0;q<6;q++)C2.push(0)}}}   /* transom */
+    g.setAttribute('position',new THREE.Float32BufferAttribute(P2,3));g.computeVertexNormals();
+    const Wi=[],Ni=[];for(let t=0;t<P2.length/9;t++){(C2[t*3]?Wi:Ni).push(t)}const split=(L2)=>{const q=new THREE.BufferGeometry(),pp=[];for(const t of L2)for(let v=0;v<9;v++)pp.push(P2[t*9+v]);q.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));q.computeVertexNormals();return q};
+    add(split(Ni),navy,0,0,0);add(split(Wi),white,0,0,0);
+    /* deck plating and the bulwark (open at the boarding gates on both sides of the aft deck) */
+    const sh=new THREE.Shape(),pts=[];for(let i=0;i<=N;i++){const lx=-18.1+(L-.3)*i/N;pts.push([lx,halfW(lx)-.05])}sh.moveTo(pts[0][0],-pts[0][1]);for(const[x,w]of pts)sh.lineTo(x,w);for(let i=N;i>=0;i--)sh.lineTo(pts[i][0],-pts[i][1]);
+    const dg=new THREE.ShapeGeometry(sh);dg.rotateX(-Math.PI/2);add(dg,deckM,0,hd-.02,0);
+    for(let i=0;i<N;i++){const[a,wa]=pts[i],[b,wb]=pts[i+1];for(const sd of [-1,1]){if(a>GATE-2.3&&b<GATE+2.3)continue;const l=Math.hypot(b-a,wb-wa),h0=sheer((a+b)/2)-hd;const o=add(new THREE.BoxGeometry(l+.03,1.0+h0,.08),yel,(a+b)/2,hd+(1+h0)/2,sd*(wa+wb)/2);o.rotation.y=-sd*Math.atan2(wb-wa,b-a)}}
+    for(let i=0;i<=8;i++){const z=-HB*.9+i*HB*.225;add(new THREE.BoxGeometry(.08,1,HB*.225),yel,-18.08,hd+.5,z)}
+    for(const sd of [-1,1]){add(new THREE.BoxGeometry(4.6,.05,.05),rail,GATE,hd+1.05,sd*(halfW(GATE)-.02));add(new THREE.BoxGeometry(.06,1.05,.06),rail,GATE-2.3,hd+.52,sd*(halfW(GATE)-.02));add(new THREE.BoxGeometry(.06,1.05,.06),rail,GATE+2.3,hd+.52,sd*(halfW(GATE)-.02))}   /* gate frame */
+    /* portholes: a row in the white band forward, one in the navy amidships; rudder, propeller, bow thruster */
+    for(const sd of [-1,1]){for(let k=0;k<6;k++){const x=6.6+k*1.1,o=add(new THREE.CylinderGeometry(.17,.17,.04,14),port,x,sheer(x)-.55,sd*(halfW(x)+.01));o.rotation.x=Math.PI/2}
+      for(let k=0;k<5;k++){const x=-.4+k*1.2,o=add(new THREE.CylinderGeometry(.17,.17,.04,14),port,x,hd-1.5,sd*(halfW(x)*.99+.01));o.rotation.x=Math.PI/2}}
+    add(new THREE.BoxGeometry(1.2,1.6,.15),navy,-17.9,-1.6,0);{const pr=add(new THREE.CylinderGeometry(.75,.75,.1,5),yel,-16.9,-1.7,0);pr.rotation.z=Math.PI/2}}
+  /* aft deckhouse = the passenger saloon you can ride into (door in its aft wall, walkways down both sides) */
+  const S0=-10,S1=5.2,SW=3.4,SH=2.4;const roofG=new THREE.Group();grp.add(roofG);
+  for(const sd of [-1,1]){add(new THREE.BoxGeometry(S1-S0,SH,.12),yel,(S0+S1)/2,hd+SH/2,sd*SW);
+    add(new THREE.BoxGeometry(S1-S0-1,.9,.03),win,(S0+S1)/2-.1,hd+1.4,sd*(SW+.075));for(let k=0;k<=9;k++)add(new THREE.BoxGeometry(.06,.9,.04),white,S0+.5+k*(S1-S0-1)/9,hd+1.4,sd*(SW+.09));   /* blue window band, white mullions */
     add(new THREE.BoxGeometry(S1-S0-.2,SH-.1,.02),inner,(S0+S1)/2,hd+SH/2,sd*(SW-.07))}
-  for(const xw of [S0,S1])for(const sd of [-1,1]){add(new THREE.BoxGeometry(.12,SH,SW-.8),yel,xw,hd+SH/2,sd*(.8+(SW-.8)/2))}
-  for(const xw of [S0,S1])add(new THREE.BoxGeometry(.12,.35,1.6),yel,xw,hd+SH-.17,0);   /* over the doors */
-  add(new THREE.BoxGeometry(S1-S0+.4,.14,SW*2+.4),yel,(S0+S1)/2,hd+SH+.07,0,roofG);add(new THREE.BoxGeometry(S1-S0-.2,.02,SW*2-.2),inner,(S0+S1)/2,hd+SH-.02,0,roofG);
-  for(let i=0;i<6;i++)for(const sd of [-1,1]){const x=S0+1.4+i*2.3;add(new THREE.BoxGeometry(1.7,.45,.5),seat,x,hd+.23,sd*(SW-.38));add(new THREE.BoxGeometry(1.7,.55,.1),seat,x,hd+.7,sd*(SW-.12))}   /* benches along the windows */
-  {const lamp=M({color:lin('#fffbe8'),emissive:lin('#fff4d0'),emissiveIntensity:1.2,roughness:.5});for(let i=0;i<4;i++)add(new THREE.BoxGeometry(1.2,.04,.25),lamp,S0+2+i*3.4,hd+SH-.05,0,roofG)}
-  /* upper deck: wheelhouse, mast, funnel, rescue boat, rafts, railings */
-  add(new THREE.BoxGeometry(4.6,2.1,4.4),yel,6.6,hd+SH+1.15,0,roofG);add(new THREE.BoxGeometry(.05,.75,3.8),glass,8.92,hd+SH+1.55,0,roofG);for(const sd of [-1,1])add(new THREE.BoxGeometry(3.6,.7,.03),glass,6.6,hd+SH+1.55,sd*2.21,roofG);
-  add(new THREE.BoxGeometry(5,.12,4.9),white,6.6,hd+SH+2.26,0,roofG);
-  {const m=add(new THREE.BoxGeometry(.35,7,.35),yel,7.6,hd+SH+5.6,0,roofG);m.rotation.z=-.12;add(new THREE.BoxGeometry(.12,.12,2.6),yel,7.3,hd+SH+7.4,0,roofG);add(new THREE.BoxGeometry(.8,.1,3.2),white,6.3,hd+SH+2.6,0,roofG)}   /* mast, radar */
-  {const f=add(new THREE.BoxGeometry(1.6,2.6,1.4),yel,-4.6,hd+SH+1.4,0,roofG);f.rotation.z=.18;const t=add(new THREE.BoxGeometry(1.7,.4,1.5),navy,-4.85,hd+SH+2.7,0,roofG);t.rotation.z=.18}   /* funnel */
-  {const b=add(new THREE.CapsuleGeometry(.7,3,4,10),orange,2.6,hd+SH+.9,1.4,roofG);b.rotation.z=Math.PI/2;b.scale.set(1,1,.8)}
-  for(const x of [-1.5,.5])for(const sd of [-1,1]){const c=add(new THREE.CapsuleGeometry(.35,1,3,8),white,x,hd+SH+.5,sd*2.2,roofG);c.rotation.z=Math.PI/2}
-  for(const sd of [-1,1])for(let i=0;i<3;i++)add(new THREE.BoxGeometry(S1-S0-1,.04,.04),grey,(S0+S1)/2-.5,hd+SH+.4+i*.35,sd*(SW+.1),roofG);
+  for(const sd of [-1,1])add(new THREE.BoxGeometry(.12,SH,SW-.9),yel,S0,hd+SH/2,sd*(.9+(SW-.9)/2));add(new THREE.BoxGeometry(.12,.4,1.8),yel,S0,hd+SH-.2,0);
+  add(new THREE.BoxGeometry(S1-S0+.5,.14,SW*2+.5),yel,(S0+S1)/2,hd+SH+.07,0,roofG);add(new THREE.BoxGeometry(S1-S0-.2,.02,SW*2-.2),inner,(S0+S1)/2,hd+SH-.02,0,roofG);
+  {const fl=add(new THREE.BoxGeometry(S1-S0-.2,.02,SW*2-.2),floorM,(S0+S1)/2,hd+.005,0);fl.receiveShadow=true}
+  for(let k=0;k<8;k++)for(const sd of [-1,1]){const x=S0+1.6+k*1.7;add(new THREE.BoxGeometry(.5,.45,2),seat,x,hd+.23,sd*2);add(new THREE.BoxGeometry(.1,.55,2),seat,x-.22,hd+.72,sd*2)}   /* rows of seats, aisle down the middle */
+  {const lamp=M({color:lin('#fffbe8'),emissive:lin('#fff4d0'),emissiveIntensity:1.2,roughness:.5});for(let i=0;i<5;i++)add(new THREE.BoxGeometry(1.2,.04,.25),lamp,S0+1.5+i*3,hd+SH-.05,0,roofG)}
+  /* upper deck on the saloon roof: railing, funnel (logo), rafts */
+  for(const sd of [-1,1])for(let i=0;i<3;i++)add(new THREE.BoxGeometry(S1-S0-.4,.035,.035),rail,(S0+S1)/2,hd+SH+.4+i*.32,sd*(SW+.15),roofG);
+  for(let k=0;k<=10;k++)for(const sd of [-1,1])add(new THREE.BoxGeometry(.04,1,.04),rail,S0+.2+k*(S1-S0-.4)/10,hd+SH+.6,sd*(SW+.15),roofG);
+  {const f=add(new THREE.BoxGeometry(1.7,3.6,1.3),yel,-6.4,hd+SH+1.8,0,roofG);f.rotation.z=.2;const t=add(new THREE.BoxGeometry(1.8,.45,1.4),navy,-6.8,hd+SH+3.65,0,roofG);t.rotation.z=.2}
+  for(const x of [-3.5,-1.5])for(const sd of [-1,1]){const c=add(new THREE.CapsuleGeometry(.4,1.1,4,10),white,x,hd+SH+.55,sd*2.4,roofG);c.rotation.z=Math.PI/2}
+  {const b=add(new THREE.CapsuleGeometry(.65,2.8,4,12),orange,2.3,hd+SH+1.6,-2.3,roofG);b.rotation.z=Math.PI/2;b.scale.set(1,1,.8);add(new THREE.BoxGeometry(.12,2.2,.12),yel,3.8,hd+SH+1.1,-2.9,roofG);const dv=add(new THREE.BoxGeometry(.12,.12,1.6),yel,3.8,hd+SH+2.2,-2.3,roofG)}   /* rescue boat on its davit */
+  /* forward deckhouse (crew): two decks, wheelhouse on top with a raked front, mast and radar */
+  add(new THREE.BoxGeometry(16.4-S1,SH,SW*2),yel,(S1+16.4)/2,hd+SH/2,0);
+  for(const sd of [-1,1])for(let k=0;k<7;k++)add(new THREE.BoxGeometry(.55,.75,.03),glass,S1+1+k*1.4,hd+1.45,sd*(SW+.02));
+  {const y0=hd+SH,W2=SW-.3,x0=4.9,x1=9.9;   /* hollow wheelhouse: sill below the windows, header above, corner posts; you can see out */
+   add(new THREE.BoxGeometry(5,.02,W2*2),M({color:lin('#4a4f56'),roughness:.8}),7.4,y0+.01,0,roofG);
+   add(new THREE.BoxGeometry(.1,2,W2*2),yel,x0,y0+1,0,roofG);
+   for(const sd of [-1,1]){add(new THREE.BoxGeometry(5,.95,.1),yel,7.4,y0+.47,sd*W2,roofG);add(new THREE.BoxGeometry(5,.3,.1),yel,7.4,y0+1.85,sd*W2,roofG);for(const x of [x0+.05,5.95,7,8.05,x1-.1])add(new THREE.BoxGeometry(.12,1,.1),yel,x,y0+1.35,sd*W2,roofG)}
+   add(new THREE.BoxGeometry(.1,.7,W2*2),yel,x1,y0+.35,0,roofG);add(new THREE.BoxGeometry(.1,.25,W2*2),yel,x1-.15,y0+1.9,0,roofG);for(const z of [-W2,-1,0,1,W2])add(new THREE.BoxGeometry(.1,1.3,.1),yel,x1-.08,y0+1.25,z,roofG)}
+for(const sd of [-1,1])for(let k=0;k<4;k++)add(new THREE.BoxGeometry(.8,.7,.03),glass,5.6+k*1.05,hd+SH+1.35,sd*(SW-.28),roofG);
+  {const fr=add(new THREE.BoxGeometry(.08,1.3,SW*2-.8),glass,9.95,hd+SH+1.3,0,roofG);fr.rotation.z=-.25}
+  add(new THREE.BoxGeometry(5.6,.12,SW*2),white,7.4,hd+SH+2.06,0,roofG);for(const sd of [-1,1])add(new THREE.BoxGeometry(5.4,.035,.035),rail,7.4,hd+SH+2.6,sd*(SW-.05),roofG);
+  {const m=add(new THREE.BoxGeometry(.35,7.5,.35),yel,6,hd+SH+5.8,0,roofG);m.rotation.z=.12;add(new THREE.BoxGeometry(.12,.12,3),yel,5.6,hd+SH+7.6,0,roofG);add(new THREE.BoxGeometry(.5,.08,3.4),white,7.2,hd+SH+2.9,0,roofG);add(new THREE.CylinderGeometry(.18,.18,.5,10),white,6.9,hd+SH+2.4,1.5,roofG)}
+  for(const sd of [-1,1]){const c=add(new THREE.CapsuleGeometry(.4,1.1,4,10),white,9.2,hd+SH+.5,sd*2.4,roofG);c.rotation.z=Math.PI/2}
+  /* wheelhouse inside: console, the ship's wheel (ruori), engine telegraph */
+  const helm=new THREE.Group();helm.position.set(9.05,hd+SH+1.05,0);roofG.add(helm);
+  add(new THREE.BoxGeometry(.7,.95,4),M({color:lin('#3a3f46'),roughness:.5}),9.45,hd+SH+.47,0,roofG);
+  const wheel=new THREE.Group();helm.add(wheel);{const wm2=M({color:lin('#7a4b26'),roughness:.55}),br=M({color:lin('#c9a24a'),roughness:.3,metalness:.8});
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(.38,.03,8,32),wm2);rim.rotation.y=Math.PI/2;wheel.add(rim);const hub=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.08,12),br);hub.rotation.z=Math.PI/2;wheel.add(hub);
+    for(let k=0;k<8;k++){const a=k/8*Math.PI*2,sp=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,.56,6),wm2);sp.position.set(0,Math.cos(a)*.24,Math.sin(a)*.24);sp.rotation.x=a;wheel.add(sp);const hd2=new THREE.Mesh(new THREE.CylinderGeometry(.022,.018,.12,6),wm2);hd2.position.set(0,Math.cos(a)*.47,Math.sin(a)*.47);hd2.rotation.x=a;wheel.add(hd2)}}
+  const tele=new THREE.Mesh(new THREE.BoxGeometry(.06,.3,.06),M({color:lin('#c9a24a'),roughness:.3,metalness:.8}));tele.geometry.translate(0,.15,0);tele.position.set(9.35,hd+SH+.97,.8);roofG.add(tele);
   /* names and logos */
-  const label=(txt,w,h,col,bg,font)=>{const c=mk(512,Math.round(512*h/w)),g=c.getContext('2d');if(bg){g.fillStyle=bg;g.fillRect(0,0,c.width,c.height)}g.fillStyle=col;g.font=font;g.textAlign='center';g.textBaseline='middle';g.fillText(txt,c.width/2,c.height/2);
-    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshBasicMaterial({map:t,transparent:!bg})};
-  for(const sd of [-1,1]){const n=add(new THREE.PlaneGeometry(3.4,.7),label('KÖKAR',3.4,.7,'#1c2d55',null,"800 110px 'Inter Tight', sans-serif"),13.5,hd-.55,sd*(halfW(13.5)+.03));n.rotation.y=sd>0?0:Math.PI;
-    const f=add(new THREE.PlaneGeometry(5,1),label('FinFerries',5,1,'#1c2d55',null,"italic 800 120px 'Inter Tight', sans-serif"),-1.5,hd+.6,sd*(SW+.08));f.rotation.y=sd>0?0:Math.PI;
-    const k2=add(new THREE.PlaneGeometry(2.4,.6),label('KÖKAR  TURKU',2.4,.6,'#1c2d55',null,"700 90px 'Inter Tight', sans-serif"),-15.5,hd-.55,sd*(halfW(-15.5)+.03));k2.rotation.y=sd>0?0:Math.PI}
+  const label=(txt,w,h,col,font)=>{const c=mk(512,Math.round(512*h/w)),g=c.getContext('2d');g.fillStyle=col;g.font=font;g.textAlign='center';g.textBaseline='middle';g.fillText(txt,c.width/2,c.height/2);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshBasicMaterial({map:t,transparent:true})};
+  const logo=(()=>{const c=mk(256,256),g=c.getContext('2d');g.fillStyle='#1c2d55';g.beginPath();g.moveTo(128,20);g.lineTo(236,128);g.lineTo(128,236);g.lineTo(20,128);g.closePath();g.fill();g.fillStyle='#ffffff';g.fillRect(96,70,70,22);g.fillRect(96,118,56,20);g.fillRect(96,70,22,110);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshBasicMaterial({map:t,transparent:true})})();
+  for(const sd of [-1,1]){const rot=sd>0?0:Math.PI;
+    const n=add(new THREE.PlaneGeometry(2.6,.55),label('KÖKAR',2.6,.55,'#1c2d55',"800 110px 'Inter Tight', sans-serif"),15.2,hd+.3,sd*(halfW(15.2)+.02));n.rotation.y=rot+sd*.12;
+    const k2=add(new THREE.PlaneGeometry(2.4,.9),label('KÖKAR',2.4,.9,'#1c2d55',"700 80px 'Inter Tight', sans-serif"),-14.6,hd-.6,sd*(halfW(-14.6)+.02));k2.rotation.y=rot;
+    const f=add(new THREE.PlaneGeometry(4.6,.9),label('FinFerries',4.6,.9,'#1c2d55',"italic 800 120px 'Inter Tight', sans-serif"),-3.3,hd+.45,sd*(SW+.1));f.rotation.y=rot;
+    const lg=add(new THREE.PlaneGeometry(1,1),logo,-7.4,hd+.45,sd*(SW+.1));lg.rotation.y=rot;
+    const lf=add(new THREE.PlaneGeometry(1,1),logo,-6.3,hd+SH+2,sd*.67,roofG);lf.rotation.y=rot;
+    const lw=add(new THREE.PlaneGeometry(1,1),logo,8.6,hd+.8,sd*(SW+.04));lw.rotation.y=rot}
   /* ---- route: out from the quay, across the water on a clearance grid, into the pier ---- */
   const C=8,gx0=Math.min(DA.x,DB.x)-900,gz0=Math.min(DA.z,DB.z)-900,GW=Math.ceil((Math.abs(DA.x-DB.x)+1800)/C),GH=Math.ceil((Math.abs(DA.z-DB.z)+1800)/C);
   const free=new Uint8Array(GW*GH);for(let j=0;j<GH;j++)for(let i=0;i<GW;i++){const x=gx0+i*C,z=gz0+j*C;let ok=isWater(x,z);for(let a=0;a<8&&ok;a++)ok=isWater(x+Math.cos(a*.785)*14,z+Math.sin(a*.785)*14);free[j*GW+i]=ok?1:0}
   const cell=(x,z)=>[Math.round((x-gx0)/C),Math.round((z-gz0)/C)];
-  const outA=[DA.x+A.n[0]*30,DA.z+A.n[1]*30],outB=[DB.x+pnx*30,DB.z+pnz*30];
+  const outA=[DA.x-DA.u[1]*30,DA.z+DA.u[0]*30],outB=[DB.x+pnx*30,DB.z+pnz*30];
   const near=(x,z)=>{const[i0,j0]=cell(x,z);for(let r=0;r<12;r++)for(let dj=-r;dj<=r;dj++)for(let di=-r;di<=r;di++){const i=i0+di,j=j0+dj;if(i>=0&&j>=0&&i<GW&&j<GH&&free[j*GW+i])return j*GW+i}return -1};
   const s0=near(...outA),s1=near(...outB);let path=null;
   if(s0>=0&&s1>=0){const dist=new Float32Array(GW*GH).fill(1e9),from=new Int32Array(GW*GH).fill(-1),open=[[0,s0]];dist[s0]=0;const h=k=>Math.hypot(k%GW-s1%GW,(k/GW|0)-(s1/GW|0));
@@ -884,36 +932,57 @@ function buildFerry(){try{
       path=[[DA.x,DA.z],outA,...S,outB,[DB.x,DB.z]];for(let it=0;it<3;it++){const Q=[path[0]];for(let k=0;k<path.length-1;k++){const a=path[k],b=path[k+1];Q.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}Q.push(path[path.length-1]);path=Q}}}
   if(!path)path=[[DA.x,DA.z],outA,outB,[DB.x,DB.z]];
   const SL=[0];for(let k=1;k<path.length;k++)SL.push(SL[k-1]+Math.hypot(path[k][0]-path[k-1][0],path[k][1]-path[k-1][1]));
-  Object.assign(FERRY,{grp,roofG,deckY,hd,DA,DB,path,SL,len:SL[SL.length-1],s:0,dir:0,v:0,state:'docked',at:'A',x:DA.x,z:DA.z,yaw:DA.yaw,halfW,S0,S1,SW,ready:true,dockSide:1});
-  {const F=FERRY;F.gA=Math.sign(ferryLocal(A.x,A.z)[1])||1;F.x=DB.x;F.z=DB.z;F.yaw=DB.yaw;F.gB=Math.sign(ferryLocal(pier1[0]-pu[0]*5,pier1[1]-pu[1]*5)[1])||1;F.x=DA.x;F.z=DA.z;F.yaw=DA.yaw}
+  Object.assign(FERRY,{grp,roofG,deckY,hd,DA,DB,path,SL,len:SL[SL.length-1],s:0,dir:0,v:0,state:'docked',at:'A',x:DA.x,z:DA.z,yaw:DA.yaw,halfW,S0,S1,SW,ready:true,dockSide:1,wheel,tele,hv:0,rud:0,yr:0});FERRY.route={path,SL,len:SL[SL.length-1]};
+  {const F=FERRY;F.gA=Math.sign(ferryLocal(...DA.gate)[1])||1;F.x=DB.x;F.z=DB.z;F.yaw=DB.yaw;F.gB=Math.sign(ferryLocal(...DB.gate)[1])||1;F.x=DA.x;F.z=DA.z;F.yaw=DA.yaw}
   ferryPlace();
-  SPOTS.push({id:'ferry',n:'Ferry Kökar',s:'Meritullintori — board and sail to Kruunuvuorenranta',x:DA.x-A.n[0]*8,z:DA.z-A.n[1]*8,r:14})
+  SPOTS.push({id:'ferry',n:'Ferry Kökar',s:'Meritullintori — board and sail to Kruunuvuorenranta',x:A.x-A.n[0]*6,z:A.z-A.n[1]*6,r:14})
  }catch(e){console.warn('ferry',e)}}
 function ferryPlace(){const F=FERRY;F.grp.position.set(F.x,SEA,F.z);F.grp.rotation.y=F.yaw+Math.PI/2}   /* model +x is the bow; yaw 0 faces -z */
 /* local frame: lx toward the bow, lz to port */
 function ferryLocal(x,z){const F=FERRY,dx=x-F.x,dz=z-F.z,fx=-Math.sin(F.yaw),fz=-Math.cos(F.yaw);return[dx*fx+dz*fz,-(dx*fz-dz*fx)]}
-function ferryWalk(lx,lz){const F=FERRY,a=Math.abs(lz);if(lx<-17.6||lx>16.8||a>F.halfW(lx)-.35)return false;
-  if(lx>F.S0-.15&&lx<F.S1+.15){if(a>F.SW-.12&&a<F.SW+.12)return false;if((lx<F.S0+.15||lx>F.S1-.15)&&a>.8)return false;if(a>F.SW-.8&&a<F.SW&&lx>F.S0+.5&&lx<F.S1-.5)return false}   /* walls, doors, benches */
+function ferryWalk(lx,lz){const F=FERRY,a=Math.abs(lz);if(lx<-17.6||lx>17||a>F.halfW(lx)-.3)return false;
+  if(lx>F.S1-.15&&lx<16.55&&a<F.SW+.15)return false;   /* forward deckhouse (crew only) */
+  if(lx>F.S0-.15&&lx<F.S1+.15){if(a>F.SW-.15&&a<F.SW+.15)return false;if(lx<F.S0+.15&&a>.9)return false;
+    if(a>1&&a<3&&lx>F.S0+1.2){const k=Math.round((lx-F.S0-1.6)/1.7);if(k>=0&&k<8&&Math.abs(lx-(F.S0+1.6+k*1.7))<.38)return false}}   /* saloon walls, door, seat rows */
   return true}
-function ferryGate(lx,lz){const F=FERRY;if(F.state!=='docked')return false;const side=F.at==='A'?F.gA:F.gB;return lx>-13&&lx<-8.4&&lz*side>0&&Math.abs(lz)<F.halfW(lx)+3.5}
+function ferryGate(lx,lz){const F=FERRY;if(F.state!=='docked')return false;const side=F.at==='A'?F.gA:F.gB;return lx>-15.4&&lx<-11.1&&lz*side>0&&Math.abs(lz)<F.halfW(lx)+3.5}
 function ferryG(x,z,y){const F=FERRY;if(!F.ready||y<F.deckY-1.5)return null;const[lx,lz]=ferryLocal(x,z);if(ferryWalk(lx,lz))return F.deckY;if(ferryGate(lx,lz)){const w=F.halfW(lx)+3.5,t=clamp((w-Math.abs(lz))/3,0,1),fx=-Math.sin(F.yaw),fz=-Math.cos(F.yaw),sd=Math.sign(lz),ox=F.x+fx*lx-fz*sd*w,oz=F.z+fz*lx+fx*sd*w,g=isWater(ox,oz)?F.deckY:T(ox,oz);return lerp(g,F.deckY,t)}return null}   /* the gangway ramps from the quay to the deck */
 function ferryBlocked(x,z){const F=FERRY;if(!F.ready)return null;const[lx,lz]=ferryLocal(x,z),inBox=lx>-19&&lx<18.5&&Math.abs(lz)<F.halfW(lx)+.6;
   if(ferryGate(lx,lz))return 0;if(inBox)return ferryWalk(lx,lz)&&Math.abs(Pl.y-F.deckY)<1?0:2;if(F.on)return 7;return null}
-function ferryUpdate(dt){const F=FERRY;if(!F.ready)return;
-  if(F.state==='sailing'){const tgt=F.dir>0?F.len:0,rem=Math.abs(tgt-F.s),vmax=(F.fast?28:11);F.v=Math.min(vmax,F.v+dt*(F.fast?3:.7),Math.sqrt(2*.5*rem)+.3);
-    F.s+=F.dir*F.v*dt;if(F.dir>0?F.s>=F.len:F.s<=0){F.s=tgt;F.state='docked';F.at=F.dir>0?'B':'A';F.v=0;F.fast=false;pop(F.at==='B'?'Kruunuvuorenranta':'Meritullintori')}}
-  let k=0;while(k<F.SL.length-2&&F.SL[k+1]<F.s)k++;const t=clamp((F.s-F.SL[k])/((F.SL[k+1]-F.SL[k])||1),0,1),a=F.path[k],b=F.path[k+1];
-  const nx=lerp(a[0],b[0],t),nz=lerp(a[1],b[1],t);let want=Math.atan2(-(b[0]-a[0]),-(b[1]-a[1]))+(F.dir<0?Math.PI:0);
-  const dE=Math.min(F.s,F.len-F.s);if(dE<45)want=F.s<F.len/2?F.DA.yaw:F.DB.yaw;if(F.state==='docked')want=F.at==='A'?F.DA.yaw:F.DB.yaw;
-  let dy=want-F.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));const ny=F.yaw+clamp(dy,-dt*.25*(F.fast?3:1),dt*.25*(F.fast?3:1));
+function ferryHull(x,z,yaw){const fx=-Math.sin(yaw),fz=-Math.cos(yaw);for(const[lx,lz]of [[17.5,0],[13,4.2],[13,-4.2],[0,4.6],[0,-4.6],[-17.8,4],[-17.8,-4]]){const px=x+fx*lx-fz*lz,pz=z+fz*lx+fx*lz;if(!isWater(px,pz))return false}return true}
+function ferryUpdate(dt){const F=FERRY;if(!F.ready)return;let nx,nz,ny;
+  if(F.state==='helm'||F.state==='free'){   /* under your command: telegraph and rudder; she carries way, turns only with speed, and the bow thruster helps at a crawl */
+    const k=inp.keys,hl=F.state==='helm'&&state!=='pause';let thr=0,rd=0;if(hl){thr=(k.w||k.arrowup?1:0)-(k.s||k.arrowdown?1:0)||-(inp.jy||0)*0;if(Math.abs(inp.jy)>.15)thr=inp.jy;rd=(k.a||k.arrowleft?1:0)-(k.d||k.arrowright?1:0);if(Math.abs(inp.jx)>.15)rd=-inp.jx}
+    F.rud+=(rd-F.rud)*Math.min(1,dt*2.2);const vmax=13.9,acc=thr>0?thr*1.4:thr<0?thr*2:0;F.hv+=(acc-F.hv*Math.abs(F.hv)*.0075-F.hv*.02)*dt;F.hv=clamp(F.hv,-3.5,vmax);
+    const yrT=F.rud*(.05+.26*Math.min(1,Math.abs(F.hv)/5))*(F.hv<-.2?-1:1);F.yr+=(yrT-F.yr)*Math.min(1,dt*1.3);
+    ny=F.yaw+F.yr*dt;const fx=-Math.sin(ny),fz=-Math.cos(ny);nx=F.x+fx*F.hv*dt;nz=F.z+fz*F.hv*dt;
+    if(ferryHull(F.x,F.z,F.yaw)&&!ferryHull(nx,nz,ny)){if(Math.abs(F.hv)>2)pop('Kolahdus!');F.hv*=-.15;F.yr=0;nx=F.x;nz=F.z;ny=F.yaw}
+    F.wheel.rotation.x=F.rud*2.6;F.tele.rotation.z=-clamp(F.hv/vmax,-.4,1)*.9}
+  else{
+    if(F.state==='sailing'){const tgt=F.dir>0?F.len:0,rem=Math.abs(tgt-F.s),vmax=(F.fast?28:11);F.v=Math.min(vmax,F.v+dt*(F.fast?3:.7),Math.sqrt(2*.5*rem)+.3);
+      F.s+=F.dir*F.v*dt;if(F.dir>0?F.s>=F.len:F.s<=0){F.s=tgt;F.state='docked';F.at=F.retTo||(F.dir>0?'B':'A');F.v=0;F.fast=false;
+        if(F.retTo){Object.assign(F,{path:F.route.path,SL:F.route.SL,len:F.route.len,s:F.at==='B'?F.route.len:0});F.retTo=null}pop(F.at==='B'?'Kruunuvuorenranta':'Meritullintori')}}
+    let k=0;while(k<F.SL.length-2&&F.SL[k+1]<F.s)k++;const t=clamp((F.s-F.SL[k])/((F.SL[k+1]-F.SL[k])||1),0,1),a=F.path[k],b=F.path[k+1];
+    nx=lerp(a[0],b[0],t);nz=lerp(a[1],b[1],t);let want=Math.atan2(-(b[0]-a[0]),-(b[1]-a[1]))+(F.dir<0?Math.PI:0);
+    const dE=Math.min(F.s,F.len-F.s),endP=F.retTo?(F.retTo==='A'?F.DA:F.DB):null;if(dE<45)want=endP&&F.s>F.len/2?endP.yaw:F.s<F.len/2?(F.retTo?F.yaw:F.DA.yaw):F.DB.yaw;if(F.state==='docked')want=F.at==='A'?F.DA.yaw:F.DB.yaw;
+    let dy=want-F.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));ny=F.yaw+clamp(dy,-dt*.25*(F.fast?3:1),dt*.25*(F.fast?3:1));F.wheel.rotation.x*=Math.max(0,1-dt*2)}
   /* carry the skater with the ship */
-  if(F.on){const[lx,lz]=ferryLocal(Pl.x,Pl.z);F.x=nx;F.z=nz;F.yaw=ny;const fx=-Math.sin(ny),fz=-Math.cos(ny);Pl.x=nx+fx*lx-fz*lz;Pl.z=nz+fz*lx+fx*lz;Pl.yaw+=ny-(F._y??ny);Pl.camYaw+=ny-(F._y??ny);Pl.y=Math.max(Pl.y,F.deckY);Pl.visY=null}
-  else{F.x=nx;F.z=nz;F.yaw=ny}F._y=ny;ferryPlace();
-  const[lx,lz]=ferryLocal(Pl.x,Pl.z);F.on=ferryWalk(lx,lz)&&Math.abs(Pl.y-F.deckY)<.6;
-  const inside=F.on&&lx>F.S0&&lx<F.S1&&Math.abs(lz)<F.SW;F.roofG.visible=!inside;   /* cut-away roof while you're in the saloon */
-  const btn=$('ferryBtn');if(btn){const show=F.on&&state==='play';btn.style.display=show?'block':'none';
-    if(show)btn.textContent=F.state==='docked'?(F.at==='A'?'⛴  Sail to Kruunuvuorenranta':'⛴  Sail to Meritullintori'):(F.fast?'Sailing…':'Sailing… tap to speed up ⏩')}}
-function ferryGo(){const F=FERRY;if(!F.ready)return;if(F.state==='sailing'){F.fast=true;return}F.dir=F.at==='A'?1:-1;F.state='sailing';F.v=0;pop(F.dir>0?'Departing for Kruunuvuorenranta':'Departing for Meritullintori')}
+  if(F.on){const[lx,lz]=ferryLocal(Pl.x,Pl.z);const fx=-Math.sin(ny),fz=-Math.cos(ny);Pl.x=nx+fx*lx-fz*lz;Pl.z=nz+fz*lx+fx*lz;Pl.yaw+=ny-F.yaw;Pl.camYaw+=ny-F.yaw;Pl.y=Math.max(Pl.y,F.deckY);Pl.visY=null}
+  F.x=nx;F.z=nz;F.yaw=ny;ferryPlace();
+  const[lx,lz]=ferryLocal(Pl.x,Pl.z);F.on=F.state==='helm'||ferryWalk(lx,lz)&&Math.abs(Pl.y-F.deckY)<.6;
+  const inside=F.state!=='helm'&&F.on&&lx>F.S0&&lx<F.S1&&Math.abs(lz)<F.SW;F.roofG.visible=!inside;sk.visible=F.state!=='helm';
+  const btn=$('ferryBtn'),hb=$('helmBtn');if(btn){const show=F.on&&state==='play';btn.style.display=show&&F.state!=='helm'?'block':'none';hb.style.display=show?'block':'none';
+    hb.textContent=F.state==='helm'?'Leave the bridge':'⎈ Bridge';
+    if(show)btn.textContent=F.state==='docked'?(F.at==='A'?'⛴  Sail to Kruunuvuorenranta':'⛴  Sail to Meritullintori'):F.state==='free'?'⛴  Autopilot to the nearest pier':(F.fast?'Sailing…':'Sailing… tap to speed up ⏩')}}
+/* on the bridge: eye height behind the wheel, looking out over the bow */
+function ferryCam(){const F=FERRY;if(!F.ready||F.state!=='helm')return;const fx=-Math.sin(F.yaw),fz=-Math.cos(F.yaw),L=(lx,y)=>[F.x+fx*lx,SEA+y,F.z+fz*lx];
+  const e=L(7.6,F.hd+2.4+1.5),t=L(40,F.hd+2.4+.4);camera.position.set(...e);camera.lookAt(...t);if(camera.fov!==62){camera.fov=62;camera.updateProjectionMatrix()}}
+function ferryHelm(){const F=FERRY;if(!F.ready)return;if(F.state==='helm'){F.state='free';camera.fov=60;camera.updateProjectionMatrix();pop('Free deck');return}
+  if(F.state==='sailing'){if(F.retTo)Object.assign(F,{path:F.route.path,SL:F.route.SL,len:F.route.len});F.retTo=null;F.hv=F.v;F.v=0}else if(F.state==='docked')F.hv=0;F.state='helm';F.yr=0;pop('On the bridge · W/S telegraph · A/D wheel')}
+function ferryGo(){const F=FERRY;if(!F.ready)return;if(F.state==='sailing'){F.fast=true;return}
+  if(F.state==='free'||F.state==='helm'){const dA=Math.hypot(F.x-F.DA.x,F.z-F.DA.z),dB=Math.hypot(F.x-F.DB.x,F.z-F.DB.z),D=dA<dB?F.DA:F.DB;F.retTo=dA<dB?'A':'B';
+    const out=[D.x-D.u[1]*(dA<dB?30:-30),D.z+D.u[0]*(dA<dB?30:-30)],P=[[F.x,F.z],out,[D.x,D.z]],SL=[0,Math.hypot(out[0]-F.x,out[1]-F.z)];SL.push(SL[1]+Math.hypot(D.x-out[0],D.z-out[1]));
+    Object.assign(F,{path:P,SL,len:SL[2],s:0,dir:1,v:Math.max(0,F.hv),state:'sailing'});pop('Autopilot');return}F.dir=F.at==='A'?1:-1;F.state='sailing';F.v=0;pop(F.dir>0?'Departing for Kruunuvuorenranta':'Departing for Meritullintori')}
 
 function levelDecks(){
    /* a lane that ends on another deck joins it at that deck's height, blended back over 25 m */
@@ -1164,7 +1233,7 @@ function buildWorld(D){
   for(const e of ways){const t=tags(e);if(isTunnel(t))continue;const P=wayPts(e);if(P.length<2)continue;
     const isBr=t.bridge&&t.bridge!=='no'||t.man_made==='bridge'&&false;
     if(t.highway&&HW[t.highway]&&t.area!=='yes'){(isBr?bridgeWays:groundWays).push({P:!isBr&&isPathT(t.highway)?fillet(P,e,5):P,t,w:isBr?Math.max(5,t.width&&num(t.width)>0?num(t.width):0,HW[t.highway]||0):wayW(t,HW,3),rail:false})}
-    else if(/^(rail|tram|light_rail|subway|narrow_gauge)$/.test(t.railway||'')&&!t.service&&!t.disused&&!t.construction){(isBr?bridgeWays:groundWays).push({P,t,w:t.railway==='tram'||t.railway==='light_rail'?2.6:4,rail:true})}}
+    else if(/^(rail|tram|light_rail|subway|narrow_gauge)$/.test(t.railway||'')&&!t.service&&!t.disused&&!t.construction){if(/tram|light_rail/.test(t.railway))for(let k=0;k<P.length-1;k++){const a=P[k],b=P[k+1];for(let i=Math.floor((Math.min(a[0],b[0])-5)/8);i<=Math.floor((Math.max(a[0],b[0])+5)/8);i++)for(let j=Math.floor((Math.min(a[1],b[1])-5)/8);j<=Math.floor((Math.max(a[1],b[1])+5)/8);j++){const q=i*100003+j;if(!TRB.has(q))TRB.set(q,[]);TRB.get(q).push([a,b])}}(isBr?bridgeWays:groundWays).push({P,t,w:t.railway==='tram'||t.railway==='light_rail'?2.6:4,rail:true})}}
   const key=p=>Math.round(p[0]*20)+','+Math.round(p[1]*20);
   const chains=[];{const used=new Set();const byEnd=new Map();bridgeWays.forEach((b,i)=>{for(const k of [key(b.P[0]),key(b.P[b.P.length-1])]){if(!byEnd.has(k))byEnd.set(k,[]);byEnd.get(k).push(i)}});
     const compat=(a,b)=>a.rail===b.rail&&(num(a.t.layer)||1)===(num(b.t.layer)||1)&&(a.rail||Math.abs(a.w-b.w)<6);
@@ -1229,7 +1298,7 @@ function buildWorld(D){
       if(n>=2){c.P=[ext(c.P[0],c.P[1]),...c.P,ext(c.P[n-1],c.P[n-2])];{const E0=c.P[0],E1=c.P[c.P.length-1],gh=(p,h)=>c.base.rail||isWater(p[0],p[1])?h:T(p[0],p[1])+.06;c.hs=[gh(E0,c.hs[0]),...c.hs,gh(E1,c.hs[n-1])]}   /* the extension lands on the ground */if(c.s)c.s=[c.s[0]-6,...c.s,c.s[n-1]+6]}}
      addDeck(c.P,c.hs,c.base.w,c.name,c.base.rail)}
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
-  for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.12)}
+  for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.2)}
   /* ground ribbons */
   for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,LAYER[k]*.03+.06,true)}
   /* lane markings: dashed centre line on two-way streets, edge lines on main roads */
@@ -1350,7 +1419,13 @@ function buildWorld(D){
 
   /* ---------- trees: mapped trees plus parks and woods ---------- */
   status('Planting trees…',.93);
-  for(const e of D.land.elements){if(e.type==='node'&&tags(e).natural==='tree'){const[x,z]=PJ(e.lat,e.lon);if(surf(x,z)!==2&&surf(x,z)!==1&&diyAt(x,z)===null)RD.push([x,z,rnd(.8,1.3),Math.random()<.12?1:0])}}
+  for(const e of D.land.elements){if(e.type==='node'&&tags(e).natural==='tree'){let[x,z]=PJ(e.lat,e.lon);
+    if(surf(x,z)===4){let best=null;for(let r2=.5;r2<=5&&!best;r2+=.5)for(let a=0;a<16;a++){const qx=x+Math.cos(a/16*6.283)*r2,qz=z+Math.sin(a/16*6.283)*r2,q=surf(qx,qz);if(q===5||q===0){best=[qx+(qx-x)/r2*.6,qz+(qz-z)/r2*.6];break}}if(!best)continue;[x,z]=best}   /* street trees stand at the kerb, not in the carriageway */
+    if(surf(x,z)!==2&&surf(x,z)!==1&&surf(x,z)!==4&&diyAt(x,z)===null)RD.push([x,z,rnd(.8,1.3),Math.random()<.12?1:0])}}
+  /* Mustikkamaa: mostly forest with natural glades, except the sports park */
+  {const SP=[];for(const e of D.land.elements){const t=tags(e);if(e.type==='way'&&/pitch|sports_centre|track|playground|dog_park/.test(t.leisure||'')){const P=wayPts(e);if(P.length>2&&inMusti(P[0][0],P[0][1]))SP.push(P)}}
+   for(let k=0;k<5200;k++){const x=rnd(360,1150),z=rnd(290,790);if(surf(x,z)!==0||isWater(x,z)||SP.some(P=>inRing(x,z,P)))continue;const g=Math.sin(x*.021)*Math.cos(z*.017)+Math.sin(x*.007+z*.009);if(g<-.55)continue;   /* open glades */
+     RD.push([x,z,rnd(.75,1.45),Math.random()<.45?2:Math.random()<.4?1:0])}}
   for(const v of vegPolys){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of v.P){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1])}
     const area=Math.abs(polyArea(v.P)),n=Math.min(600,Math.floor(area/(v.code===2?55:420)));for(let k=0;k<n;k++){const x=rnd(x0,x1),z=rnd(z0,z1);if(!inRing(x,z,v.P))continue;const s=surf(x,z);if(s!==0||diyAt(x,z)!==null)continue;RD.push([x,z,rnd(.8,1.4),v.code===2?(Math.random()<.35?2:Math.random()<.3?1:0):(Math.random()<.15?1:0)])}}
   if(RD.length>14000)RD.length=14000;
@@ -1601,7 +1676,7 @@ const SN=(()=>{const L0=-.035,L1=.3,len=L1-L0,wid=u=>{const t=(u-L0)/len;return 
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
   /* sneaker: heel at +z, toe at -z; sole 8.5 cm below the ankle */
-  const sk3=new THREE.Group();sk3.position.set(0,-.072,.07);sk3.rotation.y=Math.PI/2;sk3.scale.set(.88,1,.95);f.add(sk3);
+  const sk3=new THREE.Group();sk3.position.set(0,-.072,.045);sk3.rotation.y=Math.PI/2;sk3.scale.set(.78,1,.95);f.add(sk3);
   add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);
   for(let i=0;i<5;i++){const u=.115+i*.026,o=add(new THREE.CapsuleGeometry(.0028,.045,2,6),shoeS,sk3,u,SN.top(u)+.002,0);o.rotation.x=Math.PI/2;o.rotation.z=-.35*(1-i*.12)}   /* laces */
 
@@ -1687,9 +1762,11 @@ const tuftG=new THREE.BufferGeometry();{const pos=[],uv=[],nor=[],idx=[];for(let
  tuftG.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));tuftG.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));tuftG.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));tuftG.setIndex(idx)}
 const tufts=new THREE.InstancedMesh(tuftG,M({map:tex(tuftCanvas()),alphaTest:.45,roughness:1}),TUFTN);tufts.frustumCulled=false;tufts.receiveShadow=true;tufts.count=0;scene.add(tufts);
 let tuftC=[1e9,1e9];const TD=new THREE.Object3D();
+/* tram lines with a lawn between the rails: the grass there is mown short */
+const TRB=new Map();function nearTram(x,z){const L=TRB.get(Math.floor(x/8)*100003+Math.floor(z/8));if(!L)return false;for(const[a,b]of L){const vx=b[0]-a[0],vz=b[1]-a[1],t=clamp(((x-a[0])*vx+(z-a[1])*vz)/(vx*vx+vz*vz||1)),dx=x-a[0]-vx*t,dz=z-a[1]-vz*t;if(dx*dx+dz*dz<16)return true}return false}
 function placeTufts(px,pz){tuftC=[px,pz];const sp2=Math.sqrt(Math.PI*TUFTR*TUFTR/TUFTN)*1.02;let k=0;const i0=Math.floor((px-TUFTR)/sp2),i1=Math.ceil((px+TUFTR)/sp2),j0=Math.floor((pz-TUFTR)/sp2),j1=Math.ceil((pz+TUFTR)/sp2);
   for(let i=i0;i<=i1&&k<TUFTN;i++)for(let j=j0;j<=j1&&k<TUFTN;j++){const x=(i+hash2(i,j))*sp2,z=(j+hash2(j,i+7))*sp2;if((x-px)**2+(z-pz)**2>TUFTR*TUFTR)continue;if(surf(x,z)!==0||!veg(x,z)||diyAt(x,z)!==null)continue;
-   const h=hash2(i*3,j*5);TD.position.set(x,T(x,z)+.03,z);TD.rotation.set(0,h*6.3,0);TD.scale.setScalar(.7+h*.9);TD.updateMatrix();tufts.setMatrixAt(k,TD.matrix);
+   const h=hash2(i*3,j*5);TD.position.set(x,T(x,z)+.03,z);TD.rotation.set(0,h*6.3,0);{const tr=nearTram(x,z);TD.scale.set(.7+h*.9,tr?.14+h*.08:.7+h*.9,.7+h*.9)}TD.updateMatrix();tufts.setMatrixAt(k,TD.matrix);
    tufts.setColorAt(k,h>.97?new THREE.Color(1.2,1.1,.4):h>.94?new THREE.Color(1.2,1.2,1.15):new THREE.Color().setHSL(.2+h*.08,.45,.42).convertSRGBToLinear());k++}
   tufts.count=k;tufts.instanceMatrix.needsUpdate=true;if(tufts.instanceColor)tufts.instanceColor.needsUpdate=true}
 
@@ -1752,7 +1829,7 @@ $('reloadBtn').onclick=async()=>{await cacheClear();location.reload()};
 function togglePause(){if(state==='play'){state='pause';$('pT').textContent=fmtT(St.t);$('pD').textContent=fmtD(St.dist);$('pB').textContent=seen.size+' / '+SPOTS.length;$('pV').textContent=Math.round(St.top*3.6)+' km/h';show('pause',true)}
   else if(state==='pause'){state='play';show('pause',false);if(!mobile){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}}
 {const sl=$('camSl'),sv=$('camV'),upd=()=>{sv.textContent=CAMD.toFixed(1)+' m'};sl.value=CAMD;upd();sl.oninput=()=>{CAMD=parseFloat(sl.value);upd();try{localStorage.setItem('skh-cd',CAMD)}catch(e){}}}
-$('ferryBtn').onclick=e=>{e.stopPropagation();ferryGo()};
+$('ferryBtn').onclick=e=>{e.stopPropagation();ferryGo()};$('helmBtn').onclick=e=>{e.stopPropagation();ferryHelm()};
 $('pauseBtn').onclick=togglePause;$('resetBtn').onclick=()=>{if(state==='play')resetPos()};$('backBtn').onclick=()=>{if(state==='play')rewind()};$('resBtn').onclick=togglePause;
 $('menuBtn').onclick=()=>{show('pause',false);show('hud',false);joy.style.display='none';$('joyHint').style.display='none';$('mouseHint').style.display='none';state='menu';show('menu',true)};
 
@@ -1865,7 +1942,7 @@ function animateSkater(dt){
   if(Pl.visY===null||Pl.air||Math.abs(Pl.visY-Pl.y)>.6)Pl.visY=Pl.y;else Pl.visY=lerp(Pl.visY,Pl.y,Math.min(1,dt*22));sk.position.set(Pl.x,Pl.visY,Pl.z);
   if(Pl.air)tmpN.set(0,1,0);else{const e=.3,c=G(Pl.x,Pl.z),f=v=>Math.abs(v-c)>.2?0:v-c;tmpN.set(f(G(Pl.x-e,Pl.z))-f(G(Pl.x+e,Pl.z)),2*e,f(G(Pl.x,Pl.z-e))-f(G(Pl.x,Pl.z+e))).normalize()}
   surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);sk.quaternion.copy(qA).multiply(qY);rollG.rotation.z=Pl.lean*.75;   /* deck and rider tilt on the bushings, wheels stay down */
-  {const v=Math.max(1.5,Math.abs(Pl.v)),dl=Pl.air?0:clamp(Math.atan(.31*(Pl.w||0)/v)*Math.sign(Pl.v||1),-.32,.32);TRK[0].rotation.y+=(dl-TRK[0].rotation.y)*Math.min(1,dt*12);TRK[1].rotation.y=-TRK[0].rotation.y}   /* front and rear trucks steer opposite ways */
+  {const v=Math.max(1.5,Math.abs(Pl.v)),dl=Pl.air?0:clamp(Math.atan(.31*(Pl.w||0)/v)*1.8*Math.sign(Pl.v||1)+Pl.lean*.25,-.38,.38);TRK[0].rotation.y+=(dl-TRK[0].rotation.y)*Math.min(1,dt*12);TRK[1].rotation.y=-TRK[0].rotation.y}   /* front and rear trucks steer opposite ways */
   if(Pl.air&&!Pl._air)Pl.olT=0;if(Pl.olT!==undefined)Pl.olT+=dt;{const t=Pl.olT??9,p=t<.09?.42*t/.09:t<.34?.42*(1-(t-.09)/.25)-.06*Math.sin(Math.PI*(t-.09)/.25):0;olG.rotation.x=Pl.air||t<.34?p:0}   /* ollie: snap the tail, the nose rises, the front foot levels it out */
   if(Pl._air&&!Pl.air)Pl.land=Math.min(1,.35+Math.abs(Pl._vy||0)/5);Pl._air=Pl.air;Pl._vy=Pl.vy;Pl.land=Math.max(0,(Pl.land||0)-dt*2.6);   /* knees soak up a landing */
   const ln=Math.abs(Pl.lean),thr=md==='push'?inp.fwd:md==='brake'?-1:0,crouch=(md==='air'?.55:.12+.22*st+.55*ln+(md==='brake'?.12:0))+Pl.land*.6;
@@ -1927,9 +2004,9 @@ function frame(now){
   const dt=clamp((now-last)/1000,0,.05);last=Math.max(last,now);tAll+=dt;
   try{
     stepWeather(dt);cloudMat.uniforms.uTime.value=tAll;
-    ferryUpdate(dt);if(state==='play'){updatePlayer(dt);recordHist(dt)}
+    ferryUpdate(dt);if(state==='play'&&FERRY.state!=='helm'){updatePlayer(dt);recordHist(dt)}
     if(!isFinite(Pl.x+Pl.z+Pl.y+Pl.v+Pl.yaw))spawn(lastStart);
-    animateSkater(state==='pause'?0:dt);updateCamera(dt,state!=='play'&&state!=='pause');updateRain(dt);
+    animateSkater(state==='pause'?0:dt);updateCamera(dt,state!=='play'&&state!=='pause');ferryCam();updateRain(dt);
     if(LAMPMAT)LAMPMAT.emissiveIntensity=lerp(LAMPMAT.emissiveIntensity,weather==='golden'?1.6:weather==='rain'?1.3:weather==='cloudy'?.4:0,Math.min(1,dt*2));
     for(const s of SPOTS)if(s.label){const d=Math.hypot(camera.position.x-s.x,camera.position.z-s.z);s.label.material.opacity=clamp((d-14)/16)}
     if(state==='play'&&(hudT+=dt)>.12){hudT=0;$('spd').textContent=Math.round(Math.abs(Pl.v)*3.6)+(Pl.v<-.3?' km/h ↓':' km/h');$('dist').textContent=fmtD(St.dist);$('spots').textContent=seen.size+' / '+SPOTS.length;$('time').textContent=fmtT(St.t);$('where').textContent=whereName();drawMap()}
@@ -1938,7 +2015,7 @@ function frame(now){
   }catch(e){report(e.message)}
 }
 if(/test/.test(location.hash))window.__MAPBG=()=>mapBg;
-if(/test/.test(location.hash))window.__T={blocked,stepMove,wallAt,ferryGo,ferryUpdate,ferryLocal,FERRY,scene,renderer,hemi,sun,bridgeTop,T,blocked,decksAt,wallAt,isWater,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
+if(/test/.test(location.hash))window.__T={ferryHelm,blocked,stepMove,wallAt,ferryGo,ferryUpdate,ferryLocal,FERRY,scene,renderer,hemi,sun,bridgeTop,T,blocked,decksAt,wallAt,isWater,Pl,camera,inp,G,surf,DECKS,SPOTS,spawn,toWorld,pxU,pxV,PJ,decksAt,updatePlayer,animateSkater,get state(){return state}};
 setWeather(weather);applyQuality();applyWeather();updateEnv();
 resize();requestAnimationFrame(frame);
 let cityOK=false,cityMsg='';
@@ -1949,7 +2026,7 @@ let cityOK=false,cityMsg='';
     try{D.city=await loadCity(.52,.58);cityOK=true}catch(e){D.city=null;cityMsg=e.message}
     D.tiles=await loadTiles(.58,.61);D.bridges=await loadTiles(.61,.615,'bridges','LOD3 bridges');
     if(D.tiles){D.plantTiles=D.tiles.filter(x=>x.t.plant);D.tiles=D.tiles.filter(x=>!x.t.plant)}
-    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{if(!/nofacades/.test(location.hash))loadFacades('facades');if(/[#&]ground\b/.test(location.hash))loadGround();if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
+    await new Promise(r=>setTimeout(r,30));buildWorld(D);applyQuality();setTimeout(streamMesh,1500);setTimeout(()=>{paanuReflect();if(!/nofacades/.test(location.hash))loadFacades('facades');if(/[#&]ground\b/.test(location.hash))loadGround();if(/[#&]facades\b/.test(location.hash))loadFacades('mapillary')},2500);   /* both experimental: #facades2 multi-photo, #facades single-photo */
     if(!cityOK)status('Ready — buildings from OpenStreetMap (the city 3D model could not be loaded: '+cityMsg+')',1);
     spawn(lastStart);state='menu';$('goBtn').disabled=false}
   catch(e){status(e.message,0);report(e.message)}

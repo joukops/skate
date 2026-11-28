@@ -86,7 +86,7 @@ const SN=(()=>{const L0=-.035,L1=.3,len=L1-L0,wid=u=>{const t=(u-L0)/len;return 
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
   /* sneaker: heel at +z, toe at -z; sole 8.5 cm below the ankle */
-  const sk3=new THREE.Group();sk3.position.set(0,-.072,.07);sk3.rotation.y=Math.PI/2;sk3.scale.set(.88,1,.95);f.add(sk3);
+  const sk3=new THREE.Group();sk3.position.set(0,-.072,.045);sk3.rotation.y=Math.PI/2;sk3.scale.set(.78,1,.95);f.add(sk3);
   add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);
   for(let i=0;i<5;i++){const u=.115+i*.026,o=add(new THREE.CapsuleGeometry(.0028,.045,2,6),shoeS,sk3,u,SN.top(u)+.002,0);o.rotation.x=Math.PI/2;o.rotation.z=-.35*(1-i*.12)}   /* laces */
 

@@ -33,6 +33,7 @@ jobs:
           for d in work/sparse/[0-9]*; do case "$d" in *-*) continue;; esac; n=$(colmap model_analyzer --path $d 2>&1 | grep -oP 'Registered images: \K[0-9]+'); echo "$d $n"; if [ "${n:-0}" -gt "$bn" ]; then bn=$n; best=$d; fi; done
           echo "using $best ($bn images)"; echo "$best" > work/best.txt
           colmap image_undistorter --image_path work/images --input_path $best --output_path work/dense --output_type COLMAP --max_image_size 2048 2>&1 | tail -2
+          colmap model_converter --input_path work/dense/sparse --output_path work/dense/sparse --output_type TXT
           ls work/dense
       - name: OpenMVS
         run: |
@@ -44,8 +45,8 @@ jobs:
           run InterfaceCOLMAP -i /w/dense -o /w/mvs/scene.mvs --image-folder /w/dense/images 2>&1 | tail -4
           time run DensifyPointCloud scene.mvs --resolution-level 1 --number-views 6 --max-threads 4 2>&1 | tail -6
           time run ReconstructMesh scene_dense.mvs --max-threads 4 2>&1 | tail -4
-          time run TextureMesh scene_dense_mesh.mvs --decimate 0.5 --resolution-level 0 --export-type obj --max-threads 4 2>&1 | tail -6
-          ls -la work/mvs
+          time run TextureMesh scene_dense_mesh.mvs --resolution-level 0 --export-type obj --max-threads 4 2>&1 | tail -6
+          ls -la work/mvs; cat work/mvs/*.log | grep -iE "error|points|faces|vertices" | tail -20
       - name: Keep the textured mesh
         if: always()
         uses: actions/upload-artifact@v4

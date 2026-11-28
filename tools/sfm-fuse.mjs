@@ -145,31 +145,43 @@ function ground(G, img, GH) {
   const wd = JSON.parse(zlib.gunzipSync(fs.readFileSync('data/osm-ways.json.gz'))); const HW = {motorway: 5, trunk: 5, primary: 4.5, secondary: 4, tertiary: 3.8, unclassified: 3, residential: 3, service: 2.5, living_street: 3, pedestrian: 3, cycleway: 1.6, footway: 1.5, path: 1.3, track: 1.5, steps: 0};
   const PS = []; for (const e of wd.elements) { const t = e.tags || {}; if (e.type !== 'way' || !e.geometry || !HW[t.highway] || t.tunnel || (t.bridge && t.bridge !== 'no')) continue; const hw = t.width && parseFloat(t.width) > 0 && !/footway|cycleway|path/.test(t.highway) ? parseFloat(t.width) / 2 : HW[t.highway];
     const P = e.geometry.filter(Boolean).map(g => PJ(g.lat, g.lon)); for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1]; if (Math.hypot(a[0] - CX, a[1] - CZ) < RAD + 40) PS.push([a, b, hw + .3]) } }
-  const paved = (x, z) => { for (const [a, b, r] of PS) { const vx = b[0] - a[0], vz = b[1] - a[1], l2 = vx * vx + vz * vz; if (l2 < 1e-6) continue; const t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / l2, 0, 1); if (Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t) < r) return true } return false };
-  const tiles = []; let px = 0;
+  const inSegs = (segs, x, z) => { for (const [a, b, r] of segs) { const vx = b[0] - a[0], vz = b[1] - a[1], l2 = vx * vx + vz * vz; if (l2 < 1e-6) continue; const t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / l2, 0, 1); if (Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t) < r) return true } return false };
+  /* every photo's view of one ground point: colour, weight, which photo */
+  const looks = (cams, x, z) => { const y = GH(x, z), S = [];
+    for (const g of cams) { const hd = Math.hypot(g.centre[0] - x, g.centre[2] - z); if (hd > 20 || hd < 2.6) continue; const el = (g.centre[1] - y) / hd; if (el < .1) continue;
+      const q = proj(g, x, y, z); if (!q || q[1] > g.cam.H * .92) continue; const im = img(g.id); if (!im) continue; const x0i = q[0] | 0, y0i = q[1] | 0, x1i = Math.min(im.width - 1, x0i + 1), y1i = Math.min(im.height - 1, y0i + 1), du = q[0] - x0i, dv = q[1] - y0i;
+      const c = [0, 1, 2].map(k => { const P2 = (xx, yy) => im.data[(yy * im.width + xx) * 4 + k]; return (P2(x0i, y0i) * (1 - du) + P2(x1i, y0i) * du) * (1 - dv) + (P2(x0i, y1i) * (1 - du) + P2(x1i, y1i) * du) * dv });
+      S.push({c, w: el * el / (1 + hd * .08), id: g.id}) } return S };
+  const med = (S, k) => { const a = S.map(s2 => s2.c[k]).sort((p, q) => p - q); return a[a.length >> 1] };
+  const lum = c => .3 * c[0] + .59 * c[1] + .11 * c[2];
+  /* tiles worth making */
+  const TL = [];
   for (let tz = Math.floor((CZ - RAD) / TM); tz <= Math.floor((CZ + RAD) / TM); tz++) for (let tx = Math.floor((CX - RAD) / TM); tx <= Math.floor((CX + RAD) / TM); tx++) {
     const x0 = tx * TM, z0 = tz * TM, mx = x0 + TM / 2, mz = z0 + TM / 2; if (Math.hypot(mx - CX, mz - CZ) > RAD) continue; if (process.env.ONLY && !process.env.ONLY.split(',').includes(tx + '_' + tz)) continue;
     const segs = PS.filter(([a, b, r]) => { const vx = b[0] - a[0], vz = b[1] - a[1], l2 = vx * vx + vz * vz || 1, t = clamp(((mx - a[0]) * vx + (mz - a[1]) * vz) / l2, 0, 1); return Math.hypot(mx - a[0] - vx * t, mz - a[1] - vz * t) < TM * .75 + r });
-    if (!segs.length) continue; const cams = G.filter(g => Math.hypot(g.centre[0] - mx, g.centre[2] - mz) < TM * .75 + 22 && img(g.id)); if (cams.length < 2) continue;
-    /* coarse mask at 1 px per 0.2 m, refined inside */
-    const rgba = new Uint8Array(TS * TS * 4); let n = 0;
-    for (let v = 0; v < TS; v++) for (let u = 0; u < TS; u++) { const x = x0 + (u + .5) / GPX, z = z0 + (v + .5) / GPX;
-      if ((u & 3) === 0 && (v & 3) === 0 || true) { let ok = false; for (const [a, b, r] of segs) { const vx = b[0] - a[0], vz = b[1] - a[1], l2 = vx * vx + vz * vz; if (l2 < 1e-6) continue; const t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / l2, 0, 1); if (Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t) < r) { ok = true; break } } if (!ok) continue }
-      if (blockedPt(x, z)) continue;
-      const y = GH(x, z), S = []; 
-      for (const g of cams) { const hd = Math.hypot(g.centre[0] - x, g.centre[2] - z); if (hd > 14 || hd < 3.2) continue; const el = (g.centre[1] - y) / hd; if (el < .14) continue;   /* close and steep, but past the camera's own shadow */
-        const q = proj(g, x, y, z); if (!q || q[1] > g.cam.H * .9) continue; const im = img(g.id), x0i = q[0] | 0, y0i = q[1] | 0, x1i = Math.min(im.width - 1, x0i + 1), y1i = Math.min(im.height - 1, y0i + 1), du = q[0] - x0i, dv = q[1] - y0i;
-        const c = [0, 1, 2].map(k => { const P2 = (xx, yy) => im.data[(yy * im.width + xx) * 4 + k]; return (P2(x0i, y0i) * (1 - du) + P2(x1i, y0i) * du) * (1 - dv) + (P2(x0i, y1i) * (1 - du) + P2(x1i, y1i) * du) * dv });
-        S.push([c, el * el]) }
-      if (S.length < 3) continue;
-      /* median, then weighted mean of the views close to it (cars and people in one photo fall out) */
-      const m = [0, 1, 2].map(k => { const a = S.map(s2 => s2[0][k]).sort((p, q) => p - q); return a[a.length >> 1] }); let sw = 0; const acc = [0, 0, 0];
-      for (const [c, w] of S) { if (Math.abs(c[0] - m[0]) + Math.abs(c[1] - m[1]) + Math.abs(c[2] - m[2]) > 45) continue; sw += w; for (let k = 0; k < 3; k++) acc[k] += w * c[k] }
-      if (sw <= 0) continue; const o = (v * TS + u) * 4; for (let k = 0; k < 3; k++) rgba[o + k] = acc[k] / sw; rgba[o + 3] = 255; n++ }
+    if (!segs.length) continue; const cams = G.filter(g => Math.hypot(g.centre[0] - mx, g.centre[2] - mz) < TM * .75 + 26); if (cams.length < 2) continue; TL.push({tx, tz, x0, z0, segs, cams}) }
+  /* 1. exposure: each photo gets an RGB gain that makes it agree with the others where they overlap (two rounds) */
+  const gain = new Map(); const gn = id => gain.get(id) || [1, 1, 1];
+  for (let round = 0; round < 3; round++) { const acc = new Map();
+    for (const t of TL) for (let v = 4; v < TS; v += 24) for (let u = 4; u < TS; u += 24) { const x = t.x0 + u / GPX, z = t.z0 + v / GPX; if (!inSegs(t.segs, x, z) || blockedPt(x, z)) continue;
+      const S = looks(t.cams, x, z); if (S.length < 3) continue; for (const s2 of S) { const g2 = gn(s2.id); s2.c = s2.c.map((c, k) => c * g2[k]) } const m = [0, 1, 2].map(k => med(S, k)), ml = lum(m);
+      for (const s2 of S) { const l = lum(s2.c); if (l < 8 || Math.abs(l - ml) > ml * .35) continue; const a = acc.get(s2.id) || [0, 0, 0, 0]; for (let k = 0; k < 3; k++) a[k] += Math.log((m[k] + 4) / (s2.c[k] + 4)); a[3]++; acc.set(s2.id, a) } }
+    for (const [id, a] of acc) if (a[3] >= 6) { const g2 = gn(id); gain.set(id, g2.map((g3, k) => clamp(g3 * Math.exp(a[k] / a[3] * .8), .5, 2))) } }
+  L('ground exposure gains', gain.size);
+  /* 2. the tiles: gained colours, shadows and odd ones out dropped, weighted mean of the rest, small holes filled */
+  const tiles = []; let px = 0;
+  for (const t of TL) { const rgba = new Uint8Array(TS * TS * 4), M = new Uint8Array(TS * TS); let n = 0;
+    for (let v = 0; v < TS; v++) for (let u = 0; u < TS; u++) { const x = t.x0 + (u + .5) / GPX, z = t.z0 + (v + .5) / GPX; if (!inSegs(t.segs, x, z)) continue; M[v * TS + u] = 1; if (blockedPt(x, z)) continue;
+      const S = looks(t.cams, x, z); if (S.length < 2) continue; for (const s2 of S) { const g2 = gn(s2.id); s2.c = s2.c.map((c, k) => Math.min(255, c * g2[k])) }
+      const m = [0, 1, 2].map(k => med(S, k)), ml = lum(m); let keep = S.filter(s2 => { const l = lum(s2.c); return l > ml * .78 && l < ml * 1.3 && Math.abs(s2.c[0] - m[0]) + Math.abs(s2.c[1] - m[1]) + Math.abs(s2.c[2] - m[2]) < 50 });   /* shadows (the photographer's own) are darker, cars and glare odd */
+      if (S.length === 2 && keep.length < 2) continue; if (!keep.length) continue; let sw = 0; const acc = [0, 0, 0]; for (const s2 of keep) { sw += s2.w; for (let k = 0; k < 3; k++) acc[k] += s2.w * s2.c[k] }
+      const o = (v * TS + u) * 4; for (let k = 0; k < 3; k++) rgba[o + k] = acc[k] / sw; rgba[o + 3] = 255; n++ }
     if (n < TS * TS * .03) continue;
-    /* soft edges: fade the outermost pixels */
+    for (let it = 0; it < 8; it++) { let f = 0; const nxt = []; for (let v = 1; v < TS - 1; v++) for (let u = 1; u < TS - 1; u++) { const i = v * TS + u; if (rgba[i * 4 + 3] || !M[i]) continue; let c = [0, 0, 0], k2 = 0;
+        for (const d of [-1, 1, -TS, TS, -TS - 1, -TS + 1, TS - 1, TS + 1]) if (rgba[(i + d) * 4 + 3] === 255) { for (let k = 0; k < 3; k++) c[k] += rgba[(i + d) * 4 + k]; k2++ } if (k2 >= 3) nxt.push([i, c.map(x => x / k2)]) }
+      for (const [i, c] of nxt) { for (let k = 0; k < 3; k++) rgba[i * 4 + k] = c[k]; rgba[i * 4 + 3] = 255; f++ } if (!f) break }   /* fill pinholes from their neighbours */
     const A = new Uint8Array(TS * TS); for (let i = 0; i < TS * TS; i++) A[i] = rgba[i * 4 + 3]; for (let v = 1; v < TS - 1; v++) for (let u = 1; u < TS - 1; u++) { const i = v * TS + u; if (A[i] && (!A[i - 1] || !A[i + 1] || !A[i - TS] || !A[i + TS])) rgba[i * 4 + 3] = 140 }
-    const f = `g${tx}_${tz}.png`; fs.writeFileSync(`${GO}/${f}`, png(TS, TS, rgba)); tiles.push({f, x0, z0, size: TM}); px += n }
+    const f = `g${t.tx}_${t.tz}.png`; fs.writeFileSync(`${GO}/${f}`, png(TS, TS, rgba)); tiles.push({f, x0: t.x0, z0: t.z0, size: TM}); px += n }
   fs.writeFileSync(`${GO}/index.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP reconstruction', tiles}));
   L('ground tiles', tiles.length, 'pixels', px, 'area m2', (px / GPX / GPX).toFixed(0)) }
 /* a camera rolled by a degree or two makes window rows lean: find the dominant tilt of the near-horizontal and near-vertical
@@ -203,11 +215,11 @@ try {
     { const c = Math.cos(fit.th), s2 = Math.sin(fit.th); for (const [X, Y, Z] of m.pts) { const x0 = X, z0 = -Y, x = CX + c * (x0 - CX) - s2 * (z0 - CZ) + fit.dx, z = CZ + s2 * (x0 - CX) + c * (z0 - CZ) + fit.dz, y = Z + fit.dy; if (Math.abs(y - T(x, z)) < 3) GP.push([x, y, z]) } } }
   L('registered cameras', G.length);
   const imgCache = new Map(); const img = id => { if (!imgCache.has(id)) { try { imgCache.set(id, jpeg.decode(fs.readFileSync(`work/images/${id}.jpg`), {useTArray: true})) } catch (e) { imgCache.set(id, null) } } return imgCache.get(id) };
-  const W = walls(); L('walls in the block', W.length);
-  fs.rmSync(OUT, {recursive: true, force: true}); fs.mkdirSync(OUT, {recursive: true});
+  const W = process.env.NOFAC ? [] : walls(); L('walls in the block', W.length);
+  if (!process.env.NOFAC) { fs.rmSync(OUT, {recursive: true, force: true}); fs.mkdirSync(OUT, {recursive: true}) }
   let atlas = null, ax = 0, ay = 0, rowH = 0, ai = -1; const FAC = []; const stat = {few: 0, disagree: 0, ok: 0};
   const newAtlas = () => { ai++; atlas = {i: ai, d: new Uint8Array(ATLAS * ATLAS * 4).fill(128)}; ax = ay = rowH = 0 };
-  const flush = () => { if (!atlas) return; fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 82).data); atlas = null };
+  const flush = () => { if (!atlas || process.env.NOFAC) return; fs.writeFileSync(`${OUT}/a${atlas.i}.jpg`, jpeg.encode({data: atlas.d, width: ATLAS, height: ATLAS}, 82).data); atlas = null };
   newAtlas();
   for (const w of W) { const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2;
     const tw = clamp(Math.round(w.l * PXM), 8, 1200), th = clamp(Math.round((w.y1 - w.y0) * PXM), 8, 1400);
@@ -244,7 +256,7 @@ try {
     FAC.push({a: w.a.map(v => +v.toFixed(2)), b: w.b.map(v => +v.toFixed(2)), n: w.n.map(v => +v.toFixed(3)), y0: +w.y0.toFixed(2), y1: +w.y1.toFixed(2), t: atlas.i, uv: [ax / ATLAS, ay / ATLAS, (ax + tw) / ATLAS, (ay + th) / ATLAS], photos: agreeing.length});
     ax += tw + 2; rowH = Math.max(rowH, th + 2); stat.ok++ }
   flush();
-  fs.writeFileSync(`${OUT}/facades.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP reconstruction', center: [CX, CZ], radius: RAD, atlases: ai + 1, size: ATLAS, facades: FAC}));
+  if (!process.env.NOFAC) fs.writeFileSync(`${OUT}/facades.json`, JSON.stringify({generated: new Date().toISOString(), source: 'Mapillary contributors, CC BY-SA 4.0; COLMAP reconstruction', center: [CX, CZ], radius: RAD, atlases: ai + 1, size: ATLAS, facades: FAC}));
   { const R = stat.roll || []; delete stat.roll; L('facades', JSON.stringify(stat), 'views rotated', R.length, 'median roll deg', R.length ? R.map(Math.abs).sort((a, b) => a - b)[R.length >> 1] : 0) }
   { const inside = (x, z) => rings.some(R => { if (Math.abs(R[0][0] - x) > 150 || Math.abs(R[0][1] - z) > 150) return false; let c = false; for (let i = 0, j = R.length - 1; i < R.length; j = i++) if ((R[i][1] > z) !== (R[j][1] > z) && x < (R[j][0] - R[i][0]) * (z - R[i][1]) / (R[j][1] - R[i][1]) + R[i][0]) c = !c; return c }); blockedPt = inside }
   if (process.env.GROUND) ground(G, img, groundHeight(GP));   // experimental, off by default

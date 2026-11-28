@@ -1,0 +1,62 @@
+name: Dense street mesh (OpenMVS)
+# The COLMAP block reconstruction -> undistorted photos -> OpenMVS dense points, mesh and one seam-levelled texture.
+# Output is kept as an artifact (textured mesh) for turning into ground and facade textures.
+on:
+  push:
+    paths: [.github/workflows/mvs.yml]
+  workflow_dispatch:
+concurrency:
+  group: mvs
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install COLMAP
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq colmap > /dev/null
+      - name: Reuse COLMAP results
+        id: sfm
+        uses: actions/cache/restore@v4
+        with:
+          path: work
+          key: sfm-${{ hashFiles('tools/sfm-prep.mjs') }}-v2
+      - name: Need the reconstruction
+        if: steps.sfm.outputs.cache-hit != 'true'
+        run: echo "run the COLMAP workflow first" && exit 1
+      - name: Undistort the largest model
+        run: |
+          best=""; bn=0
+          for d in work/sparse/[0-9]*; do case "$d" in *-*) continue;; esac; n=$(colmap model_analyzer --path $d 2>&1 | grep -oP 'Registered images: \K[0-9]+'); echo "$d $n"; if [ "${n:-0}" -gt "$bn" ]; then bn=$n; best=$d; fi; done
+          echo "using $best ($bn images)"; echo "$best" > work/best.txt
+          colmap image_undistorter --image_path work/images --input_path $best --output_path work/dense --output_type COLMAP --max_image_size 2048 2>&1 | tail -2
+          ls work/dense
+      - name: OpenMVS
+        run: |
+          docker pull -q openmvs/openmvs-ubuntu:latest
+          B=$(docker run --rm openmvs/openmvs-ubuntu:latest sh -c 'dirname $(command -v DensifyPointCloud || find / -name DensifyPointCloud -type f 2>/dev/null | head -1)')
+          echo "OpenMVS in $B"
+          run(){ docker run --rm -v $PWD/work:/w -w /w/mvs openmvs/openmvs-ubuntu:latest "$B/$@"; }
+          mkdir -p work/mvs
+          run InterfaceCOLMAP -i /w/dense -o /w/mvs/scene.mvs --image-folder /w/dense/images 2>&1 | tail -4
+          time run DensifyPointCloud scene.mvs --resolution-level 1 --number-views 6 --max-threads 4 2>&1 | tail -6
+          time run ReconstructMesh scene_dense.mvs --max-threads 4 2>&1 | tail -4
+          time run TextureMesh scene_dense_mesh.mvs --decimate 0.5 --resolution-level 0 --export-type obj --max-threads 4 2>&1 | tail -6
+          ls -la work/mvs
+      - name: Keep the textured mesh
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvs
+          path: |
+            work/mvs/*texture*
+            work/mvs/*.obj
+            work/mvs/*.mtl
+            work/mvs/*.png
+            work/mvs/*.jpg
+            work/mvs/*.ply
+            work/best.txt
+          retention-days: 7

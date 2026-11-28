@@ -1,13 +1,13 @@
 model 0-txt images 85 points 11433
-  levelled by 84.9 deg; GPS fit: inliers 40 / 85 mean error 2.92 m, scale 43.461
-wall fit: points 1071 median residual 0.66 m; shift 0.04 1.08 rotation 0.43 deg
-height: ground points 1999 offset 0.34
+  levelled by 84.9 deg; GPS fit: inliers 40 / 85 mean error 3.04 m, scale 43.225
+wall fit: points 1134 median residual 0.71 m; shift 0.31 1.03 rotation -0.02 deg
+height: ground points 1993 offset 0.38
   cameras kept 85
 model 1-txt images 110 points 14672
-  levelled by 89.0 deg; GPS fit: inliers 49 / 110 mean error 2.53 m, scale 16.059
-wall fit: points 2198 median residual 0.63 m; shift 0.81 1.19 rotation -1.94 deg
-height: ground points 4697 offset 1.04
-  cameras kept 98
+  levelled by 89.0 deg; GPS fit: inliers 49 / 110 mean error 2.33 m, scale 16.206
+wall fit: points 1913 median residual 0.62 m; shift 0.80 0.14 rotation -1.08 deg
+height: ground points 4695 offset 1.12
+  cameras kept 99
 model 10-txt images 15 points 701
   levelled by 86.8 deg; GPS fit: inliers 12 / 15 mean error 3.21 m, scale 3.675
 wall fit: points 172 median residual 0.71 m; shift 10.73 11.27 rotation -7.23 deg
@@ -44,8 +44,8 @@ wall fit: points 97 median residual 0.46 m; shift 3.73 -0.05 rotation -0.93 deg
 height: ground points 88 offset 0.28
   cameras kept 10
 model 7-txt images 11 points 659
-  levelled by 92.2 deg; GPS fit: inliers 5 / 11 mean error 2.64 m, scale 13.899
-wall fit: points 64 median residual 0.60 m; shift 39.14 4.89 rotation -5.60 deg
+  levelled by 92.2 deg; GPS fit: inliers 5 / 11 mean error 3.01 m, scale 10.746
+wall fit: points 109 median residual 0.60 m; shift 12.27 22.81 rotation 11.70 deg
 height: ground points 1 offset 0.00
   wall fit too far from GPS: dropped
 model 8-txt images 10 points 515
@@ -58,6 +58,6 @@ model 9-txt images 19 points 754
 wall fit: points 468 median residual 0.60 m; shift -5.25 -12.30 rotation 11.22 deg
 height: ground points 31 offset 1.17
   wall fit too far from GPS: dropped
-registered cameras 266
+registered cameras 267
 walls in the block 147
-facades {"few":114,"disagree":1,"ok":15,"sky":13,"lean":4} views rotated 15 median roll deg 4.5
+facades {"few":115,"disagree":1,"ok":16,"sky":10,"lean":5} views rotated 10 median roll deg 5

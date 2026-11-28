@@ -130,6 +130,7 @@ button.pri{background:var(--yel);border-color:var(--yel);color:var(--ink);font-s
   <div style="font:800 34px/1 'Inter Tight'">Pause</div>
   <div class="stats"><div>Time<b id="pT">0:00</b></div><div>Distance<b id="pD">0 m</b></div><div>Spots<b id="pB">0</b></div><div>Top speed<b id="pV">0</b></div></div>
   <div class="row seg" style="justify-content:center"><button data-w="sunny">Sunny</button><button data-w="golden">Golden</button><button data-w="cloudy">Cloudy</button><button data-w="rain">Rain</button></div>
+  <label style="display:flex;align-items:center;gap:12px;justify-content:center;font:600 16px 'Inter Tight'">Camera<input type="range" id="camSl" min="1.8" max="8" step="0.1" style="width:220px"><span id="camV"></span></label>
   <div class="row" style="justify-content:center"><button class="pri" id="resBtn">Resume</button><button id="menuBtn">Menu</button></div>
 </div></div>
 
@@ -146,7 +147,7 @@ const {Fn,If,Discard,positionWorld,positionLocal,attribute,texture,uniform,vec2,
 /* multiply the base colour by a shading factor; cut fragments away where a condition holds */
 function mulColor(m,f){const b=m.colorNode||materialColor;m.colorNode=vec4(b.rgb.mul(f),b.a);m.needsUpdate=true;return m}
 /* draw a surface slightly toward the camera along the view ray: same place on screen, but it wins the depth test against the ground under it (polygon offset does nothing with a logarithmic depth buffer) */
-function depthPush(m,k){m.positionNode=Fn(()=>{const d=TSL.cameraPosition.sub(positionLocal),l=TSL.length(d);return positionLocal.add(d.div(l.max(.01)).mul(l.mul(k).min(2.5)))})();m.needsUpdate=true;return m}
+function depthPush(m,k,c=0){m.positionNode=Fn(()=>{const d=TSL.cameraPosition.sub(positionLocal),l=TSL.length(d);return positionLocal.add(d.div(l.max(.01)).mul(l.mul(k).add(c).min(l.mul(.3)).min(2.5)))})();m.needsUpdate=true;return m}
 function addDiscard(m,cond){const b=m.colorNode||materialColor;m.colorNode=Fn(()=>{If(cond(),()=>{Discard()});return b})();m.needsUpdate=true;return m}
 {
 const $=id=>document.getElementById(id);
@@ -468,6 +469,7 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       else{const o=4.5;quad(Rk,[a[0]-nx*1.2,T(a[0]-nx*1.2,a[1]-nz*1.2)+.02,a[1]-nz*1.2],[b[0]-nx*1.2,T(b[0]-nx*1.2,b[1]-nz*1.2)+.02,b[1]-nz*1.2],[b[0]+nx*o,SEA-.6,b[1]+nz*o],[a[0]+nx*o,SEA-.6,a[1]+nz*o],u0,u1,0,1)}}}
   /* shore edge along the line where the ground is cut (marching squares on the smoothed water field): a vertical wall down into the sea with a coping on top;
      granite on built shores, rock on natural ones; none on beaches, which slope in */
+  const RL={p:[]},RP=[];let racc=0;const inSompa=(x,z)=>x>-320&&x<230&&z>200&&z<1050&&z>.24*(x+90)+178;
   if(TER&&WF){const F=(i,j)=>WF[j*RW+i],W=(x,y)=>[X0+(x+.5)*RS,Z0+(y+.5)*RS];let du=0,bacc=0;
     const seg=(p,q)=>{const mx=(p[0]+q[0])/2,mz=(p[1]+q[1])/2,dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.05)return;let nx=-dz/l,nz=dx/l;
       const gi=(mx-X0)/RS-.5,gj=(mz-Z0)/RS-.5,f1=wf(gi+nx/RS,gj+nz/RS),f0=wf(gi-nx/RS,gj-nz/RS);if(f0>f1){nx=-nx;nz=-nz}   /* n toward the water */
@@ -475,7 +477,10 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const ha=T(p[0]-nx*.7,p[1]-nz*.7),hb=T(q[0]-nx*.7,q[1]-nz*.7);if(Math.max(ha,hb)<SEA+.25)return;
       const lx=mx-nx*4,lz=mz-nz*4,inland=surf(lx,lz),built=inQuayZone(mx,mz)||inland===4||inland===2||inland===5||veg(lx,lz)===0&&inland!==0,u0=du/4,u1=(du+l)/4;du+=l;
       const ta=ha+.06,tb=hb+.06,A=built?Q:Rk,cw=built?.75:.45;
-      if(built&&inQuayZone(mx,mz)){bacc+=l;if(bacc>24){bacc=0;BOLL.push([mx-nx*.9,mz-nz*.9,(ta+tb)/2,Math.atan2(nx,nz),mx,mz])}}
+      if(built&&inSompa(mx,mz)){const ra=[p[0]-nx*.3,ta,p[1]-nz*.3],rb=[q[0]-nx*.3,tb,q[1]-nz*.3];   /* Sompasaarenlaituri: steel railing along the edge instead of ship bollards */
+        for(const hh of [1.02,.52]){RL.p.push(ra[0],ra[1]+hh,ra[2],rb[0],rb[1]+hh,rb[2],rb[0],rb[1]+hh+.06,rb[2],ra[0],ra[1]+hh,ra[2],rb[0],rb[1]+hh+.06,rb[2],ra[0],ra[1]+hh+.06,ra[2])}
+        racc+=l;if(racc>2){racc=0;RP.push([ra[0],ra[1],ra[2]])}}
+      else if(built&&inQuayZone(mx,mz)){bacc+=l;if(bacc>24){bacc=0;BOLL.push([mx-nx*.9,mz-nz*.9,(ta+tb)/2,Math.atan2(nx,nz),mx,mz])}}
       quad(A,[p[0],ta,p[1]],[q[0],tb,q[1]],[q[0],SEA-1.5,q[1]],[p[0],SEA-1.5,p[1]],u0,u1,0,(ta-SEA+1.5)/4);
       quad(built?C:Rk,[p[0]-nx*cw,ta,p[1]-nz*cw],[q[0]-nx*cw,tb,q[1]-nz*cw],[q[0]+nx*.12,tb,q[1]+nz*.12],[p[0]+nx*.12,ta,p[1]+nz*.12],u0,u1,0,.25)};
     const wf=(x,y)=>{const i=clamp(Math.floor(x),0,RW-2),j=clamp(Math.floor(y),0,RH-2),u=clamp(x-i,0,1),v=clamp(y-j,0,1);return lerp(lerp(F(i,j),F(i+1,j),u),lerp(F(i,j+1),F(i+1,j+1),u),v)};
@@ -483,6 +488,8 @@ function buildShores(lines,beaches){const Q={p:[],u:[]},C={p:[],u:[]},Rk={p:[],u
       const t=(u,v)=>(.5-u)/(v-u),E=[W(i+t(a,b),j),W(i+1,j+t(b,c)),W(i+t(d,c),j+1),W(i,j+t(a,d))];   /* top, right, bottom, left */
       const S={1:[[3,0]],2:[[0,1]],3:[[3,1]],4:[[1,2]],5:[[3,0],[1,2]],6:[[0,2]],7:[[3,2]],8:[[2,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[1,2]],12:[[1,3]],13:[[0,1]],14:[[3,0]]}[k];
       for(const[e1,e2]of S)seg(E[e1],E[e2])}}
+  if(RL.p.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(RL.p,3));g.computeVertexNormals();const rm=M({color:lin('#9a9c9e'),roughness:.4,metalness:.7,side:THREE.DoubleSide});const m=new THREE.Mesh(g,rm);m.castShadow=true;scene.add(m);
+    const pg=new THREE.BoxGeometry(.06,1.1,.06);pg.translate(0,.55,0);const PI=new THREE.InstancedMesh(pg,rm,RP.length),m4=new THREE.Matrix4();RP.forEach(([x,y,z],i)=>{m4.makeTranslation(x,y,z);PI.setMatrixAt(i,m4)});PI.castShadow=true;scene.add(PI)}
   /* yellow mooring bollards on the quay edge and black rubber fenders on the wall below */
   if(BOLL.length){const bp=[new THREE.Vector2(0,0),new THREE.Vector2(.2,0),new THREE.Vector2(.2,.05),new THREE.Vector2(.13,.09),new THREE.Vector2(.12,.42),new THREE.Vector2(.2,.47),new THREE.Vector2(.21,.53),new THREE.Vector2(.16,.57),new THREE.Vector2(0,.58)];
     const bg=new THREE.LatheGeometry(bp,16),bm=M({color:lin('#e8b51c'),roughness:.55,metalness:.35}),fg=new THREE.BoxGeometry(1.6,1.1,.35),fm=M({color:lin('#1b1c1e'),roughness:.9});
@@ -875,6 +882,7 @@ function buildWorld(D){
   {const lines=coast.map(wayPts).filter(P=>P.length>1).concat(waterPolys);const beaches=[];for(const e of D.land.elements){const t=tags(e);if(e.type==='way'&&(t.natural==='beach'||t.natural==='sand'||t.leisure==='beach_resort'))beaches.push(wayPts(e))}buildShores(lines,beaches)}
   /* ---------- streets: ribbons by class and surface ---------- */
   status('Paving streets and paths…',.8);
+  const LAYER={road:0,gravel:1,steps:2,stone:3,side:4,cycle:5};   /* fixed stacking where ways overlap: cycle path over pavement over road */
   const COLOR={road:'#46484b',side:'#6f7072',cycle:'#6a6c6f',stone:'#a7a39b',gravel:'#a39780',steps:'#9b968e'};
   const ribbons={};const rib=k=>ribbons[k]||(ribbons[k]={pos:[],uv:[]});
   function ribbon(P,w,yAt,key,lift,ground){const R=rib(key);let idx=P.map((_,i)=>i);if(ground){P=dens(P,1.6);idx=null}
@@ -883,7 +891,7 @@ function buildWorld(D){
       if(i>0){const dx=p[0]-a[0],dz=p[1]-a[1],l=Math.hypot(dx,dz);n1x=-dz/l;n1z=dx/l}if(i<Q.length-1){const dx=b[0]-p[0],dz=b[1]-p[1],l=Math.hypot(dx,dz);n2x=-dz/l;n2z=dx/l}
       if(i===0){n1x=n2x;n1z=n2z}if(i===Q.length-1){n2x=n1x;n2z=n1z}let mx=n1x+n2x,mz=n1z+n2z;const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const k=w/2/Math.max(.4,mx*n1x+mz*n1z);return[mx*k,mz*k]});
     /* on the ground the ribbon is cut into ~1.6 m pieces across and along and lifted a little more over crests, so the ground triangles never poke through it */
-    const nC=ground?Math.max(1,Math.ceil(w/1.6)):1,gy=(x,z)=>{const h=T(x,z),e=.8,k=Math.max(0,h-(T(x+e,z)+T(x-e,z))/2,h-(T(x,z+e)+T(x,z-e))/2);return h+lift+Math.min(.3,k*1.2)};
+    const nC=ground?Math.max(1,Math.ceil(w/1.6)):1,gy=(x,z)=>{const h=T(x,z),e=.8,k=Math.max(0,h-(T(x+e,z)+T(x-e,z))/2,h-(T(x,z+e)+T(x,z-e))/2);return h+lift+Math.min(.08,k)};
     const V=Q.map((p,i)=>{const L=[p[0]-O[i][0],p[1]-O[i][1]],Rr=[p[0]+O[i][0],p[1]+O[i][1]],row=[];for(let c=0;c<=nC;c++){const x=L[0]+(Rr[0]-L[0])*c/nC,z=L[1]+(Rr[1]-L[1])*c/nC;row.push([x,ground?gy(x,z):yAt(I[i])+lift,z])}return row});
     const uv=v=>[v[0]/5,v[2]/5];
     for(let i=0;i<Q.length-1;i++)for(let c=0;c<nC;c++){const a=V[i][c],b=V[i+1][c],cc=V[i+1][c+1],d=V[i][c+1];R.pos.push(...a,...b,...cc,...a,...cc,...d);R.uv.push(...uv(a),...uv(b),...uv(cc),...uv(a),...uv(cc),...uv(d))}}
@@ -956,18 +964,21 @@ function buildWorld(D){
          for(let k=0;k<n;k++){const t=k/n,x=lerp(a[0],b[0],t),z=lerp(a[1],b[1],t);let h=lerp(c.hs[i],c.hs[i+1],t);if(k){let best=null;for(const q of D.deckAll(x,z)){const v=q+.06;if(v>h-.6&&v<h+1&&(best===null||v>best))best=v}if(best!==null)h=best}   /* the top of the deck slab, not its underside or the railing */
            P2.push([x,z]);H2.push(h);S2.push(lerp(c.s[i],c.s[i+1],t))}}
        P2.push(c.P[c.P.length-1]);H2.push(c.hs[c.hs.length-1]);S2.push(c.s[c.s.length-1]);c.P=P2;c.hs=H2;c.s=S2}
-     /* a deck never sags below where it starts and ends: the ends sit on the ground they land on, and the tracked surface can't wander down to the water-level structure in between */
-     {const n=c.hs.length,eh=i=>{const p=c.P[i];return isWater(p[0],p[1])?c.hs[i]:Math.max(c.hs[i],T(p[0],p[1])+.06)};const h0=eh(0),h1=eh(n-1);
-      const lo=Math.min(h0,h1)-.2;for(let i=0;i<n;i++)c.hs[i]=Math.max(c.hs[i],lo);
-      for(const[e,h]of [[0,h0],[n-1,h1]]){const dl=h-c.hs[e];if(Math.abs(dl)<.02)continue;let s=0;for(let k=e,st=e?-1:1;k>=0&&k<n;k+=st){if(k!==e)s+=Math.hypot(c.P[k][0]-c.P[k-st][0],c.P[k][1]-c.P[k-st][1]);if(s>25)break;c.hs[k]+=dl*(1-s/25)}}}
+     /* every deck end lands on the ground it meets: walk out from the end (up to 14 m) to the first dry ground and ramp the deck to it (at most ~7%),
+        so no end hangs in the air or sits under the quay; a deck never sags below its two ends in between */
+     {const n=c.hs.length;const land=e=>{const p=c.P[e],q=c.P[e?e-1:1],dx=p[0]-q[0],dz=p[1]-q[1],l=Math.hypot(dx,dz)||1;for(let s2=0;s2<=14;s2++){const x=p[0]+dx/l*s2,z=p[1]+dz/l*s2;if(!isWater(x,z))return T(x,z)+.06}return null};
+      const tg=[land(0),land(n-1)],S=[0];for(let k=1;k<n;k++)S.push(S[k-1]+Math.hypot(c.P[k][0]-c.P[k-1][0],c.P[k][1]-c.P[k-1][1]));const Ltot=S[n-1];
+      [0,n-1].forEach((e,ii)=>{const h=tg[ii];if(h===null)return;const dl=h-c.hs[e];if(Math.abs(dl)<.02)return;const R=Math.min(Math.max(25,Math.abs(dl)/.07),Ltot*.45);
+        for(let k=0;k<n;k++){const sd=Math.abs(S[k]-S[e]);if(sd<R){const w=1-sd/R;c.hs[k]+=dl*w*w*(3-2*w)}}});
+      const lo=Math.min(c.hs[0],c.hs[n-1])-.2;for(let i=0;i<n;i++)c.hs[i]=Math.max(c.hs[i],lo)}
      /* the deck reaches 6 m past each mapped end at the end height, so there is no gap or dip at the joint with the ground */
      {const ext=(p,q)=>{const dx=p[0]-q[0],dz=p[1]-q[1],l=Math.hypot(dx,dz)||1;return[p[0]+dx/l*6,p[1]+dz/l*6]};const n=c.P.length;
-      if(n>=2){c.P=[ext(c.P[0],c.P[1]),...c.P,ext(c.P[n-1],c.P[n-2])];c.hs=[c.hs[0],...c.hs,c.hs[n-1]];if(c.s)c.s=[c.s[0]-6,...c.s,c.s[n-1]+6]}}
+      if(n>=2){c.P=[ext(c.P[0],c.P[1]),...c.P,ext(c.P[n-1],c.P[n-2])];{const E0=c.P[0],E1=c.P[c.P.length-1],gh=(p,h)=>c.base.rail||isWater(p[0],p[1])?h:T(p[0],p[1])+.06;c.hs=[gh(E0,c.hs[0]),...c.hs,gh(E1,c.hs[n-1])]}   /* the extension lands on the ground */if(c.s)c.s=[c.s[0]-6,...c.s,c.s[n-1]+6]}}
      addDeck(c.P,c.hs,c.base.w,c.name,c.base.rail)}
    if(longest){let mi=0;for(let i=1;i<longest.hs.length;i++)if(longest.hs[i]>longest.hs[mi])mi=i;longest.tgt=longest.s[mi]}}
   for(const c of chains){if(c.base.rail||c.peak<.5)continue;const k=surfKey(c.base.t);ribbon(c.P,c.base.w,i=>c.hs[i],k,.12)}
   /* ground ribbons */
-  for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,k==='road'?.06:k==='side'||k==='cycle'?.1:.08,true)}
+  for(const b of groundWays){if(b.rail){continue}const k=surfKey(b.t);ribbon(b.P,b.w,null,k,LAYER[k]*.03+.06,true)}
   /* lane markings: dashed centre line on two-way streets, edge lines on main roads */
   {const MK={pos:[]},LAMPS=[];const main=/^(primary|secondary|tertiary|trunk)$/,lit=/^(primary|secondary|tertiary|trunk|residential|unclassified|living_street|pedestrian|cycleway)$/;
    const strip=(P,off,w,dash,gap,y)=>{let carry=0;for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],dx=b[0]-a[0],dz=b[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const ux=dx/l,uz=dz/l,nx=-uz,nz=ux;
@@ -991,12 +1002,15 @@ function buildWorld(D){
   const addArea=(P,y)=>{if(P.length<4)return;const pts=P.slice(0,-1).map(p=>new THREE.Vector2(p[0],p[1]));if(THREE.ShapeUtils.isClockWise(pts))pts.reverse();const tri=THREE.ShapeUtils.triangulateShape(pts,[]);for(const f of tri)for(const k of [f[0],f[2],f[1]])areaGeo.pos.push(pts[k].x,y,pts[k].y)};
   for(const e of ways){const t=tags(e);if(t.highway&&t.area==='yes'&&!isTunnel(t))addArea(wayPts(e),.12)}
   for(const e of D.land.elements){const t=tags(e);if(e.type==='way'&&(t.place==='square'||t['area:highway']==='footway'||t['area:highway']==='pedestrian'))addArea(wayPts(e),.11)}
-  const RMAT={};for(const k in COLOR){RMAT[k]=wet(M({color:lin(COLOR[k]),map:tex(asphaltTile(k),1,1),roughness:k==='stone'?.7:.85,polygonOffset:true,polygonOffsetFactor:k==='road'?-2:-4,polygonOffsetUnits:k==='road'?-2:-4,side:THREE.DoubleSide}),k==='gravel'?.6:.12);depthPush(RMAT[k],k==='road'?.002:.003)}
+  const RMAT={};for(const k in COLOR){RMAT[k]=wet(M({color:lin(COLOR[k]),map:tex(asphaltTile(k),1,1),roughness:k==='stone'?.7:.85,polygonOffset:true,polygonOffsetFactor:k==='road'?-2:-4,polygonOffsetUnits:k==='road'?-2:-4,side:THREE.DoubleSide}),k==='gravel'?.6:.12);depthPush(RMAT[k],.002,LAYER[k]*.012);diyHoleStd(RMAT[k])}
   for(const k in ribbons){const R=ribbons[k];if(!R.pos.length)continue;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(R.pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(R.uv,2));geo.computeVertexNormals();const m=new THREE.Mesh(geo,RMAT[k]);m.receiveShadow=true;scene.add(m)}
   if(areaGeo.pos.length&&!TER){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(areaGeo.pos,3));const uv=[];for(let i=0;i<areaGeo.pos.length;i+=3)uv.push(areaGeo.pos[i]/4,areaGeo.pos[i+2]/4);geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();const m=new THREE.Mesh(geo,RMAT.stone);m.receiveShadow=true;scene.add(m)}
   /* tracks: rails on ballast or in the street */
   {const rails=[],ball={pos:[],uv:[]};for(const b of groundWays.concat(bridgeWays.filter(x=>x.rail))){if(!b.rail)continue;const P=dens(b.P,4);const tram=b.t.railway==='tram'||b.t.railway==='light_rail';   /* the Kruunusillat line is mapped as light rail but built as tram track */
-     const deckH=x=>{const L=decksAt(x[0],x[1]);if(!L)return T(x[0],x[1]);let h=0;for(const c of L)if(c.d.rail)h=Math.max(h,c.h);return h};
+     const deckH=x=>{const L=DH.get(dkey(Math.floor(x[0]/DC),Math.floor(x[1]/DC)));let h=null;   /* rail decks only (decksAt skips them, so the rails used to drop to the ground under every bridge) */
+       if(L)for(const[d,k]of L){if(!d.rail)continue;const a=d.pts[k],c=d.pts[k+1],dx=c[0]-a[0],dz=c[1]-a[1],t=clamp(((x[0]-a[0])*dx+(x[1]-a[1])*dz)/(dx*dx+dz*dz||1)),px=a[0]+dx*t,pz=a[1]+dz*t;
+         if((x[0]-px)**2+(x[1]-pz)**2>(d.w/2+.5)**2)continue;const hh=lerp(d.hs[k],d.hs[k+1],t);if(h===null||hh>h)h=hh}
+       return h===null?T(x[0],x[1]):h};
      for(let i=0;i<P.length-1;i++){const a=P[i],c2=P[i+1],dx=c2[0]-a[0],dz=c2[1]-a[1],l=Math.hypot(dx,dz);if(l<.01)continue;const nx=-dz/l,nz=dx/l,ha=deckH(a)+(tram?.13:.32),hb=deckH(c2)+(tram?.13:.32);
        for(const o of [-.72,.72]){const q=(s2,y)=>[a[0]+nx*(o+s2)+(c2[0]-a[0])*y,0,a[1]+nz*(o+s2)+(c2[1]-a[1])*y];const A=q(-.04,0),B=q(.04,0),C=q(.04,1),E=q(-.04,1);A[1]=B[1]=ha;C[1]=E[1]=hb;
          const lo=v=>[v[0],v[1]-.12,v[2]];rails.push(...A,...C,...B,...A,...E,...C,...lo(A),...E,...A,...lo(A),...lo(E),...E,...B,...C,...lo(C),...B,...lo(C),...lo(B))}
@@ -1251,7 +1265,7 @@ addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(state==='play'&&/^
 addEventListener('keyup',e=>{inp.keys[e.key.toLowerCase()]=false});addEventListener('blur',()=>{for(const k in inp.keys)inp.keys[k]=false});
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#hud button,#tele button');if(t)t.blur()},true);
 
-const HIST=[];let histT=0;
+const HIST=[];let histT=0;let CAMD=3.4;try{const v=parseFloat(localStorage.getItem('skh-cd'));if(v>=1.8&&v<=8)CAMD=v}catch(e){}   /* camera distance, set with the slider in the pause menu */
 const Pl={x:0,z:0,y:0,yaw:0,v:0,vy:0,air:false,airTurn:0,turnRate:0,wallT:0,visY:null,ph:0,lean:0,hitT:0,warn:0,grade:0,gvy:0,camYaw:0,camPitch:.18,lookT:9,camD:4.6,w:0,mode:'coast',avx:0,avz:0,brakeT:0};
 function openAt(x,z){if(surf(x,z)!==4||treeHit(x,z)||decksAt(x,z))return false;for(let k=0;k<12;k++){const a=k/12*6.283;for(const r of [2.5,5,7]){const s2=surf(x+Math.cos(a)*r,z+Math.sin(a)*r);if(s2===2||s2===1)return false}}return true}
 function nearestOpen(x,z){if(openAt(x,z))return[x,z];for(let r=2;r<300;r+=2)for(let a=0;a<6.28;a+=.2){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(openAt(xx,zz))return[xx,zz]}for(let r=2;r<260;r+=2)for(let a=0;a<6.28;a+=.25){const xx=x+Math.cos(a)*r,zz=z+Math.sin(a)*r;if(surf(xx,zz)===4)return[xx,zz]}return[x,z]}
@@ -1324,6 +1338,7 @@ $('goBtn').onclick=start;
 $('reloadBtn').onclick=async()=>{await cacheClear();location.reload()};
 function togglePause(){if(state==='play'){state='pause';$('pT').textContent=fmtT(St.t);$('pD').textContent=fmtD(St.dist);$('pB').textContent=seen.size+' / '+SPOTS.length;$('pV').textContent=Math.round(St.top*3.6)+' km/h';show('pause',true)}
   else if(state==='pause'){state='play';show('pause',false);if(!mobile){try{const r=cv0.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}}}
+{const sl=$('camSl'),sv=$('camV'),upd=()=>{sv.textContent=CAMD.toFixed(1)+' m'};sl.value=CAMD;upd();sl.oninput=()=>{CAMD=parseFloat(sl.value);upd();try{localStorage.setItem('skh-cd',CAMD)}catch(e){}}}
 $('pauseBtn').onclick=togglePause;$('resetBtn').onclick=()=>{if(state==='play')resetPos()};$('backBtn').onclick=()=>{if(state==='play')rewind()};$('resBtn').onclick=togglePause;
 $('menuBtn').onclick=()=>{show('pause',false);show('hud',false);joy.style.display='none';$('joyHint').style.display='none';$('mouseHint').style.display='none';state='menu';show('menu',true)};
 
@@ -1360,7 +1375,7 @@ function stepMove(dx,dz,fx,fz){const nx=Pl.x+dx,nz=Pl.z+dz;if(inPoly(Pl.x,Pl.z,S
    - heel brake 3.5 m/s^2; backwards C-cuts at lower power, max ~5.5 m/s
    - inline skates roll only along their heading: turning curvature is limited by grip/lean
      (lateral accel <= g*tan(50°)) and by geometry (radius >= 3 m, pivoting allowed at walking pace); lean = atan(v*omega/g) */
-const SK={m:83,P:3800,F:320,vmax:20.8,brake:3.2,cda:.45,rho:1.2,maxLean:.6,rmin:2.2,pivot:1.4,vback:2.5};   /* rider + powered board: 3.8 kW belt drive, 75 km/h, regenerative brake, slow reverse */
+const SK={m:83,P:4200,F:520,vmax:20.8,brake:5,cda:.45,rho:1.2,maxLean:.78,rmin:1.5,pivot:2.4,vback:3};   /* rider + powered board: 3.8 kW belt drive, 75 km/h, regenerative brake, slow reverse */
 function updatePlayer(dt){
   YREF=Pl.y;
   const k=inp.keys,up=k.arrowup||k.w,dn=k.arrowdown||k.s,lf=k.arrowleft||k.a,rt=k.arrowright||k.d;let fwd=inp.jy,turn=inp.jx,hdgWant=null;
@@ -1377,7 +1392,7 @@ function updatePlayer(dt){
   let wWant;
   if(hdgWant!==null){let d=hdgWant-Pl.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));wWant=d*4}
   else wWant=-inp.turn*wMax;
-  wWant=clamp(wWant,-wMax,wMax);Pl.w+=(wWant-Pl.w)*Math.min(1,dt*(Pl.air?2:6));
+  wWant=clamp(wWant,-wMax,wMax);Pl.w+=(wWant-Pl.w)*Math.min(1,dt*(Pl.air?3:11));
   Pl.yaw+=Pl.w*dt;
   let fx=-Math.sin(Pl.yaw),fz=-Math.cos(Pl.yaw);
   /* --- longitudinal forces --- */
@@ -1435,14 +1450,16 @@ function animateSkater(dt){
   if(Pl.visY===null||Pl.air||Math.abs(Pl.visY-Pl.y)>.6)Pl.visY=Pl.y;else Pl.visY=lerp(Pl.visY,Pl.y,Math.min(1,dt*22));sk.position.set(Pl.x,Pl.visY,Pl.z);
   if(Pl.air)tmpN.set(0,1,0);else{const e=.3,c=G(Pl.x,Pl.z),f=v=>Math.abs(v-c)>.2?0:v-c;tmpN.set(f(G(Pl.x-e,Pl.z))-f(G(Pl.x+e,Pl.z)),2*e,f(G(Pl.x,Pl.z-e))-f(G(Pl.x,Pl.z+e))).normalize()}
   surfN.lerp(tmpN,Math.min(1,dt*9)).normalize();qA.setFromUnitVectors(UPV,surfN);qY.setFromAxisAngle(UPV,Pl.yaw);qL.setFromAxisAngle(ZV,Pl.lean);sk.quaternion.copy(qA).multiply(qY).multiply(qL);
-  const ln=Math.abs(Pl.lean),thr=md==='push'?inp.fwd:md==='brake'?-1:0,crouch=md==='air'?.55:.12+.22*st+.55*ln+(md==='brake'?.12:0);
+  if(Pl._air&&!Pl.air)Pl.land=Math.min(1,.35+Math.abs(Pl._vy||0)/5);Pl._air=Pl.air;Pl._vy=Pl.vy;Pl.land=Math.max(0,(Pl.land||0)-dt*2.6);   /* knees soak up a landing */
+  const ln=Math.abs(Pl.lean),thr=md==='push'?inp.fwd:md==='brake'?-1:0,crouch=(md==='air'?.55:.12+.22*st+.55*ln+(md==='brake'?.12:0))+Pl.land*.6;
+  const yw=clamp((Pl.w||0)*.3,-.45,.45),sway=Math.sin(tAll*1.1)*.05,buzz=Pl.air?0:Math.sin(tAll*31)*.003*st;   /* turning twist, idle balance sway, road buzz */
   const T=(o,x,y,z,k)=>{o.rotation.x+=(x-o.rotation.x)*k;o.rotation.y+=(y-o.rotation.y)*k;o.rotation.z+=(z-o.rotation.z)*k};const kk=Math.min(1,dt*10);
   /* upper body: faces the toe side, looks toward the nose, leans into the throttle and back against the brake */
   Pl.acc=lerp(Pl.acc||0,thr,Math.min(1,dt*3));
   pelvis.position.x+=((-Pl.lean*.12)-pelvis.position.x)*kk;pelvis.position.z+=(-Pl.acc*.05-pelvis.position.z)*kk;
-  pelvis.position.y+=((DECKY+.085+.84-crouch*.3)-pelvis.position.y)*kk;
-  T(torso,-(.12+.12*st+crouch*.25),.28,Pl.acc*.14,kk);T(head,.12,1.15,-Pl.acc*.05,kk);
-  T(shL,.15+ln*.2,0,-(.3+ln*.7+st*.15),kk);T(shR,.55,0,.22+ln*.3,kk);
+  pelvis.position.y+=((DECKY+.085+.84-crouch*.3+buzz)-pelvis.position.y)*kk;
+  T(torso,-(.12+.12*st+crouch*.25)+sway*.3,.28+yw,Pl.acc*.14+sway*.2,kk);T(head,.12-crouch*.08,1.15-yw*.8,-Pl.acc*.05,kk);   /* shoulders lead the turn, eyes stay on the line */
+  T(shL,.15+ln*.2-Pl.acc*.25+yw*.4,sway,-(.3+ln*.7+st*.15+Pl.land*.4)+sway,kk);T(shR,.5+Pl.acc*.2,-sway*.5,.22+ln*.3+Pl.land*.3,kk);
   /* legs: two-bone IK so the feet stay planted on the deck, knees toward the toe side */
   sk.updateMatrixWorld(true);
   for(let i=0;i<2;i++){const hip=i?hipR:hipL,kn=i?knR:knL,zf=i?.21:-.21;
@@ -1456,7 +1473,7 @@ function animateSkater(dt){
   /* feet flat on the deck, across the board: front foot angled toward the nose */
   {sk.updateMatrixWorld(true);const sq=sk.getWorldQuaternion(qA2);for(let i=0;i<2;i++){const f=ANK[i],kq=f.parent.getWorldQuaternion(qK2);
      qE2.setFromEuler(eE2.set(0,i?-Math.PI/2-.08:-Math.PI/2+.4,0));f.quaternion.copy(kq.invert()).multiply(sq).multiply(qE2)}}
-  elL.rotation.x=elR.rotation.x=.55;
+  elL.rotation.x+=(.35+crouch*.35+sway-elL.rotation.x)*kk;elR.rotation.x+=(.95-elR.rotation.x)*kk;   /* front arm loose for balance, back hand holds the remote at the hip */
   /* wheels roll: angle = distance / 50 mm radius (free-spinning in the air) */
   if(!Pl.air)Pl.wheelA=(Pl.wheelA||0)+Pl.v*dt/.045;for(const h of SPIN)h.rotation.x=Pl.wheelA||0}
 const IKd=new THREE.Vector3(),IKk=new THREE.Vector3(),IKt=new THREE.Vector3(),IKx=new THREE.Vector3(),IKy=new THREE.Vector3(),IKz=new THREE.Vector3(),IKm=new THREE.Matrix4();
@@ -1471,10 +1488,10 @@ function updateCamera(dt,orbit){
        touch mode swings back behind the direction of travel when you stop looking around */
     Pl.lookT+=dt;
     if(locked){const tgt=(Pl.v<-.8?Pl.yaw+Math.PI:Pl.yaw)*.6+(Pl.v<-.8?Pl.yaw+Math.PI:(Pl.mYaw??Pl.yaw))*.4;let d=tgt-Pl.camYaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.camYaw+=d*Math.min(1,dt*5)}
-    else if(Pl.lookT>1.6&&!drag){const tgt=Pl.v<-.8?Pl.yaw+Math.PI:Pl.yaw;let d=tgt-Pl.camYaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.camYaw+=d*Math.min(1,dt*(Math.abs(Pl.v)>.5?2.5:.8));Pl.camPitch+=(.18-Pl.camPitch)*Math.min(1,dt*1.5)}
+    else if(Pl.lookT>1.6&&!drag){const tgt=Pl.v<-.8?Pl.yaw+Math.PI:Pl.yaw;let d=tgt-Pl.camYaw;d=Math.atan2(Math.sin(d),Math.cos(d));Pl.camYaw+=d*Math.min(1,dt*(Math.abs(Pl.v)>.5?3.6:1));Pl.camPitch+=(.18-Pl.camPitch)*Math.min(1,dt*1.5)}
     const fx=-Math.sin(Pl.camYaw),fz=-Math.cos(Pl.camYaw),rx=-fz,rz=fx,pit=Pl.camPitch,vy=Pl.visY===null?Pl.y:Pl.visY;
     const tp=new THREE.Vector3(Pl.x+rx*.45,vy+1.55,Pl.z+rz*.45);if(camPiv.lengthSq()===0||camPiv.distanceTo(tp)>8)camPiv.copy(tp);else camPiv.lerp(tp,1-Math.exp(-dt*18));
-    const want=4.6+Math.abs(Pl.v)*.06,bx=-fx*Math.cos(pit),bz=-fz*Math.cos(pit),by=Math.sin(pit);
+    const want=CAMD*(1+Math.abs(Pl.v)*.012),bx=-fx*Math.cos(pit),bz=-fz*Math.cos(pit),by=Math.sin(pit);
     /* pull in in front of walls (instantly), ease back out */
     let lim=want;for(let d=.6;d<=want;d+=.25){const x=camPiv.x+bx*d,z=camPiv.z+bz*d,y=camPiv.y+by*d;if(surf(x,z)===2&&!inDIY(x,z)||G(x,z,y)>y-.35){lim=Math.max(.7,d-.35);break}}
     Pl.camD=lim<Pl.camD?lim:Pl.camD+(lim-Pl.camD)*Math.min(1,dt*2.5);

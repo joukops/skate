@@ -72,12 +72,24 @@ function wheelGeo(){/* 100 mm urethane tyre, 24 mm wide, rounded profile */const
 const BOOT=bootGeo([[0,0],[.285,0],[.3,.02],[.298,.05],[.27,.075],[.2,.1],[.15,.135],[.135,.165],[-.028,.165],[-.025,.1],[-.03,.04],[-.015,.008]]),
   SHAFT=bootGeo([[.075,.02],[.07,.08],[.07,.15],[.055,.18],[-.05,.19],[-.085,.17],[-.09,.08],[-.088,.02]]),FRAME=frameGeo(),WHEEL=wheelGeo(),HUB=new THREE.CylinderGeometry(.022,.022,.026,6).rotateZ(Math.PI/2),BEAR=new THREE.CylinderGeometry(.0095,.0095,.03,12).rotateZ(Math.PI/2),SPOKE=new THREE.BoxGeometry(.024,.004,.03);
 const shoeM=M({color:lin('#2c3036'),roughness:.7}),shoeS=M({color:lin('#e9e6df'),roughness:.8});
+/* low-top skate shoe: a sculpted upper (heel high, toe box low and round), a cupsole that is wider at the ball, a rubber toe cap */
+const SN=(()=>{const L0=-.035,L1=.3,len=L1-L0,wid=u=>{const t=(u-L0)/len;return .036+.018*Math.sin(Math.PI*Math.min(1,t*1.15))+(t>.55?.004:0)},
+    top=u=>{const t=(u-L0)/len;return .022+.083*(1-Math.pow(Math.max(0,t-.05)/.95,1.7))*(t<.08?.92+t:1)};
+  const g=new THREE.SphereGeometry(1,32,20),p=g.attributes.position;
+  for(let i=0;i<p.count;i++){const X=p.getX(i),Y=p.getY(i),Z=p.getZ(i),u=L0+(X+1)/2*len,h=top(u);
+    const y=Y>=0?.018+Y*(h-.018):.018+Y*.006;p.setXYZ(i,u,y,Z*wid(u)*(Y>=0?Math.sqrt(1-Y*Y*.35):1))}g.computeVertexNormals();
+  const sh=new THREE.Shape(),N=28,pts=[];for(let i=0;i<=N;i++){const u=L0-.004+(len+.008)*i/N;pts.push([u,wid(u)+.005])}
+  sh.moveTo(pts[0][0],0);for(const[u,w]of pts)sh.lineTo(u,w);for(let i=pts.length-1;i>=0;i--)sh.lineTo(pts[i][0],-pts[i][1]);sh.closePath();
+  const sole=new THREE.ExtrudeGeometry(sh,{depth:.016,bevelEnabled:true,bevelThickness:.004,bevelSize:.004,bevelSegments:2,curveSegments:4});sole.rotateX(Math.PI/2);sole.translate(0,.02,0);
+  const toe=new THREE.SphereGeometry(1,16,10,0,Math.PI*2,Math.PI*.35,Math.PI*.4);toe.scale(.05,.035,.05);toe.translate(L1-.04,.022,0);
+  return{upper:g,sole,toe,top}})();
 for(const kn of [knL,knR]){add(new THREE.SphereGeometry(.068,14,10),padM,kn,0,-.02,-.045).scale.set(1,1.25,.75);   /* knee pad */
   const f=new THREE.Group();f.position.y=-.42;kn.add(f);ANK.push(f);
   /* sneaker: heel at +z, toe at -z; sole 8.5 cm below the ankle */
   const sk3=new THREE.Group();sk3.position.set(0,-.085,.075);sk3.rotation.y=Math.PI/2;f.add(sk3);
-  add(BOOT,shoeM,sk3,0,.012,0).scale.set(1,.8,1.05);add(new THREE.BoxGeometry(.31,.022,.095),shoeS,sk3,.14,.006,0);
-  for(let i=0;i<4;i++)add(new THREE.BoxGeometry(.004,.003,.06),shoeS,sk3,.17+i*.022,.105-i*.01,0).rotation.z=-.45;   /* laces */
+  add(SN.upper,shoeM,sk3);add(SN.sole,shoeS,sk3);add(SN.toe,shoeS,sk3);
+  for(let i=0;i<5;i++){const u=.115+i*.026,o=add(new THREE.CapsuleGeometry(.0028,.045,2,6),shoeS,sk3,u,SN.top(u)+.002,0);o.rotation.x=Math.PI/2;o.rotation.z=-.35*(1-i*.12)}   /* laces */
+  {const o=add(new THREE.TorusGeometry(.046,.009,8,20),shoeM,sk3,.02,.098,0);o.rotation.x=Math.PI/2;o.rotation.y=-.25;o.scale.set(1.15,.85,1)}   /* padded collar */
   CUFF.push(new THREE.Group())}
 /* powered skateboard: 98 cm deck, grip tape, two trucks, four 90 mm wheels, belt drives on the rear truck, battery under the deck */
 const board=new THREE.Group();sk.add(board);const DECKY=.128;

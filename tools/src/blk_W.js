@@ -16,7 +16,7 @@ const lin=h=>new THREE.Color(h).convertSRGBToLinear();
 scene.fog=new THREE.FogExp2(new THREE.Color(1,1.1,1.3),.0003);
 let sky=null;
 const FOGC=uniform(new THREE.Color(1,1.1,1.3)),FOGD=uniform(.0003);   /* fog for the water, which draws its own colour */
-if(THREE.Sky){sky=new THREE.Sky();sky.scale.setScalar(15000);scene.add(sky)}
+if(THREE.Sky){sky=new THREE.Sky();sky.scale.setScalar(15000);sky.material.depthTest=false;sky.material.depthWrite=false;sky.renderOrder=-10;sky.frustumCulled=false;scene.add(sky)}   /* drawn first, no depth test: nothing can flicker against it */
 else{const g=new THREE.SphereGeometry(9000,32,16),p=g.attributes.position,cols=[];const zen=lin('#4f86c6'),hor=new THREE.Color(1,1.1,1.25);for(let i=0;i<p.count;i++){const y=Math.max(0,p.getY(i)/9000);const c=hor.clone().lerp(zen,Math.pow(y,.6));cols.push(c.r,c.g,c.b)}g.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));sky=new THREE.Mesh(g,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false}));scene.add(sky)}
 const CU={uTime:uniform(0),uCover:uniform(.3),uDark:uniform(0),uSun:uniform(new THREE.Vector3(0,1,0)),uSunCol:uniform(new THREE.Color(1,.9,.8)),uCol:uniform(new THREE.Color(1,1,1)),uShd:uniform(new THREE.Color(.7,.75,.8)),uHaze:uniform(new THREE.Color(.8,.85,.9)),uHazeA:uniform(0)};
 const cloudMat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,side:THREE.BackSide,fog:false,toneMapped:false});cloudMat.uniforms=CU;
@@ -31,7 +31,7 @@ const cloudMat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,si
    const col=mix(CU.uShd,CU.uCol,lit).add(CU.uSunCol.mul(pow(max(dot(d,CU.uSun),0),10)).mul(.6).mul(float(1).sub(CU.uDark)));
    const a=max(c.mul(smoothstep(0,.1,d.y)).mul(float(.9).add(CU.uDark.mul(.1))),hz.mul(CU.uHazeA));
    return select(d.y.lessThan(0),vec4(CU.uHaze,CU.uHazeA),vec4(mix(col,CU.uHaze,hz.mul(.6)),a))})()}
-const clouds=new THREE.Mesh(new THREE.SphereGeometry(7000,48,24),cloudMat);clouds.renderOrder=-1;scene.add(clouds);
+const clouds=new THREE.Mesh(new THREE.SphereGeometry(7000,48,24),cloudMat);clouds.renderOrder=-1;clouds.frustumCulled=false;scene.add(clouds);
 const envClouds=new THREE.Mesh(new THREE.SphereGeometry(50,32,16),cloudMat);
 const envSkyG=new THREE.SphereGeometry(80,32,16);envSkyG.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(envSkyG.attributes.position.count*3),3));
 const envSky=new THREE.Mesh(envSkyG,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false,toneMapped:false}));
